@@ -23,6 +23,9 @@ def vimshottari(body: DashaRequest):
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     birth_local = parse_local_datetime(body.dateOfBirth, body.timeOfBirth, body.timezone)
     res = vimshottari_full(jd, birth_local)
+    # Validate schedule integrity (sums and continuity)
+    from ..main import validate_vimshottari_schedule
+    validation = validate_vimshottari_schedule(res)
 
     # Determine current MD/AD/PD at 'now' in the provided timezone
     current_now = None
@@ -40,10 +43,17 @@ def vimshottari(body: DashaRequest):
         else:
             cur_ad, cur_pd = None, None
         if cur_md:
+            cur_sook = None
+            if cur_pd:
+                try:
+                    cur_sook = next((sd for sd in cur_pd.get('sookshma', []) if sd['startDate'] <= today < sd['endDate']), None)
+                except Exception:
+                    cur_sook = None
             current_now = {
                 'mahadasha': {'planet': cur_md['planet'], 'startDate': cur_md['startDate'], 'endDate': cur_md['endDate']},
                 'antardasha': ({'planet': cur_ad['planet'], 'startDate': cur_ad['startDate'], 'endDate': cur_ad['endDate']} if cur_ad else None),
-                'pratyantar': ({'planet': cur_pd['planet'], 'startDate': cur_pd['startDate'], 'endDate': cur_pd['endDate']} if cur_pd else None)
+                'pratyantar': ({'planet': cur_pd['planet'], 'startDate': cur_pd['startDate'], 'endDate': cur_pd['endDate']} if cur_pd else None),
+                'sookshma': ({'planet': cur_sook['planet'], 'startDate': cur_sook['startDate'], 'endDate': cur_sook['endDate']} if cur_sook else None)
             }
     except Exception:
         current_now = None
@@ -71,5 +81,6 @@ def vimshottari(body: DashaRequest):
         'system': 'Vimshottari',
         'data': res,
         'currentNow': current_now,
-        'context': context
+        'context': context,
+        'validation': validation
     }

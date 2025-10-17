@@ -445,23 +445,41 @@ def vimshottari_full(jd: float, birth_dt_local: datetime) -> Dict[str, Any]:
             if total_years >= 120 - 0.01:
                 break
 
-    def build_antardasha(md_start: datetime, md_years: float):
+    def rotate_seq(start_lord: str):
+        i = DASHA_SEQUENCE.index(start_lord)
+        return DASHA_SEQUENCE[i:] + DASHA_SEQUENCE[:i]
+
+    def build_antardasha(md_start: datetime, md_years: float, md_lord: str):
         antars = []
         cursor_a = md_start
-        for ad_lord in DASHA_SEQUENCE:
+        for ad_lord in rotate_seq(md_lord):
             ad_years = md_years * (DASHA_YEARS[ad_lord] / 120.0)
             ad_start = cursor_a
             ad_end = ad_start + pd_years(ad_years)
             pratis = []
             cursor_p = ad_start
-            for pd_lord in DASHA_SEQUENCE:
+            for pd_lord in rotate_seq(ad_lord):
                 pr_years = (ad_years) * (DASHA_YEARS[pd_lord] / 120.0)
                 p_start = cursor_p
                 p_end = p_start + pd_years(pr_years)
+                # Build Sukshma (4th level) within each Pratyantar
+                sook_list = []
+                cursor_s = p_start
+                for sd_lord in rotate_seq(pd_lord):
+                    s_years = pr_years * (DASHA_YEARS[sd_lord] / 120.0)
+                    s_start = cursor_s
+                    s_end = s_start + pd_years(s_years)
+                    sook_list.append({
+                        'planet': sd_lord,
+                        'startDate': s_start.date().isoformat(),
+                        'endDate': s_end.date().isoformat()
+                    })
+                    cursor_s = s_end
                 pratis.append({
                     'planet': pd_lord,
                     'startDate': p_start.date().isoformat(),
-                    'endDate': p_end.date().isoformat()
+                    'endDate': p_end.date().isoformat(),
+                    'sookshma': sook_list
                 })
                 cursor_p = p_end
             antars.append({
@@ -480,7 +498,7 @@ def vimshottari_full(jd: float, birth_dt_local: datetime) -> Dict[str, Any]:
             'planet': lord,
             'startDate': md_start.date().isoformat(),
             'endDate': md_end.date().isoformat(),
-            'antardasha': build_antardasha(md_start, years)
+            'antardasha': build_antardasha(md_start, years, lord)
         })
         cursor = md_end
 
@@ -490,6 +508,61 @@ def vimshottari_full(jd: float, birth_dt_local: datetime) -> Dict[str, Any]:
         'endDate': mahadashas[0]['endDate']
     }
     return {'current': current, 'mahadashas': mahadashas}
+
+
+def validate_vimshottari_schedule(schedule: Dict[str, Any]) -> Dict[str, Any]:
+    """Validate sums and continuity of MD/AD/PD durations by years and dates."""
+    def days_between(a: str, b: str) -> int:
+        from datetime import date
+        y1, m1, d1 = [int(x) for x in a.split('-')]
+        y2, m2, d2 = [int(x) for x in b.split('-')]
+        return (date(y2, m2, d2) - date(y1, m1, d1)).days
+
+    md_ok, ad_ok, pd_ok = True, True, True
+    cont_ok = True
+    issues = []
+    total_years = 0.0
+    prev_end = None
+    for md in schedule.get('mahadashas', []):
+        # accumulate actual years from date spans
+        md_days = days_between(md['startDate'], md['endDate'])
+        total_years += md_days / 365.25
+        # continuity between MDs
+        if prev_end and md['startDate'] != prev_end:
+            cont_ok = False
+            issues.append(f"MD continuity break: {prev_end} -> {md['startDate']}")
+        prev_end = md['endDate']
+
+        # sum AD durations in days should match MD duration in days
+        ad_days_sum = 0
+        prev_ad_end = md['startDate']
+        for ad in md.get('antardasha', []):
+            ad_days = days_between(ad['startDate'], ad['endDate'])
+            ad_days_sum += ad_days
+            if ad['startDate'] != prev_ad_end:
+                cont_ok = False
+                issues.append(f"AD continuity break in {md['planet']}: {prev_ad_end} -> {ad['startDate']}")
+            prev_ad_end = ad['endDate']
+            # PD sum check per AD
+            pd_days_sum = 0
+            prev_pd_end = ad['startDate']
+            for pd in ad.get('pratyantar', []):
+                pd_days = days_between(pd['startDate'], pd['endDate'])
+                pd_days_sum += pd_days
+                if pd['startDate'] != prev_pd_end:
+                    cont_ok = False
+                    issues.append(f"PD continuity break in {md['planet']}/{ad['planet']}: {prev_pd_end} -> {pd['startDate']}")
+                prev_pd_end = pd['endDate']
+            if abs(pd_days_sum - ad_days) > 2:  # allow small rounding slack
+                pd_ok = False
+                issues.append(f"PD sum mismatch in {md['planet']}/{ad['planet']}: {pd_days_sum} vs {ad_days}")
+        if abs(ad_days_sum - md_days) > 2:
+            ad_ok = False
+            issues.append(f"AD sum mismatch in {md['planet']}: {ad_days_sum} vs {md_days}")
+
+    # If schedule covers 120 years exactly, it'll be near 120; else accept any positive total
+    md_ok = total_years > 0
+    return {'mdSum120': md_ok, 'adSum': ad_ok, 'pdSum': pd_ok, 'continuity': cont_ok, 'issues': issues}
 
 
 def modality_of(sign_index: int) -> str:

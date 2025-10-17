@@ -86,13 +86,21 @@ def chara_dasha(body: CharaDashaRequest) -> Dict[str, Any]:
         sub_seq = _build_chara_sequence(md_sign)
         from ..main import pd_years, SIGN_LORDS
         cursor_a = md_start
+        # Precompute parts and normalize to md_years
+        parts = []
+        for s in sub_seq:
+            lord = SIGN_LORDS[s]
+            lord_planet = next((p for p in planets if p['name'] == lord), None)
+            lord_sign = lord_planet['sign'] if lord_planet else s
+            parts.append((_sign_distance(s, lord_sign), s))
+        total_part = sum(p for p, _ in parts)
         for s in sub_seq:
             lord = SIGN_LORDS[s]
             lord_planet = next((p for p in planets if p['name'] == lord), None)
             lord_sign = lord_planet['sign'] if lord_planet else s
             part = _sign_distance(s, lord_sign)
-            # proportional split by distance to lord over 12 parts
-            ad_years = md_years * (part / 12.0)
+            # proportional split normalized across sequence
+            ad_years = md_years * (part / total_part) if total_part > 0 else (md_years / 12.0)
             ad_start = cursor_a
             ad_end = ad_start + pd_years(ad_years)
             ad.append({'sign': s, 'years': ad_years, 'start': ad_start, 'end': ad_end, 'pratyantar': []})
@@ -139,17 +147,60 @@ def chara_dasha(body: CharaDashaRequest) -> Dict[str, Any]:
             ]
         }
 
+    # Validation helpers
+    def days_between(a: str, b: str) -> int:
+        from datetime import date
+        y1, m1, d1 = [int(x) for x in a.split('-')]
+        y2, m2, d2 = [int(x) for x in b.split('-')]
+        return (date(y2, m2, d2) - date(y1, m1, d1)).days
+
+    def validate(schedule: Dict[str, Any]) -> Dict[str, Any]:
+        md_ok, ad_ok, pd_ok, cont_ok = True, True, True, True
+        issues: List[str] = []
+        prev_md_end = None
+        for md in schedule.get('mahadashas', []):
+            if prev_md_end and md['startDate'] != prev_md_end:
+                cont_ok = False
+                issues.append(f"MD continuity break: {prev_md_end} -> {md['startDate']}")
+            prev_md_end = md['endDate']
+            ad_years_sum = 0.0
+            prev_ad_end = md['startDate']
+            for ad in md.get('antardasha', []):
+                ad_years_sum += float(ad['years'])
+                if ad['startDate'] != prev_ad_end:
+                    cont_ok = False
+                    issues.append(f"AD continuity break in {md['sign']}: {prev_ad_end} -> {ad['startDate']}")
+                prev_ad_end = ad['endDate']
+                pd_years_sum = 0.0
+                prev_pd_end = ad['startDate']
+                for pd in ad.get('pratyantar', []):
+                    pd_years_sum += float(pd['years'])
+                    if pd['startDate'] != prev_pd_end:
+                        cont_ok = False
+                        issues.append(f"PD continuity break in {md['sign']}/{ad['sign']}: {prev_pd_end} -> {pd['startDate']}")
+                    prev_pd_end = pd['endDate']
+                if abs(pd_years_sum - float(ad['years'])) > 1e-6:
+                    pd_ok = False
+                    issues.append(f"PD sum mismatch in {md['sign']}/{ad['sign']}: {pd_years_sum} vs {ad['years']}")
+            if abs(ad_years_sum - float(md['years'])) > 1e-6:
+                ad_ok = False
+                issues.append(f"AD sum mismatch in {md['sign']}: {ad_years_sum} vs {md['years']}")
+        return {'adSum': ad_ok, 'pdSum': pd_ok, 'continuity': cont_ok, 'issues': issues}
+
+    schedule = {
+        'current': {
+            'mahadasha': {'sign': current_md['sign'], 'startDate': to_date(current_md['start']), 'endDate': to_date(current_md['end'])},
+            'antardasha': {'sign': current_ad['sign'], 'startDate': to_date(current_ad['start']), 'endDate': to_date(current_ad['end'])},
+            'pratyantar': {'sign': current_pd['sign'], 'startDate': to_date(current_pd['start']), 'endDate': to_date(current_pd['end'])},
+        },
+        'mahadashas': [ser_md(m) for m in md_list]
+    }
+
     return {
         'status': 200,
         'system': 'Chara Dasha (simplified)',
-        'data': {
-            'current': {
-                'mahadasha': {'sign': current_md['sign'], 'startDate': to_date(current_md['start']), 'endDate': to_date(current_md['end'])},
-                'antardasha': {'sign': current_ad['sign'], 'startDate': to_date(current_ad['start']), 'endDate': to_date(current_ad['end'])},
-                'pratyantar': {'sign': current_pd['sign'], 'startDate': to_date(current_pd['start']), 'endDate': to_date(current_pd['end'])},
-            },
-            'mahadashas': [ser_md(m) for m in md_list]
-        },
+        'data': schedule,
+        'validation': validate(schedule),
         'context': {
             'ascendant': houses.get('ascendant'),
             'houseSystem': (body.houseSystem or 'W')
