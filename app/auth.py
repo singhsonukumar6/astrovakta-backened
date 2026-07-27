@@ -1,0 +1,685 @@
+import secrets
+import bcrypt
+import json
+from datetime import datetime, timezone
+from typing import Optional, List
+
+from .database import get_db
+
+TIER_LIMITS = {
+    "free": 100,
+    "starter": 1000,
+    "pro": 10000,
+    "enterprise": 999999999,
+}
+
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
+
+
+def generate_api_key() -> str:
+    return "avk_" + secrets.token_hex(16)
+
+
+# ──────────────── USER CRUD ────────────────
+def create_user(email: str, name: str, password: str) -> dict:
+    db = get_db()
+    cur = db.execute(
+        "INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)",
+        (email.lower().strip(), name.strip(), hash_password(password)),
+    )
+    db.commit()
+    return get_user_by_id(cur.lastrowid)
+
+
+def authenticate_user(email: str, password: str) -> Optional[dict]:
+    user = get_user_by_email(email)
+    if user and verify_password(password, user["password_hash"]):
+        return user
+    return None
+
+
+def get_user_by_id(user_id: int) -> Optional[dict]:
+    row = get_db().execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def get_user_by_email(email: str) -> Optional[dict]:
+    row = get_db().execute(
+        "SELECT * FROM users WHERE email = ?", (email.lower().strip(),)
+    ).fetchone()
+    return dict(row) if row else None
+
+
+# ──────────────── API KEY CRUD ────────────────
+def create_api_key(user_id: int, name: str, tier: str = "free") -> dict:
+    key = generate_api_key()
+    rate_limit = TIER_LIMITS.get(tier, TIER_LIMITS["free"])
+    db = get_db()
+    cur = db.execute(
+        "INSERT INTO api_keys (user_id, key, name, tier, rate_limit) VALUES (?, ?, ?, ?, ?)",
+        (user_id, key, name.strip(), tier, rate_limit),
+    )
+    db.commit()
+    row = db.execute("SELECT * FROM api_keys WHERE id = ?", (cur.lastrowid,)).fetchone()
+    return dict(row)
+
+
+def validate_api_key(key: str) -> Optional[dict]:
+    db = get_db()
+    row = db.execute(
+        "SELECT ak.*, u.email, u.name AS user_name, u.plan, u.is_admin "
+        "FROM api_keys ak JOIN users u ON ak.user_id = u.id "
+        "WHERE ak.key = ? AND ak.is_active = 1",
+        (key,),
+    ).fetchone()
+    if not row:
+        return None
+
+    now = datetime.now(timezone.utc).isoformat()
+    db.execute(
+        "UPDATE api_keys SET request_count = request_count + 1, last_used_at = ? WHERE id = ?",
+        (now, row["id"]),
+    )
+    db.commit()
+    return dict(row)
+
+
+def revoke_api_key(key_id: int, user_id: int) -> bool:
+    now = datetime.now(timezone.utc).isoformat()
+    cur = get_db().execute(
+        "UPDATE api_keys SET is_active = 0, revoked_at = ? WHERE id = ? AND user_id = ?",
+        (now, key_id, user_id),
+    )
+    get_db().commit()
+    return cur.rowcount > 0
+
+
+def list_api_keys(user_id: int) -> list:
+    rows = get_db().execute(
+        "SELECT * FROM api_keys WHERE user_id = ? ORDER BY created_at DESC", (user_id,)
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+# ──────────────── USAGE ────────────────
+def log_usage(api_key_id: int, endpoint: str, status_code: int,
+              response_time_ms: int = None, endpoint_group: str = None) -> None:
+    get_db().execute(
+        "INSERT INTO usage_logs (api_key_id, endpoint, status_code, response_time_ms, endpoint_group) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (api_key_id, endpoint, status_code, response_time_ms, endpoint_group),
+    )
+    get_db().commit()
+
+
+def get_usage_stats(api_key_id: int) -> dict:
+    db = get_db()
+    key_row = db.execute("SELECT * FROM api_keys WHERE id = ?", (api_key_id,)).fetchone()
+    if not key_row:
+        return {}
+
+    key = dict(key_row)
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today_row = db.execute(
+        "SELECT COUNT(*) AS cnt FROM usage_logs WHERE api_key_id = ? AND DATE(timestamp) = ?",
+        (api_key_id, today),
+    ).fetchone()
+
+    total_row = db.execute(
+        "SELECT COUNT(*) AS cnt FROM usage_logs WHERE api_key_id = ?", (api_key_id,)
+    ).fetchone()
+
+    errors_row = db.execute(
+        "SELECT COUNT(*) AS cnt FROM usage_logs WHERE api_key_id = ? AND status_code >= 400",
+        (api_key_id,),
+    ).fetchone()
+
+    top_endpoints = db.execute(
+        "SELECT endpoint, COUNT(*) AS hits FROM usage_logs WHERE api_key_id = ? "
+        "GROUP BY endpoint ORDER BY hits DESC LIMIT 10",
+        (api_key_id,),
+    ).fetchall()
+
+    return {
+        "key_id": key["id"],
+        "key_name": key["name"],
+        "tier": key["tier"],
+        "rate_limit": key["rate_limit"],
+        "requests_today": today_row["cnt"] if today_row else 0,
+        "requests_total": total_row["cnt"] if total_row else 0,
+        "errors_total": errors_row["cnt"] if errors_row else 0,
+        "top_endpoints": [dict(r) for r in top_endpoints],
+    }
+
+
+def change_password(user_id: int, current_password: str, new_password: str) -> bool:
+    user = get_user_by_id(user_id)
+    if not user or not verify_password(current_password, user["password_hash"]):
+        return False
+    db = get_db()
+    db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hash_password(new_password), user_id))
+    db.commit()
+    return True
+
+
+def update_email(user_id: int, new_email: str) -> Optional[dict]:
+    db = get_db()
+    existing = db.execute("SELECT id FROM users WHERE email = ? AND id != ?", (new_email.lower().strip(), user_id)).fetchone()
+    if existing:
+        return None
+    db.execute("UPDATE users SET email = ? WHERE id = ?", (new_email.lower().strip(), user_id))
+    db.commit()
+    return get_user_by_id(user_id)
+
+
+def update_user_profile(user_id: int, name: Optional[str] = None, plan: Optional[str] = None, email: Optional[str] = None) -> Optional[dict]:
+    db = get_db()
+    updates = []
+    params = []
+    if name is not None:
+        updates.append("name = ?")
+        params.append(name.strip())
+    if email is not None:
+        existing = db.execute("SELECT id FROM users WHERE email = ? AND id != ?", (email.lower().strip(), user_id)).fetchone()
+        if existing:
+            return None
+        updates.append("email = ?")
+        params.append(email.lower().strip())
+    if plan is not None:
+        updates.append("plan = ?")
+        params.append(plan)
+    if not updates:
+        return get_user_by_id(user_id)
+    params.append(user_id)
+    db.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ?", params)
+    db.commit()
+
+    if plan is not None:
+        new_limit = TIER_LIMITS.get(plan, TIER_LIMITS["free"])
+        db.execute(
+            "UPDATE api_keys SET tier = ?, rate_limit = ? WHERE user_id = ? AND is_active = 1",
+            (plan, new_limit, user_id),
+        )
+        db.commit()
+
+    return get_user_by_id(user_id)
+
+
+# ──────────────── ADMIN FUNCTIONS ────────────────
+def is_admin(user_id: int) -> bool:
+    user = get_user_by_id(user_id)
+    return bool(user and user.get("is_admin"))
+
+
+def set_user_admin(user_id: int, admin: bool) -> bool:
+    cur = get_db().execute("UPDATE users SET is_admin = ? WHERE id = ?", (1 if admin else 0, user_id))
+    get_db().commit()
+    return cur.rowcount > 0
+
+
+def get_all_users(page: int = 1, per_page: int = 20, search: str = "",
+                  plan_filter: str = "") -> dict:
+    db = get_db()
+    offset = (page - 1) * per_page
+    conditions = []
+    params = []
+
+    if search:
+        conditions.append("(name LIKE ? OR email LIKE ?)")
+        params.extend([f"%{search}%", f"%{search}%"])
+    if plan_filter:
+        conditions.append("plan = ?")
+        params.append(plan_filter)
+
+    where = "WHERE " + " AND ".join(conditions) if conditions else ""
+
+    total = db.execute(f"SELECT COUNT(*) as cnt FROM users {where}", params).fetchone()["cnt"]
+    rows = db.execute(
+        f"SELECT * FROM users {where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        params + [per_page, offset],
+    ).fetchall()
+
+    users = []
+    for r in rows:
+        u = dict(r)
+        u.pop("password_hash", None)
+        key_count = db.execute(
+            "SELECT COUNT(*) as cnt FROM api_keys WHERE user_id = ? AND is_active = 1", (u["id"],)
+        ).fetchone()["cnt"]
+        req_count = db.execute(
+            "SELECT COUNT(*) as cnt FROM usage_logs ul "
+            "JOIN api_keys ak ON ul.api_key_id = ak.id WHERE ak.user_id = ?", (u["id"],)
+        ).fetchone()["cnt"]
+        u["active_keys"] = key_count
+        u["total_requests"] = req_count
+        users.append(u)
+
+    return {"users": users, "total": total, "page": page, "per_page": per_page,
+            "total_pages": max(1, -(-total // per_page))}
+
+
+def admin_update_user_plan(user_id: int, new_plan: str) -> Optional[dict]:
+    """Admin-only plan upgrade/downgrade."""
+    db = get_db()
+    db.execute("UPDATE users SET plan = ? WHERE id = ?", (new_plan, user_id))
+    new_limit = TIER_LIMITS.get(new_plan, TIER_LIMITS["free"])
+    db.execute(
+        "UPDATE api_keys SET tier = ?, rate_limit = ? WHERE user_id = ? AND is_active = 1",
+        (new_plan, new_limit, user_id),
+    )
+    db.commit()
+    return get_user_by_id(user_id)
+
+
+def admin_revoke_all_keys(user_id: int) -> int:
+    """Revoke all active keys for a user. Returns count revoked."""
+    now = datetime.now(timezone.utc).isoformat()
+    cur = get_db().execute(
+        "UPDATE api_keys SET is_active = 0, revoked_at = ? WHERE user_id = ? AND is_active = 1",
+        (now, user_id),
+    )
+    get_db().commit()
+    return cur.rowcount
+
+
+def admin_ban_user(user_id: int) -> bool:
+    """Ban a user by revoking all keys and deactivating."""
+    admin_revoke_all_keys(user_id)
+    return True
+
+
+def admin_reset_password(user_id: int, new_password: str) -> bool:
+    """Admin reset a user's password."""
+    user = get_user_by_id(user_id)
+    if not user:
+        return False
+    db = get_db()
+    db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hash_password(new_password), user_id))
+    db.commit()
+    return True
+
+
+def admin_create_key_for_user(user_id: int, name: str, tier: str = "free") -> Optional[dict]:
+    """Admin creates an API key for a user."""
+    user = get_user_by_id(user_id)
+    if not user:
+        return None
+    return create_api_key(user_id, name, tier)
+
+
+def admin_get_user_keys(user_id: int) -> list:
+    """Get all keys for a specific user."""
+    return list_api_keys(user_id)
+
+
+def admin_get_user_usage(user_id: int) -> dict:
+    """Get usage stats across all keys for a user."""
+    db = get_db()
+    user = get_user_by_id(user_id)
+    if not user:
+        return {}
+
+    keys = list_api_keys(user_id)
+    key_ids = [k["id"] for k in keys]
+
+    total_requests = 0
+    today_requests = 0
+    error_count = 0
+    top_endpoints = []
+    daily_usage = []
+
+    if key_ids:
+        placeholders = ",".join("?" * len(key_ids))
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        total_requests = db.execute(
+            f"SELECT COUNT(*) as cnt FROM usage_logs WHERE api_key_id IN ({placeholders})", key_ids
+        ).fetchone()["cnt"]
+
+        today_requests = db.execute(
+            f"SELECT COUNT(*) as cnt FROM usage_logs WHERE api_key_id IN ({placeholders}) AND DATE(timestamp) = ?",
+            key_ids + [today],
+        ).fetchone()["cnt"]
+
+        error_count = db.execute(
+            f"SELECT COUNT(*) as cnt FROM usage_logs WHERE api_key_id IN ({placeholders}) AND status_code >= 400",
+            key_ids,
+        ).fetchone()["cnt"]
+
+        top_endpoints = db.execute(
+            f"SELECT endpoint, COUNT(*) as hits FROM usage_logs WHERE api_key_id IN ({placeholders}) "
+            f"GROUP BY endpoint ORDER BY hits DESC LIMIT 10",
+            key_ids,
+        ).fetchall()
+
+        daily_usage = db.execute(
+            f"SELECT DATE(timestamp) as day, COUNT(*) as requests, "
+            f"SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END) as errors "
+            f"FROM usage_logs WHERE api_key_id IN ({placeholders}) AND timestamp >= DATE('now', '-30 days') "
+            f"GROUP BY DATE(timestamp) ORDER BY day",
+            key_ids,
+        ).fetchall()
+
+    return {
+        "user_id": user_id,
+        "user_name": user["name"],
+        "user_email": user["email"],
+        "total_keys": len(keys),
+        "active_keys": len([k for k in keys if k["is_active"]]),
+        "total_requests": total_requests,
+        "today_requests": today_requests,
+        "error_count": error_count,
+        "top_endpoints": [dict(r) for r in top_endpoints],
+        "daily_usage": [dict(r) for r in daily_usage],
+    }
+
+
+def admin_get_all_usage_daily(days: int = 30) -> list:
+    """Get daily usage across ALL users for admin overview."""
+    db = get_db()
+    rows = db.execute(
+        "SELECT DATE(ul.timestamp) as day, COUNT(*) as requests, "
+        "COUNT(DISTINCT ak.user_id) as unique_users, "
+        "SUM(CASE WHEN ul.status_code >= 400 THEN 1 ELSE 0 END) as errors "
+        "FROM usage_logs ul "
+        "JOIN api_keys ak ON ul.api_key_id = ak.id "
+        f"WHERE ul.timestamp >= DATE('now', '-{days} days') "
+        "GROUP BY DATE(ul.timestamp) ORDER BY day",
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def admin_get_all_usage_by_user(limit: int = 50) -> list:
+    """Get usage breakdown by user."""
+    db = get_db()
+    rows = db.execute(
+        "SELECT u.id as user_id, u.name, u.email, u.plan, "
+        "COUNT(ul.id) as total_requests, "
+        "SUM(CASE WHEN ul.status_code >= 400 THEN 1 ELSE 0 END) as errors, "
+        "MAX(ul.timestamp) as last_active "
+        "FROM users u "
+        "LEFT JOIN api_keys ak ON u.id = ak.user_id "
+        "LEFT JOIN usage_logs ul ON ak.id = ul.api_key_id "
+        "GROUP BY u.id ORDER BY total_requests DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def admin_get_stats() -> dict:
+    db = get_db()
+    users_total = db.execute("SELECT COUNT(*) as cnt FROM users").fetchone()["cnt"]
+    users_today = db.execute(
+        "SELECT COUNT(*) as cnt FROM users WHERE DATE(created_at) = DATE('now')"
+    ).fetchone()["cnt"]
+    keys_total = db.execute("SELECT COUNT(*) as cnt FROM api_keys").fetchone()["cnt"]
+    keys_active = db.execute("SELECT COUNT(*) as cnt FROM api_keys WHERE is_active = 1").fetchone()["cnt"]
+    requests_total = db.execute("SELECT COUNT(*) as cnt FROM usage_logs").fetchone()["cnt"]
+    requests_today = db.execute(
+        "SELECT COUNT(*) as cnt FROM usage_logs WHERE DATE(timestamp) = DATE('now')"
+    ).fetchone()["cnt"]
+    jobs_pending = db.execute(
+        "SELECT COUNT(*) as cnt FROM background_jobs WHERE status = 'pending'"
+    ).fetchone()["cnt"]
+    jobs_processing = db.execute(
+        "SELECT COUNT(*) as cnt FROM background_jobs WHERE status = 'processing'"
+    ).fetchone()["cnt"]
+
+    plan_dist = db.execute(
+        "SELECT plan, COUNT(*) as cnt FROM users GROUP BY plan"
+    ).fetchall()
+
+    return {
+        "total_users": users_total,
+        "new_users_today": users_today,
+        "total_keys": keys_total,
+        "active_keys": keys_active,
+        "total_requests": requests_total,
+        "requests_today": requests_today,
+        "pending_jobs": jobs_pending,
+        "processing_jobs": jobs_processing,
+        "plan_distribution": {r["plan"]: r["cnt"] for r in plan_dist},
+    }
+
+
+def admin_get_all_keys(page: int = 1, per_page: int = 50) -> dict:
+    db = get_db()
+    offset = (page - 1) * per_page
+    total = db.execute("SELECT COUNT(*) as cnt FROM api_keys").fetchone()["cnt"]
+    rows = db.execute(
+        "SELECT ak.*, u.name as user_name, u.email as user_email "
+        "FROM api_keys ak JOIN users u ON ak.user_id = u.id "
+        "ORDER BY ak.created_at DESC LIMIT ? OFFSET ?",
+        (per_page, offset),
+    ).fetchall()
+    return {"keys": [dict(r) for r in rows], "total": total, "page": page}
+
+
+def admin_revoke_key(key_id: int) -> bool:
+    now = datetime.now(timezone.utc).isoformat()
+    cur = get_db().execute(
+        "UPDATE api_keys SET is_active = 0, revoked_at = ? WHERE id = ?", (now, key_id)
+    )
+    get_db().commit()
+    return cur.rowcount > 0
+
+
+def admin_update_key_tier(key_id: int, new_tier: str) -> bool:
+    new_limit = TIER_LIMITS.get(new_tier, TIER_LIMITS["free"])
+    cur = get_db().execute(
+        "UPDATE api_keys SET tier = ?, rate_limit = ? WHERE id = ?",
+        (new_tier, new_limit, key_id),
+    )
+    get_db().commit()
+    return cur.rowcount > 0
+
+
+def admin_get_usage_daily(days: int = 30) -> list:
+    db = get_db()
+    rows = db.execute(
+        "SELECT DATE(timestamp) as day, COUNT(*) as requests, "
+        "SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END) as errors "
+        "FROM usage_logs WHERE timestamp >= DATE('now', ?) "
+        "GROUP BY DATE(timestamp) ORDER BY day",
+        (f"-{days} days",),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def admin_get_usage_endpoints(limit: int = 20) -> list:
+    db = get_db()
+    rows = db.execute(
+        "SELECT endpoint, COUNT(*) as hits, "
+        "AVG(response_time_ms) as avg_response_ms "
+        "FROM usage_logs GROUP BY endpoint ORDER BY hits DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+# ──────────────── AI PROVIDER FUNCTIONS ────────────────
+def create_ai_provider(user_id: int, provider: str, api_key_encrypted: str,
+                       model: str = None) -> dict:
+    db = get_db()
+    cur = db.execute(
+        "INSERT INTO ai_providers (user_id, provider, api_key_encrypted, model) VALUES (?, ?, ?, ?)",
+        (user_id, provider, api_key_encrypted, model),
+    )
+    db.commit()
+    row = db.execute("SELECT * FROM ai_providers WHERE id = ?", (cur.lastrowid,)).fetchone()
+    return dict(row)
+
+
+def list_ai_providers(user_id: int) -> list:
+    rows = get_db().execute(
+        "SELECT * FROM ai_providers WHERE user_id = ? ORDER BY created_at DESC", (user_id,)
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_ai_provider(provider_id: int, user_id: int) -> Optional[dict]:
+    row = get_db().execute(
+        "SELECT * FROM ai_providers WHERE id = ? AND user_id = ?",
+        (provider_id, user_id),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def get_active_ai_provider(user_id: int, preferred_provider: str = None) -> Optional[dict]:
+    """Get the user's active AI provider, optionally filtering by provider name."""
+    db = get_db()
+    if preferred_provider:
+        row = db.execute(
+            "SELECT * FROM ai_providers WHERE user_id = ? AND provider = ? AND is_active = 1",
+            (user_id, preferred_provider),
+        ).fetchone()
+    else:
+        row = db.execute(
+            "SELECT * FROM ai_providers WHERE user_id = ? AND is_active = 1 "
+            "ORDER BY created_at DESC LIMIT 1",
+            (user_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def update_ai_provider(provider_id: int, user_id: int, **kwargs) -> bool:
+    db = get_db()
+    updates = []
+    params = []
+    for key in ("provider", "api_key_encrypted", "model", "is_active"):
+        if key in kwargs:
+            updates.append(f"{key} = ?")
+            params.append(kwargs[key])
+    if not updates:
+        return False
+    updates.append("updated_at = CURRENT_TIMESTAMP")
+    params.extend([provider_id, user_id])
+    cur = db.execute(
+        f"UPDATE ai_providers SET {', '.join(updates)} WHERE id = ? AND user_id = ?",
+        params,
+    )
+    db.commit()
+    return cur.rowcount > 0
+
+
+def delete_ai_provider(provider_id: int, user_id: int) -> bool:
+    cur = get_db().execute(
+        "DELETE FROM ai_providers WHERE id = ? AND user_id = ?",
+        (provider_id, user_id),
+    )
+    get_db().commit()
+    return cur.rowcount > 0
+
+
+# ──────────────── BACKGROUND JOB FUNCTIONS ────────────────
+def create_job(user_id: int, job_type: str, input_data: dict) -> dict:
+    db = get_db()
+    cur = db.execute(
+        "INSERT INTO background_jobs (user_id, job_type, input_data) VALUES (?, ?, ?)",
+        (user_id, job_type, json.dumps(input_data)),
+    )
+    db.commit()
+    row = db.execute("SELECT * FROM background_jobs WHERE id = ?", (cur.lastrowid,)).fetchone()
+    return dict(row)
+
+
+def update_job_status(job_id: int, status: str, celery_task_id: str = None,
+                      result_data: str = None, error_message: str = None) -> bool:
+    db = get_db()
+    updates = ["status = ?"]
+    params = [status]
+    if celery_task_id:
+        updates.append("celery_task_id = ?")
+        params.append(celery_task_id)
+    if status == "processing":
+        updates.append("started_at = CURRENT_TIMESTAMP")
+    if status in ("completed", "failed"):
+        updates.append("completed_at = CURRENT_TIMESTAMP")
+    if result_data:
+        updates.append("result_data = ?")
+        params.append(result_data)
+    if error_message:
+        updates.append("error_message = ?")
+        params.append(error_message)
+    params.append(job_id)
+    cur = db.execute(f"UPDATE background_jobs SET {', '.join(updates)} WHERE id = ?", params)
+    db.commit()
+    return cur.rowcount > 0
+
+
+def get_job(job_id: int) -> Optional[dict]:
+    row = get_db().execute("SELECT * FROM background_jobs WHERE id = ?", (job_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def get_user_jobs(user_id: int, status: str = None, limit: int = 20) -> list:
+    db = get_db()
+    if status:
+        rows = db.execute(
+            "SELECT * FROM background_jobs WHERE user_id = ? AND status = ? "
+            "ORDER BY created_at DESC LIMIT ?",
+            (user_id, status, limit),
+        ).fetchall()
+    else:
+        rows = db.execute(
+            "SELECT * FROM background_jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT ?",
+            (user_id, limit),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def store_job_result(job_id: int, result_type: str, result_blob: bytes,
+                     filename: str = None) -> dict:
+    db = get_db()
+    cur = db.execute(
+        "INSERT INTO job_results (job_id, result_type, result_blob, file_size, filename) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (job_id, result_type, result_blob, len(result_blob), filename),
+    )
+    db.commit()
+    row = db.execute("SELECT id, job_id, result_type, file_size, filename, created_at FROM job_results WHERE id = ?",
+                     (cur.lastrowid,)).fetchone()
+    return dict(row) if row else None
+
+
+def get_job_result(job_id: int) -> Optional[dict]:
+    row = get_db().execute(
+        "SELECT * FROM job_results WHERE job_id = ?", (job_id,)
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def get_job_result_blob(job_id: int) -> Optional[bytes]:
+    row = get_db().execute(
+        "SELECT result_blob FROM job_results WHERE job_id = ?", (job_id,)
+    ).fetchone()
+    return row["result_blob"] if row else None
+
+
+def get_all_jobs(page: int = 1, per_page: int = 50, status: str = None) -> dict:
+    db = get_db()
+    offset = (page - 1) * per_page
+    conditions = []
+    params = []
+    if status:
+        conditions.append("bj.status = ?")
+        params.append(status)
+    where = "WHERE " + " AND ".join(conditions) if conditions else ""
+
+    total = db.execute(
+        f"SELECT COUNT(*) as cnt FROM background_jobs bj {where}", params
+    ).fetchone()["cnt"]
+    rows = db.execute(
+        f"SELECT bj.*, u.name as user_name, u.email as user_email "
+        f"FROM background_jobs bj JOIN users u ON bj.user_id = u.id "
+        f"{where} ORDER BY bj.created_at DESC LIMIT ? OFFSET ?",
+        params + [per_page, offset],
+    ).fetchall()
+    return {"jobs": [dict(r) for r in rows], "total": total, "page": page}

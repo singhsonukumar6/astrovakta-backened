@@ -19,7 +19,7 @@ class ChartRequest(BaseModel):
     # Rendering options
     width: Optional[int] = Field(800, example=800)
     height: Optional[int] = Field(600, example=600)  # North Indian chart works well in 4:3 ratio
-    theme: Optional[str] = Field('light', example='light')  # 'light' | 'dark'
+    theme: Optional[str] = Field('light', example='light')  # 'light' (transparent) | 'dark' (transparent) | 'opaque-light' | 'opaque-dark'
     includeOuterPlanets: Optional[bool] = Field(True, example=True)
     stackIfCountAtLeast: Optional[int] = Field(3, example=3, description='If a house has >= this many planets, stack them vertically with degrees to the side')
 
@@ -100,21 +100,27 @@ def render_svg(width: int, height: int, asc: dict, planets: list, theme: str = '
     # Create drawing
     dwg = svgwrite.Drawing(size=(width, height), profile='full')
     dwg.attribs['viewBox'] = f'0 0 {width} {height}'
+    dwg.attribs['xmlns'] = 'http://www.w3.org/2000/svg'
     
     # Calculate scaling factors (base chart is 400x300)
     scale_x = width / 400
     scale_y = height / 300
     
-    # Add gradient
-    if theme == 'light':
-        gradient = svgwrite.gradients.LinearGradient(start=(0, 0), end=(0, 1), id="grad")
-        gradient.add_stop_color(0, 'white')
-        gradient.add_stop_color(1, '#f0f3bf')
+    # Add gradient (transparent by default)
+    def _add_gradient(dwg, color1, opacity1, color2, opacity2):
+        g = svgwrite.gradients.LinearGradient(start=(0, 0), end=(0, 1), id="grad")
+        g.add_stop_color(0, color1, opacity=opacity1)
+        g.add_stop_color(1, color2, opacity=opacity2)
+        dwg.defs.add(g)
+
+    if theme == 'opaque-light':
+        _add_gradient(dwg, 'white', 1.0, '#f0f3bf', 1.0)
+    elif theme == 'opaque-dark':
+        _add_gradient(dwg, '#1a1a2e', 1.0, '#16213e', 1.0)
+    elif theme == 'dark':
+        _add_gradient(dwg, '#1a1a2e', 0.15, '#16213e', 0.08)
     else:
-        gradient = svgwrite.gradients.LinearGradient(start=(0, 0), end=(0, 1), id="grad")
-        gradient.add_stop_color(0, '#1a1a2e')
-        gradient.add_stop_color(1, '#16213e')
-    dwg.defs.add(gradient)
+        _add_gradient(dwg, 'white', 0.0, '#f0f3bf', 0.0)
     
     # Get ascendant house mapping
     asc_sign = asc.get('sign')
@@ -270,7 +276,9 @@ def _parse_varga_name(name: str) -> Optional[int]:
     return None
 
 
-@router.post('/divisional-svg')
+@router.post('/divisional-svg', tags=["Charts - Divisional"],
+             summary="Divisional Chart SVG (D1-D60)",
+             description="Generate any of the 60 divisional charts as SVG. Classical vargas: D1 (Rasi), D2 (Hora), D3 (Drekkana), D4 (Chaturthamsa), D7 (Saptamsa), D9 (Navamsa), D10 (Dashamamsa), D12 (Dwadasamsa), D16 (Shodasamsa), D20 (Vimsamsa), D24 (Siddhamsa), D27 (Nakshatramsa), D30 (Trimshamsa), D40 (Khavedamsa), D45 (Akshavedamsa), D60 (Shashtiamsa).")
 def divisional_chart_svg(req: DivisionalChartRequest):
     from ..main import to_julian, calc_planets, calc_houses, varga_sign, ZODIAC_SIGNS
 

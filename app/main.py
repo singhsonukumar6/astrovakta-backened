@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Body
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import Optional, Literal, Dict, Any
-from datetime import datetime, timedelta
+from typing import Optional, Literal, Dict, Any, List
+from datetime import datetime, timedelta, date
 import swisseph as swe
 import pytz
 from dateutil import parser
@@ -10,12 +11,141 @@ import os
 import math
 import logging
 
-app = FastAPI(title="Vedic Astrology API (Python)", version="1.0.0")
+from .utils import (
+    ZODIAC_SIGNS, SIGN_LORDS, NAKSHATRAS, PLANET_IDS, COMBUSTION_DIST, PLANET_PROPS,
+    DASHA_YEARS, DASHA_SEQUENCE, TITHI_NAMES, YOGA_NAMES, KARANA_SEQUENCE,
+    to_julian, get_sign, get_nakshatra, ayanamsa_value, to_dms, get_avastha,
+    is_combust, calc_planets, calc_houses, planet_status, sunrise_sunset,
+    panchang_at_jd, compute_panchang,
+)
+
+from .database import init_db
+from .routers.auth_router import router as auth_router
+from .middleware import APIKeyMiddleware
+
+app = FastAPI(
+    title="Vedic Astrology API",
+    version="2.0.0",
+    description="Complete Vedic Astrology API with 180+ endpoints for birth charts, panchang, horoscopes, dasha, transits, compatibility, doshas, yogas, numerology, gemstones, rudraksha, muhurats, festivals, reports, AI interpretations, and more.",
+    openapi_tags=[
+        {"name": "Charts - Visual", "description": "SVG chart generation: South Indian, North Indian, Grid, East Indian, Moon"},
+        {"name": "Charts - Specialized", "description": "Dedicated charts: Navamsa (D9), Hora (D2), Sudarshana Chakra"},
+        {"name": "Charts - Divisional", "description": "Divisional charts D1-D60"},
+        {"name": "Charts - Bhava", "description": "Bhava Chalit and house cusp analysis"},
+        {"name": "Birth Chart", "description": "Core Kundli / birth chart data"},
+        {"name": "Horoscope", "description": "Daily, weekly, monthly, yearly horoscopes"},
+        {"name": "Dasha", "description": "Vimshottari, Chara, Yogini, Kalachakra, Ashtottari dasha periods"},
+        {"name": "Panchang", "description": "Tithi, Nakshatra, Yoga, Karana, Muhurat calculations"},
+        {"name": "Transit", "description": "Planetary transit analysis and predictions"},
+        {"name": "Compatibility", "description": "Ashtakoot milan, gun milan, matching"},
+        {"name": "Dosha", "description": "Manglik, Kaal Sarp, Shani, Nadi, Bhakoot doshas"},
+        {"name": "Yoga", "description": "Yoga detection and predictions"},
+        {"name": "Calculator", "description": "Lagna, Moon sign, Sun sign, Shadbala, Ashtakavarga calculators"},
+        {"name": "Muhurat", "description": "Auspicious timing for marriage, property, travel, etc."},
+        {"name": "Varshaphal", "description": "Annual horoscope and Tajika aspects"},
+        {"name": "Prashna", "description": "Horary astrology - answers based on question time"},
+        {"name": "Predictions", "description": "Business, education, child, foreign travel predictions"},
+        {"name": "Gemstone", "description": "Gemstone recommendations based on chart"},
+        {"name": "Rudraksha", "description": "Rudraksha recommendations and identification"},
+        {"name": "Numerology", "description": "Life path, destiny, soul, expression numbers"},
+        {"name": "Festival", "description": "Hindu festival dates and calendars"},
+        {"name": "Calendar", "description": "Hindu calendar, panchang calendar, festival calendar"},
+        {"name": "Pooja", "description": "Pooja recommendations and booking"},
+        {"name": "Lucky", "description": "Lucky color, number, day, metal based on numerology"},
+        {"name": "Reports", "description": "PDF report generation - Kundli, Horoscope, Career, Health, Finance, Marriage"},
+        {"name": "AI", "description": "AI-powered interpretations and predictions (requires provider config)"},
+        {"name": "Utility", "description": "Ayanamsa, Ephemeris, Sunrise/Sunset, Julian Day, etc."},
+        {"name": "Location", "description": "Location search, reverse geocode, timezone lookup"},
+        {"name": "Auth", "description": "Registration, login, API key management"},
+        {"name": "Admin", "description": "Admin panel: user management, key management, stats, usage analytics"},
+        {"name": "AI Providers", "description": "AI provider configuration: OpenAI, Anthropic, Groq, Together"},
+        {"name": "Jobs", "description": "Background job submission and status tracking"},
+    ],
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.add_middleware(APIKeyMiddleware)
+
+# ──────── Swagger UI: API Key Input ────────
+from fastapi.openapi.utils import get_openapi
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+        tags=app.openapi_tags,
+    )
+    openapi_schema["components"]["securitySchemes"] = {
+        "APIKeyHeader": {
+            "type": "apiKey",
+            "in": "header",
+            "name": "X-API-Key",
+            "description": "Enter your API key (avk_xxxxxxxx) to test all endpoints"
+        }
+    }
+    # Apply security globally except auth endpoints
+    openapi_schema["security"] = [{"APIKeyHeader": []}]
+    # Remove security from auth endpoints
+    for path, methods in openapi_schema.get("paths", {}).items():
+        if path.startswith("/auth/") or path == "/health":
+            for method_info in methods.values():
+                if isinstance(method_info, dict):
+                    method_info.pop("security", None)
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+
+app.include_router(auth_router, prefix="/auth", tags=['Auth'])
+
+# Admin router
+try:
+    from .routers.admin import router as admin_router
+    app.include_router(admin_router, prefix="/admin", tags=['Admin'])
+except Exception as e:
+    import logging as _logging_admin
+    _logging_admin.error(f"Failed to include ADMIN router: {e}")
+
+# AI Providers router
+try:
+    from .routers.ai_providers import router as ai_providers_router
+    app.include_router(ai_providers_router, prefix="/ai-providers", tags=['AI Providers'])
+except Exception as e:
+    import logging as _logging_ai_prov
+    _logging_ai_prov.error(f"Failed to include AI PROVIDERS router: {e}")
+
+# Jobs router
+try:
+    from .routers.jobs import router as jobs_router
+    app.include_router(jobs_router, prefix="/jobs", tags=['Jobs'])
+except Exception as e:
+    import logging as _logging_jobs
+    _logging_jobs.error(f"Failed to include JOBS router: {e}")
+
+
+@app.on_event("startup")
+def on_startup():
+    init_db()
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "version": "2.0.0", "service": "Vedic Astrology API"}
 
 # Routers
 try:
     from .routers.chart_svg import router as chart_svg_router
-    app.include_router(chart_svg_router, prefix="/chart")
+    app.include_router(chart_svg_router, prefix="/chart", tags=['Charts - Visual'])
 except Exception as e:
     import logging as _logging
     _logging.error(f"Failed to include chart SVG router: {e}")
@@ -23,7 +153,7 @@ except Exception as e:
 # Grid-style chart router (South-Indian-like example grid)
 try:
     from .routers.chart_grid import router as chart_grid_router
-    app.include_router(chart_grid_router, prefix="/chart")
+    app.include_router(chart_grid_router, prefix="/chart", tags=['Charts - Visual'])
 except Exception as e:
     import logging as _logging2
     _logging2.error(f"Failed to include chart GRID router: {e}")
@@ -31,7 +161,7 @@ except Exception as e:
 # Dasha router
 try:
     from .routers.dasha import router as dasha_router
-    app.include_router(dasha_router, prefix="/horoscope")
+    app.include_router(dasha_router, prefix="/horoscope", tags=['Dasha'])
 except Exception as e:
     import logging as _logging3
     _logging3.error(f"Failed to include DASHA router: {e}")
@@ -39,7 +169,7 @@ except Exception as e:
 # Chara Dasha router
 try:
     from .routers.dasha_chara import router as dasha_chara_router
-    app.include_router(dasha_chara_router, prefix="/horoscope")
+    app.include_router(dasha_chara_router, prefix="/horoscope", tags=['Dasha'])
 except Exception as e:
     import logging as _logging3b
     _logging3b.error(f"Failed to include CHARA DASHA router: {e}")
@@ -47,7 +177,7 @@ except Exception as e:
 # Dosha router
 try:
     from .routers.dosha import router as dosha_router
-    app.include_router(dosha_router, prefix="/horoscope")
+    app.include_router(dosha_router, prefix="/horoscope", tags=['Dosha'])
 except Exception as e:
     import logging as _logging4
     _logging4.error(f"Failed to include DOSHA router: {e}")
@@ -55,33 +185,314 @@ except Exception as e:
 # Panchang router
 try:
     from .routers.panchang import router as panchang_router
-    app.include_router(panchang_router, prefix="/horoscope")
+    app.include_router(panchang_router, prefix="/horoscope", tags=['Panchang'])
 except Exception as e:
     import logging as _logging5
     _logging5.error(f"Failed to include PANCHANG router: {e}")
 
-ZODIAC_SIGNS = [
-    'Aries','Taurus','Gemini','Cancer','Leo','Virgo',
-    'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'
-]
+# Panchang Extended router
+try:
+    from .routers.panchang_extended import router as panchang_ext_router
+    app.include_router(panchang_ext_router, prefix="/horoscope", tags=['Panchang'])
+except Exception as e:
+    import logging as _logging_ext
+    _logging_ext.error(f"Failed to include PANCHANG EXTENDED router: {e}")
 
-SIGN_LORDS = {
-    'Aries': 'Mars','Taurus': 'Venus','Gemini': 'Mercury','Cancer': 'Moon',
-    'Leo': 'Sun','Virgo': 'Mercury','Libra': 'Venus','Scorpio': 'Mars',
-    'Sagittarius': 'Jupiter','Capricorn': 'Saturn','Aquarius': 'Saturn','Pisces': 'Jupiter'
-}
+# Transit router
+try:
+    from .routers.transit import router as transit_router
+    app.include_router(transit_router, prefix="/horoscope", tags=['Transit'])
+except Exception as e:
+    import logging as _logging6
+    _logging6.error(f"Failed to include TRANSIT router: {e}")
 
-NAKSHATRAS = [
-    ('Ashwini','Ketu',0,13.333333),('Bharani','Venus',13.333333,26.666667),('Krittika','Sun',26.666667,40),
-    ('Rohini','Moon',40,53.333333),('Mrigashira','Mars',53.333333,66.666667),('Ardra','Rahu',66.666667,80),
-    ('Punarvasu','Jupiter',80,93.333333),('Pushya','Saturn',93.333333,106.666667),('Ashlesha','Mercury',106.666667,120),
-    ('Magha','Ketu',120,133.333333),('Purva Phalguni','Venus',133.333333,146.666667),('Uttara Phalguni','Sun',146.666667,160),
-    ('Hasta','Moon',160,173.333333),('Chitra','Mars',173.333333,186.666667),('Swati','Rahu',186.666667,200),
-    ('Vishakha','Jupiter',200,213.333333),('Anuradha','Saturn',213.333333,226.666667),('Jyeshtha','Mercury',226.666667,240),
-    ('Mula','Ketu',240,253.333333),('Purva Ashadha','Venus',253.333333,266.666667),('Uttara Ashadha','Sun',266.666667,280),
-    ('Shravana','Moon',280,293.333333),('Dhanishta','Mars',293.333333,306.666667),('Shatabhisha','Rahu',306.666667,320),
-    ('Purva Bhadrapada','Jupiter',320,333.333333),('Uttara Bhadrapada','Saturn',333.333333,346.666667),('Revati','Mercury',346.666667,360)
-]
+# Compatibility router
+try:
+    from .routers.compat import router as compat_router
+    app.include_router(compat_router, prefix="/horoscope", tags=['Compatibility'])
+except Exception as e:
+    import logging as _logging7
+    _logging7.error(f"Failed to include COMPAT router: {e}")
+
+# Transit Detail router
+try:
+    from .routers.transit_detail import router as transit_detail_router
+    app.include_router(transit_detail_router, prefix="/api", tags=['Transit'])
+except Exception as e:
+    import logging as _logging9
+    _logging9.error(f"Failed to include TRANSIT DETAIL router: {e}")
+
+# Transit Prediction router
+try:
+    from .routers.transit_pred import router as transit_pred_router
+    app.include_router(transit_pred_router, prefix="", tags=['Transit'])
+except Exception as e:
+    import logging as _logging_transit_pred
+    _logging_transit_pred.error(f"Failed to include TRANSIT PREDICTION router: {e}")
+
+# Bhava Chalit router
+try:
+    from .routers.bhava_chalit import router as bhava_chalit_router
+    app.include_router(bhava_chalit_router, prefix="", tags=['Charts - Bhava'])
+except Exception as e:
+    import logging as _logging_bhava
+    _logging_bhava.error(f"Failed to include BHAVA CHALIT router: {e}")
+
+# Dosha Standalone router
+try:
+    from .routers.dosha_standalone import router as dosha_standalone_router
+    app.include_router(dosha_standalone_router, prefix="/api", tags=['Dosha'])
+except Exception as e:
+    import logging as _logging10
+    _logging10.error(f"Failed to include DOSHA STANDALONE router: {e}")
+
+# Compat Standalone router
+try:
+    from .routers.compat_standalone import router as compat_standalone_router
+    app.include_router(compat_standalone_router, prefix="/api", tags=['Compatibility'])
+except Exception as e:
+    import logging as _logging11
+    _logging11.error(f"Failed to include COMPAT STANDALONE router: {e}")
+
+# Location autocomplete router
+try:
+    from .routers.location import router as location_router
+    app.include_router(location_router, prefix="/api", tags=['Location'])
+except Exception as e:
+    import logging as _logging8
+    _logging8.error(f"Failed to include LOCATION router: {e}")
+
+# Gemstone router
+try:
+    from .routers.gemstone import router as gemstone_router
+    app.include_router(gemstone_router, prefix="/api", tags=['Gemstone'])
+except Exception as e:
+    import logging as _logging9
+    _logging9.error(f"Failed to include GEMSTONE router: {e}")
+
+# Muhurat router
+try:
+    from .routers.muhurat import router as muhurat_router
+    app.include_router(muhurat_router, prefix="/horoscope", tags=['Muhurat'])
+except Exception as e:
+    import logging as _logging9
+    _logging9.error(f"Failed to include MUHURAT router: {e}")
+
+# Festival router
+try:
+    from .routers.festival import router as festival_router
+    app.include_router(festival_router, prefix="/api", tags=['Festival'])
+except Exception as e:
+    import logging as _logging12
+    _logging12.error(f"Failed to include FESTIVAL router: {e}")
+
+# Calculator router
+try:
+    from .routers.calculator import router as calculator_router
+    app.include_router(calculator_router, prefix="/api", tags=['Calculator'])
+except Exception as e:
+    import logging as _logging13
+    _logging13.error(f"Failed to include CALCULATOR router: {e}")
+
+# Rudraksha router
+try:
+    from .routers.rudraksha import router as rudraksha_router
+    app.include_router(rudraksha_router, prefix="/api", tags=['Rudraksha'])
+except Exception as e:
+    import logging as _logging14
+    _logging14.error(f"Failed to include RUDRAKSHA router: {e}")
+
+# Calendar router
+try:
+    from .routers.calendar import router as calendar_router
+    app.include_router(calendar_router, prefix="/api", tags=['Calendar'])
+except Exception as e:
+    import logging as _logging15
+    _logging15.error(f"Failed to include CALENDAR router: {e}")
+
+# Utility router
+try:
+    from .routers.utility import router as utility_router
+    app.include_router(utility_router, prefix="/api", tags=['Utility'])
+except Exception as e:
+    import logging as _logging16
+    _logging16.error(f"Failed to include UTILITY router: {e}")
+
+# Reports router
+try:
+    from .routers.reports import router as reports_router
+    app.include_router(reports_router, prefix="", tags=['Reports'])
+except Exception as e:
+    import logging as _logging17
+    _logging17.error(f"Failed to include REPORTS router: {e}")
+
+# East Indian & Moon Chart router
+try:
+    from .routers.chart_east import router as chart_east_router
+    app.include_router(chart_east_router, prefix="/chart", tags=['Charts - Visual'])
+except Exception as e:
+    import logging as _logging18
+    _logging18.error(f"Failed to include CHART EAST router: {e}")
+
+# AI Astro stub router
+try:
+    from .routers.ai_astro import router as ai_astro_router
+    app.include_router(ai_astro_router, prefix="", tags=['AI'])
+except Exception as e:
+    import logging as _logging19
+    _logging19.error(f"Failed to include AI ASTRO router: {e}")
+
+# Pooja router
+try:
+    from .routers.pooja import router as pooja_router
+    app.include_router(pooja_router, prefix="", tags=['Pooja'])
+except Exception as e:
+    import logging as _logging20
+    _logging20.error(f"Failed to include POOJA router: {e}")
+
+# Calendar API router
+try:
+    from .routers.calendar_api import router as calendar_api_router
+    app.include_router(calendar_api_router, prefix="", tags=['Calendar'])
+except Exception as e:
+    import logging as _logging21
+    _logging21.error(f"Failed to include CALENDAR API router: {e}")
+
+# Dasha Extended router
+try:
+    from .routers.dasha_extended import router as dasha_extended_router
+    app.include_router(dasha_extended_router, prefix="", tags=['Dasha'])
+except Exception as e:
+    import logging as _logging22
+    _logging22.error(f"Failed to include DASHA EXTENDED router: {e}")
+
+# Numerology router
+try:
+    from .routers.numerology import router as numerology_router
+    app.include_router(numerology_router, prefix="/api", tags=['Numerology'])
+except Exception as e:
+    import logging as _logging23
+    _logging23.error(f"Failed to include NUMEROLOGY router: {e}")
+
+# Varshaphal (Annual Solar Return) router
+try:
+    from .routers.varshaphal import router as varshaphal_router
+    app.include_router(varshaphal_router, prefix="", tags=['Varshaphal'])
+except Exception as e:
+    import logging as _logging24
+    _logging24.error(f"Failed to include VARSHAPHAL router: {e}")
+
+# Birth Time Rectification router
+try:
+    from .routers.birth_rectify import router as birth_rectify_router
+    app.include_router(birth_rectify_router, prefix="/api", tags=['Utility'])
+except Exception as e:
+    import logging as _logging25
+    _logging25.error(f"Failed to include BIRTH RECTIFY router: {e}")
+
+# Prashna (Horary Astrology) router
+try:
+    from .routers.prashna import router as prashna_router
+    app.include_router(prashna_router, prefix="/api", tags=['Prashna'])
+except Exception as e:
+    import logging as _logging24
+    _logging24.error(f"Failed to include PRASHNA router: {e}")
+
+# Dasha Detail router
+try:
+    from .routers.dasha_detail import router as dasha_detail_router
+    app.include_router(dasha_detail_router, prefix="", tags=['Dasha'])
+except Exception as e:
+    import logging as _logging25
+    _logging25.error(f"Failed to include DASHA DETAIL router: {e}")
+
+# Panchaka router
+try:
+    from .routers.panchaka import router as panchaka_router
+    app.include_router(panchaka_router, prefix="", tags=['Panchang'])
+except Exception as e:
+    import logging as _logging26
+    _logging26.error(f"Failed to include PANCHAKA router: {e}")
+
+# Yoga Predictions router
+try:
+    from .routers.yoga_pred import router as yoga_pred_router
+    app.include_router(yoga_pred_router, prefix="", tags=['Yoga'])
+except Exception as e:
+    import logging as _logging27
+    _logging27.error(f"Failed to include YOGA PRED router: {e}")
+
+# Dosha Remedies router
+try:
+    from .routers.dosha_remedy import router as dosha_remedy_router
+    app.include_router(dosha_remedy_router, prefix="/horoscope", tags=['Dosha'])
+except Exception as e:
+    import logging as _logging28
+    _logging28.error(f"Failed to include DOSHA REMEDY router: {e}")
+
+# Horoscope Text router (Daily, Weekly, Monthly, Yearly, Career, Love, Finance, Health)
+try:
+    from .routers.horoscope_text import router as horoscope_text_router
+    app.include_router(horoscope_text_router, prefix="", tags=['Horoscope'])
+except Exception as e:
+    import logging as _logging_ht
+    _logging_ht.error(f"Failed to include HOROSCOPE TEXT router: {e}")
+
+# Name Numerology router
+try:
+    from .routers.name_numerology import router as name_numerology_router
+    app.include_router(name_numerology_router, prefix="", tags=['Numerology'])
+except Exception as e:
+    import logging as _logging29
+    _logging29.error(f"Failed to include NAME NUMEROLOGY router: {e}")
+
+# Calendar Year router
+try:
+    from .routers.calendar_year import router as calendar_year_router
+    app.include_router(calendar_year_router, prefix="", tags=['Calendar'])
+except Exception as e:
+    import logging as _logging30
+    _logging30.error(f"Failed to include CALENDAR YEAR router: {e}")
+
+# Predictions router (Business, Education, Child, Foreign, Monthly Transit)
+try:
+    from .routers.predictions import router as predictions_router
+    app.include_router(predictions_router, prefix="", tags=['Predictions'])
+except Exception as e:
+    import logging as _logging31
+    _logging31.error(f"Failed to include PREDICTIONS router: {e}")
+
+# Cesarean Muhurat router
+try:
+    from .routers.muhurat_extra import router as muhurat_extra_router
+    app.include_router(muhurat_extra_router, prefix="")
+except Exception as e:
+    import logging as _logging32
+    _logging32.error(f"Failed to include MUHURAT EXTRA router: {e}")
+
+# Dhaiya Dosha router
+try:
+    from .routers.dosha_extra import router as dosha_extra_router
+    app.include_router(dosha_extra_router, prefix="")
+except Exception as e:
+    import logging as _logging33
+    _logging33.error(f"Failed to include DOSHA EXTRA router: {e}")
+
+# Lucky Attributes router
+try:
+    from .routers.lucky import router as lucky_router
+    app.include_router(lucky_router, prefix="", tags=['Lucky'])
+except Exception as e:
+    import logging as _logging34
+    _logging34.error(f"Failed to include LUCKY router: {e}")
+
+# Specialized Charts router (Navamsa, Hora, Sudarshana)
+try:
+    from .routers.chart_specialized import router as chart_specialized_router
+    app.include_router(chart_specialized_router, prefix="", tags=['Charts - Specialized'])
+except Exception as e:
+    import logging as _logging35
+    _logging35.error(f"Failed to include CHART SPECIALIZED router: {e}")
 
 # Load Vedic properties (nakshatra table) from JSON
 def load_vedic_properties() -> Dict[str, Any]:
@@ -95,45 +506,6 @@ def load_vedic_properties() -> Dict[str, Any]:
 
 NAKSHATRA_PROPERTIES = load_vedic_properties()
 
-PLANET_IDS = {
-    'Sun': swe.SUN,
-    'Moon': swe.MOON,
-    'Mercury': swe.MERCURY,
-    'Venus': swe.VENUS,
-    'Mars': swe.MARS,
-    'Jupiter': swe.JUPITER,
-    'Saturn': swe.SATURN,
-    'Uranus': swe.URANUS,
-    'Neptune': swe.NEPTUNE,
-    'Pluto': swe.PLUTO,
-    'Rahu': swe.MEAN_NODE,
-    'Ketu': swe.MEAN_NODE,
-}
-
-COMBUSTION_DIST = {'Moon':12,'Mars':17,'Mercury':14,'Jupiter':11,'Venus':10,'Saturn':15}
-
-PLANET_PROPS = {
-    'Sun':     {'exalted':'Aries','exDeg':10,'debil':'Libra','debilDeg':10,'own':['Leo'],'mool':'Leo','friends':['Moon','Mars','Jupiter'],'enemies':['Venus','Saturn'],'neutral':['Mercury']},
-    'Moon':    {'exalted':'Taurus','exDeg':3,'debil':'Scorpio','debilDeg':3,'own':['Cancer'],'mool':'Taurus','friends':['Sun','Mercury'],'enemies':[],'neutral':['Mars','Jupiter','Venus','Saturn']},
-    'Mars':    {'exalted':'Capricorn','exDeg':28,'debil':'Cancer','debilDeg':28,'own':['Aries','Scorpio'],'mool':'Aries','friends':['Sun','Moon','Jupiter'],'enemies':['Mercury'],'neutral':['Venus','Saturn']},
-    'Mercury': {'exalted':'Virgo','exDeg':15,'debil':'Pisces','debilDeg':15,'own':['Gemini','Virgo'],'mool':'Virgo','friends':['Sun','Venus'],'enemies':['Moon','Mars'],'neutral':['Jupiter','Saturn']},
-    'Jupiter': {'exalted':'Cancer','exDeg':5,'debil':'Capricorn','debilDeg':5,'own':['Sagittarius','Pisces'],'mool':'Sagittarius','friends':['Sun','Moon','Mars'],'enemies':['Mercury','Venus'],'neutral':['Saturn']},
-    'Venus':   {'exalted':'Pisces','exDeg':27,'debil':'Virgo','debilDeg':27,'own':['Taurus','Libra'],'mool':'Libra','friends':['Mercury','Saturn'],'enemies':['Sun','Moon'],'neutral':['Mars','Jupiter']},
-    'Saturn':  {'exalted':'Libra','exDeg':20,'debil':'Aries','debilDeg':20,'own':['Capricorn','Aquarius'],'mool':'Aquarius','friends':['Mercury','Venus'],'enemies':['Sun','Moon','Mars'],'neutral':['Jupiter']},
-}
-
-DASHA_YEARS = {'Ketu':7,'Venus':20,'Sun':6,'Moon':10,'Mars':7,'Rahu':18,'Jupiter':16,'Saturn':19,'Mercury':17}
-DASHA_SEQUENCE = ['Ketu','Venus','Sun','Moon','Mars','Rahu','Jupiter','Saturn','Mercury']
-
-TITHI_NAMES = [
-    'Pratipada','Dwitiya','Tritiya','Chaturthi','Panchami','Shashthi','Saptami','Ashtami','Navami','Dashami',
-    'Ekadashi','Dwadashi','Trayodashi','Chaturdashi','Purnima','Pratipada','Dwitiya','Tritiya','Chaturthi','Panchami',
-    'Shashthi','Saptami','Ashtami','Navami','Dashami','Ekadashi','Dwadashi','Trayodashi','Chaturdashi','Amavasya'
-]
-YOGA_NAMES = [
-    'Vishkambha','Priti','Ayushman','Saubhagya','Shobhana','Atiganda','Sukarma','Dhriti','Shoola','Ganda','Vriddhi','Dhruva','Vyaghata','Harshana','Vajra','Siddhi','Vyatipata','Variyan','Parigha','Shiva','Siddhartha','Sadhya','Shubha','Shukla','Brahma','Indra','Vaidhriti'
-]
-KARANA_SEQUENCE = ['Bava','Balava','Kaulava','Taitila','Garaja','Vanija','Vishti','Shakuni','Chatushpada','Naga','Kimstughna']
 
 class BirthDetails(BaseModel):
     dateOfBirth: str = Field(..., example="1990-05-15")
@@ -146,265 +518,6 @@ class BirthDetails(BaseModel):
     houseSystem: Optional[Literal['P','W']] = Field('W', example='W')
     nodeMode: Optional[Literal['mean','true']] = Field('mean', example='mean')
     debug: Optional[bool] = Field(False, example=False)
-
-
-def to_julian(date_str: str, time_str: str, tz_name: str) -> float:
-    dt_local = parser.parse(f"{date_str} {time_str}")
-    tz = pytz.timezone(tz_name)
-    dt_local = tz.localize(dt_local)
-    dt_utc = dt_local.astimezone(pytz.utc)
-    year, month, day = dt_utc.year, dt_utc.month, dt_utc.day
-    hour = dt_utc.hour + dt_utc.minute/60
-    return swe.julday(year, month, day, hour)
-
-
-def get_sign(lon: float) -> str:
-    return ZODIAC_SIGNS[int(lon // 30) % 12]
-
-
-def get_nakshatra(lon: float):
-    for name, lord, start, end in NAKSHATRAS:
-        if start <= lon < end:
-            span = end - start
-            pos = lon - start
-            pada = int((pos / span) * 4) + 1
-            return {'name': name, 'lord': lord, 'pada': pada}
-    return {'name':'Unknown','lord':'Unknown','pada':1}
-
-
-def ayanamsa_value(jd: float) -> float:
-    swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
-    return swe.get_ayanamsa(jd)
-
-
-def to_dms(x: float) -> str:
-    s = -1 if x < 0 else 1
-    x = abs(x)
-    d = int(x)
-    m = int((x - d)*60)
-    sec = int(round(((x - d)*60 - m)*60))
-    sign = '-' if s < 0 else ''
-    return f"{sign}{d}°{m}′{sec}″"
-
-
-def get_avastha(deg_in_sign: float, sign: str) -> str:
-    idx = max(0, min(4, int(deg_in_sign // 6)))
-    odd = sign in ['Aries','Gemini','Leo','Libra','Sagittarius','Aquarius']
-    odd_order = ['Infant (Bala)','Young (Kumara)','Youth (Yuva)','Old (Vriddha)','Dead (Mrita)']
-    even_order = list(reversed(odd_order))
-    return (odd_order if odd else even_order)[idx]
-
-
-def is_combust(name: str, lon: float, sun_lon: float, retro: bool) -> bool:
-    if name in ['Sun','Rahu','Ketu','Uranus','Neptune','Pluto']:
-        return False
-    dist = abs(lon - sun_lon)
-    dist = min(dist, 360 - dist)
-    c = COMBUSTION_DIST.get(name)
-    if not c:
-        return False
-    if name == 'Mercury' and retro:
-        c = 12
-    if name == 'Venus' and retro:
-        c = 8
-    return dist < c
-
-
-def calc_planets(jd: float, profile: Optional[str], node_mode: str):
-    swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
-    planets = []
-    sun_lon = None
-    for pname, pid in PLANET_IDS.items():
-        if pname in ['Rahu','Ketu']:
-            pid = swe.TRUE_NODE if node_mode == 'true' else swe.MEAN_NODE
-        xx, rf = swe.calc_ut(jd, pid, swe.FLG_SIDEREAL | swe.FLG_SWIEPH | swe.FLG_SPEED)
-        lon, lat, dist, lon_spd, lat_spd, dist_spd = xx[0], xx[1], xx[2], xx[3], xx[4], xx[5]
-        if pname == 'Ketu':
-            lon = (lon + 180) % 360
-        if pname == 'Sun' and sun_lon is None:
-            sun_lon = lon
-        sign = get_sign(lon)
-        deg_in_sign = lon % 30
-        nk = get_nakshatra(lon)
-        retro = lon_spd < 0
-        avastha = get_avastha(deg_in_sign, sign)
-        planets.append({
-            'name': pname,
-            'longitude': lon,
-            'latitude': lat,
-            'speed': lon_spd,
-            'degree': deg_in_sign,
-            'degreeDMS': to_dms(deg_in_sign),
-            'longitudeDMS': to_dms(lon),
-            'sign': sign,
-            'signLord': SIGN_LORDS[sign],
-            'nakshatra': nk['name'],
-            'nakshatraLord': nk['lord'],
-            'nakshatraPada': nk['pada'],
-            'house': 0,
-            'isRetrograde': retro and pname not in ['Sun','Moon'],
-            'isCombust': False,
-            'avastha': avastha,
-            'houseStatus': None,
-        })
-    # combustion
-    if sun_lon is not None:
-        for p in planets:
-            if p['name'] != 'Sun':
-                p['isCombust'] = is_combust(p['name'], p['longitude'], sun_lon, p['isRetrograde'])
-    return planets
-
-
-def calc_houses(jd: float, lat: float, lon: float, planets: list, house_system: str):
-    swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
-    hsys = (house_system or 'P').encode('ascii')
-    cusps, ascmc = swe.houses_ex(jd, lat, lon, hsys, swe.FLG_SIDEREAL)
-    asc_deg = ascmc[0]
-    asc_sign = get_sign(asc_deg)
-    asc_nk = get_nakshatra(asc_deg)
-
-    if house_system == 'W':
-        asc_idx = ZODIAC_SIGNS.index(asc_sign)
-        hs = []
-        for i in range(12):
-            sidx = (asc_idx + i) % 12
-            sname = ZODIAC_SIGNS[sidx]
-            hs.append({'number': i+1, 'sign': sname, 'signLord': SIGN_LORDS[sname], 'degree': sidx*30, 'planets': []})
-        for p in planets:
-            psidx = ZODIAC_SIGNS.index(p['sign'])
-            hnum = ((psidx - asc_idx + 12) % 12) + 1
-            p['house'] = hnum
-            hs[hnum-1]['planets'].append(p['name'])
-    else:
-        # Normalize cusps to a 0-based 12-length list for safe indexing
-        cusps_list = list(cusps)
-        if len(cusps_list) >= 13:
-            cusps12 = cusps_list[1:13]
-        else:
-            cusps12 = cusps_list[0:12]
-
-        hs = []
-        for i in range(12):
-            cusp = cusps12[i]
-            sname = get_sign(cusp)
-            plist = []
-            nxt = cusps12[(i + 1) % 12]
-            for p in planets:
-                inside = (p['longitude'] >= cusp and p['longitude'] < nxt) if nxt > cusp else (p['longitude'] >= cusp or p['longitude'] < nxt)
-                if inside:
-                    plist.append(p['name'])
-                    p['house'] = i+1
-            hs.append({'number': i+1, 'sign': sname, 'signLord': SIGN_LORDS[sname], 'degree': cusp, 'planets': plist})
-
-    asc = {'sign': asc_sign, 'degree': asc_deg, 'nakshatra': asc_nk['name'], 'nakshatraLord': asc_nk['lord']}
-    # Also return cusps for debugging/verification
-    # Return cusps normalized to 12-length list
-    cusps_out = list(cusps)[1:13] if len(list(cusps)) >= 13 else list(cusps)[0:12]
-    return {'houses': hs, 'ascendant': asc, 'cusps': cusps_out}
-
-
-def planet_status(name: str, sign: str) -> str:
-    props = PLANET_PROPS.get(name)
-    if not props:
-        return 'Neutral'
-    if props['exalted'] == sign:
-        return 'Exalted'
-    if props['debil'] == sign:
-        return 'Debilitated'
-    if sign in props['own']:
-        return 'Own Sign'
-    if props['mool'] == sign:
-        return 'Mooltrikona'
-    lord = SIGN_LORDS[sign]
-    if lord in props['friends']:
-        return 'Friendly'
-    if lord in props['enemies']:
-        return 'Enemy'
-    return 'Neutral'
-
-
-def sunrise_sunset(date_str: str, tz_name: str, lat: float, lon: float):
-    # Validate coordinates
-    if not -90 <= lat <= 90 or not -180 <= lon <= 180:
-        logging.error(f"Invalid coordinates provided: lat={lat}, lon={lon}")
-        return None, None, None, None
-    
-    try:
-        tz = pytz.timezone(tz_name)
-        dt_local = tz.localize(parser.parse(f"{date_str} 00:00"))
-        dt_utc = dt_local.astimezone(pytz.utc)
-        jd0 = swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, dt_utc.hour + dt_utc.minute/60)
-
-        rsmi_rise = swe.CALC_RISE | swe.BIT_DISC_CENTER
-        rsmi_set = swe.CALC_SET | swe.BIT_DISC_CENTER
-        press = 1013.25
-        temp = 15
-        geopos = (lon, lat, 0.0)
-
-        # Per installed swisseph doc: res, tret = rise_trans(tjdut, body, rsmi, geopos, atpress, attemp, flags)
-        res_rise, tret_rise = swe.rise_trans(jd0, swe.SUN, rsmi_rise, geopos, press, temp, swe.FLG_SWIEPH)
-        res_set, tret_set = swe.rise_trans(jd0, swe.SUN, rsmi_set, geopos, press, temp, swe.FLG_SWIEPH)
-
-        # res == 0 means success, -2 circumpolar (no event)
-        if res_rise != 0 or res_set != 0:
-            logging.warning(f"swe.rise_trans no event: rise_res={res_rise}, set_res={res_set}")
-            return None, None, None, None
-
-        sr_jdut = tret_rise[0]
-        ss_jdut = tret_set[0]
-
-        def to_local_str(jdut):
-            if not jdut:
-                return None
-            y, m, d, ut = swe.revjul(jdut)
-            hh = int(ut)
-            mm = int(round((ut - hh) * 60))
-            dt = datetime(y, m, d, hh, mm, tzinfo=pytz.utc).astimezone(tz)
-            return dt.strftime('%H:%M')
-
-        return to_local_str(sr_jdut), to_local_str(ss_jdut), sr_jdut, ss_jdut
-    except Exception as e:
-        logging.error(f"Error in sunrise_sunset calculation: {e}", exc_info=True)
-        return None, None, None, None
-
-
-def panchang_at_jd(jd: float) -> Dict[str, Any]:
-    swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
-    xs, _ = swe.calc_ut(jd, swe.SUN, swe.FLG_SIDEREAL | swe.FLG_SWIEPH)
-    xm, _ = swe.calc_ut(jd, swe.MOON, swe.FLG_SIDEREAL | swe.FLG_SWIEPH)
-    s_lon = xs[0]
-    m_lon = xm[0]
-    diff = (m_lon - s_lon) % 360.0
-    tithi_num = int(diff // 12) + 1
-    tithi_name = TITHI_NAMES[tithi_num - 1]
-    paksha = 'Shukla' if tithi_num <= 15 else 'Krishna'
-    nk = get_nakshatra(m_lon)
-    nk_num = next((i+1 for i, (n, *_rest) in enumerate(NAKSHATRAS) if n == nk['name']), None)
-    yoga_sum = (s_lon + m_lon) % 360.0
-    yoga_num = int(yoga_sum // 13.333333) + 1
-    yoga_name = YOGA_NAMES[(yoga_num - 1) % 27]
-    kar_index = int((diff % 12) // 6)
-    kar_name = KARANA_SEQUENCE[min(kar_index, len(KARANA_SEQUENCE)-1)]
-    moon_phase = 'Full Moon' if tithi_num == 15 else ('New Moon' if tithi_num == 30 else ('Waxing' if tithi_num < 15 else 'Waning'))
-    return {
-        'tithi': tithi_name,
-        'tithiNumber': tithi_num,
-        'nakshatra': nk['name'],
-        'nakshatraNumber': nk_num,
-        'yoga': yoga_name,
-        'karana': kar_name,
-        'paksha': paksha,
-        'moonPhase': moon_phase
-    }
-
-
-def compute_panchang(date_str: str, time_str: str, tz: str, lat: float, lon: float) -> Dict[str, Any]:
-    """Compute Panchang using sunrise JD when available and include sunrise/sunset local strings."""
-    jd = to_julian(date_str, time_str, tz)
-    sr, ss, sr_jd, _ = sunrise_sunset(date_str, tz, lat, lon)
-    core = panchang_at_jd(sr_jd if sr_jd else jd)
-    core.update({'sunrise': sr, 'sunset': ss})
-    return core
 
 
 def pd_years(years: float) -> timedelta:
@@ -719,38 +832,346 @@ def kp_details(houses: list, planets: list) -> Dict[str, Any]:
 
 def detect_yogas(planets: list, houses: list, asc_sign: str) -> list:
     res = []
-    moon = next((p for p in planets if p['name']=='Moon'), None)
-    jup = next((p for p in planets if p['name']=='Jupiter'), None)
-    if moon and jup and moon['house'] in [1,4,7,10] and jup['house'] in [1,4,7,10]:
-        res.append({'name':'Gajakesari Yoga','description':'Moon and Jupiter in kendras from ascendant','strength':'Strong'})
+    pmap = {p['name']: p for p in planets}
+    asc_idx = ZODIAC_SIGNS.index(asc_sign)
+
+    def in_kendra(p):
+        h = p.get('house', 0)
+        return h in [1, 4, 7, 10]
+
+    def in_trikona(p):
+        h = p.get('house', 0)
+        return h in [1, 5, 9]
+
+    def in_dusthana(p):
+        h = p.get('house', 0)
+        return h in [6, 8, 12]
+
+    def in_upachaya(p):
+        h = p.get('house', 0)
+        return h in [3, 6, 10, 11]
+
+    def house_of(p):
+        return p.get('house', 0)
+
+    def sign_of(p):
+        return p.get('sign', '')
+
+    moon = pmap.get('Moon')
+    sun = pmap.get('Sun')
+    jup = pmap.get('Jupiter')
+    ven = pmap.get('Venus')
+    mar = pmap.get('Mars')
+    mer = pmap.get('Mercury')
+    sat = pmap.get('Saturn')
+    rahu = pmap.get('Rahu')
+    ketu = pmap.get('Ketu')
+
+    # --- Pancha Mahapurusha Yogas (5 yogas) ---
+    mahapurusha = {
+        'Mars': ('Ruchaka', 'Mars in own/exalted sign in kendra - courageous, commanding, warrior-like'),
+        'Mercury': ('Bhadra', 'Mercury in own/exalted sign in kendra - intelligent, eloquent, learned'),
+        'Jupiter': ('Hamsa', 'Jupiter in own/exalted sign in kendra - noble, spiritual, wise'),
+        'Venus': ('Malavya', 'Venus in own/exalted sign in kendra - beautiful, artistic, luxurious'),
+        'Saturn': ('Shasha', 'Saturn in own/exalted sign in kendra - powerful, authoritative, disciplined')
+    }
+    for pname in ['Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn']:
+        p = pmap.get(pname)
+        if p and in_kendra(p) and planet_status(pname, sign_of(p)) in ['Exalted', 'Own Sign', 'Mooltrikona']:
+            label, desc = mahapurusha[pname]
+            res.append({'name': f'{label} Yoga (Mahapurusha)', 'description': desc, 'strength': 'Strong'})
+
+    # --- Gajakesari Yoga ---
+    if moon and jup and in_kendra(moon) and in_kendra(jup):
+        res.append({'name': 'Gajakesari Yoga', 'description': 'Moon and Jupiter in mutual kendras - wisdom, wealth, lasting reputation', 'strength': 'Strong'})
+
+    # --- Neecha Bhanga Raja Yoga ---
     for p in planets:
-        if planet_status(p['name'], p['sign']) == 'Debilitated':
-            lord = SIGN_LORDS[p['sign']]
-            lord_planet = next((q for q in planets if q['name']==lord), None)
-            if lord_planet and planet_status(lord, lord_planet['sign']) == 'Exalted':
-                res.append({'name':'Neecha Bhanga (simplified)','description':f"{p['name']} debilitation cancelled by exalted {lord}", 'strength':'Medium'})
-    return res
+        if planet_status(p['name'], sign_of(p)) == 'Debilitated':
+            lord_name = SIGN_LORDS[sign_of(p)]
+            lord_p = pmap.get(lord_name)
+            if lord_p and planet_status(lord_name, sign_of(lord_p)) in ['Exalted', 'Own Sign']:
+                res.append({'name': 'Neecha Bhanga Raja Yoga', 'description': f"{p['name']} debilitation cancelled by exalted/own-sign {lord_name}", 'strength': 'Medium'})
+
+    # --- Budha Aditya Yoga ---
+    if sun and mer and sign_of(sun) == sign_of(mer):
+        res.append({'name': 'Budha Aditya Yoga', 'description': 'Sun and Mercury conjunction - intelligence, analytical ability, government favor', 'strength': 'Medium'})
+
+    # --- Chandra Mangala Yoga ---
+    if moon and mar and sign_of(moon) == sign_of(mar):
+        res.append({'name': 'Chandra Mangala Yoga', 'description': 'Moon-Mars conjunction - earning ability, bold nature, prosperity', 'strength': 'Medium'})
+    elif moon and mar and abs(house_of(moon) - house_of(mar)) in [6, 8]:
+        pass
+    elif moon and mar:
+        moon_lord_house = house_of(pmap.get(SIGN_LORDS.get(sign_of(moon), ''), {})) if SIGN_LORDS.get(sign_of(moon)) in pmap else 0
+        if moon_lord_house and house_of(mar) == moon_lord_house:
+            res.append({'name': 'Chandra Mangala Yoga', 'description': 'Moon lord in Mars house or mutual aspect - wealth through boldness', 'strength': 'Medium'})
+
+    # --- Dhan Yoga (Wealth) ---
+    if jup and ven:
+        jup_house = house_of(jup)
+        ven_house = house_of(ven)
+        if (in_kendra(jup) or in_trikona(jup)) and (in_kendra(ven) or in_trikona(ven)):
+            res.append({'name': 'Dhana Yoga', 'description': 'Jupiter and Venus in kendra/trikona - wealth and material comfort', 'strength': 'Strong'})
+    if sun and jup:
+        if (in_kendra(sun) or in_trikona(sun)) and (in_kendra(jup) or in_trikona(jup)):
+            if sign_of(sun) != sign_of(jup):
+                pass
+            res.append({'name': 'Dhana Yoga', 'description': 'Sun-Jupiter combination in favorable houses - financial prosperity', 'strength': 'Medium'})
+
+    # --- Raj Yoga (Raja Yoga) ---
+    for p1name in ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn']:
+        for p2name in ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn']:
+            if p1name == p2name:
+                continue
+            p1 = pmap.get(p1name)
+            p2 = pmap.get(p2name)
+            if not p1 or not p2:
+                continue
+            p1_lord = SIGN_LORDS.get(sign_of(p1))
+            p2_lord = SIGN_LORDS.get(sign_of(p2))
+            if p1_lord in pmap and p2_lord in pmap:
+                pl1 = pmap[p1_lord]
+                pl2 = pmap[p2_lord]
+                if (in_kendra(pl1) or in_trikona(pl1)) and (in_kendra(pl2) or in_trikona(pl2)):
+                    if house_of(pl1) != house_of(pl2):
+                        lord1_status = planet_status(p1_lord, sign_of(pl1))
+                        lord2_status = planet_status(p2_lord, sign_of(pl2))
+                        if lord1_status in ['Exalted', 'Own Sign', 'Mooltrikona', 'Friendly'] or lord2_status in ['Exalted', 'Own Sign', 'Mooltrikona', 'Friendly']:
+                            res.append({'name': 'Raja Yoga', 'description': f'Lords of {p1name} and {p2name} signs in kendra/trikona - power and success', 'strength': 'Strong'})
+                            break
+        else:
+            continue
+        break
+
+    # --- Viparita Raja Yoga ---
+    dusthana_lords = []
+    for pname in ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn']:
+        p = pmap.get(pname)
+        if p:
+            h = house_of(p)
+            if h in [6, 8, 12]:
+                dusthana_lords.append(pname)
+    if len(dusthana_lords) >= 2:
+        res.append({'name': 'Viparita Raja Yoga', 'description': f"Lords of dusthana houses ({', '.join(dusthana_lords)}) placed in other dusthana houses - reversal of adversity into success", 'strength': 'Medium'})
+
+    # --- Amala Yoga ---
+    if jup and in_kendra(jup):
+        h = house_of(jup)
+        if h in [1, 4]:
+            res.append({'name': 'Amala Yoga', 'description': 'Jupiter in 1st or 4th house - natural virtue, good character, lasting good fortune', 'strength': 'Strong'})
+    if ven and in_kendra(ven):
+        h = house_of(ven)
+        if h in [1, 4]:
+            res.append({'name': 'Amala Yoga', 'description': 'Venus in 1st or 4th house - virtuous nature, prosperous life', 'strength': 'Strong'})
+
+    # --- Kemadruma Yoga (no planet near Moon) ---
+    if moon:
+        moon_h = house_of(moon)
+        adjacent = [((moon_h) % 12) + 1, ((moon_h - 2) % 12) + 1]
+        has_neighbor = False
+        for pname in ['Sun', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu']:
+            p = pmap.get(pname)
+            if p and house_of(p) in adjacent:
+                has_neighbor = True
+                break
+        if not has_neighbor:
+            res.append({'name': 'Kemadruma Yoga', 'description': 'No planets in 2nd/12th from Moon - emotional challenges, need for self-reliance', 'strength': 'Malefic'})
+
+    # --- Pancha Mangala Yoga ---
+    benefics_in_kendra = 0
+    for pname in ['Jupiter', 'Venus', 'Mercury', 'Moon']:
+        p = pmap.get(pname)
+        if p and in_kendra(p):
+            benefics_in_kendra += 1
+    if benefics_in_kendra >= 3:
+        res.append({'name': 'Pancha Mangala Yoga', 'description': f'{benefics_in_kendra} benefics in kendras - highly auspicious, virtuous, prosperous', 'strength': 'Very Strong'})
+
+    # --- Guru Chandal Yoga ---
+    if jup and rahu and sign_of(jup) == sign_of(rahu):
+        res.append({'name': 'Guru Chandal Yoga', 'description': 'Jupiter-Rahu conjunction - confusion in wisdom, unconventional path, potential for transformation', 'strength': 'Malefic'})
+    if jup and rahu and house_of(jup) == house_of(rahu):
+        if sign_of(jup) != sign_of(rahu):
+            res.append({'name': 'Guru Chandal Yoga', 'description': 'Jupiter and Rahu in same house - unconventional wisdom, spiritual challenge', 'strength': 'Malefic'})
+
+    # --- Chandala Yoga ---
+    if jup and ketu and sign_of(jup) == sign_of(ketu):
+        res.append({'name': 'Chandala Yoga', 'description': 'Jupiter-Ketu conjunction - spiritual but may cause detachment from worldly life', 'strength': 'Mixed'})
+
+    # --- Shani Dosha in Yoga context ---
+    if sat and moon and in_kendra(sat) and house_of(sat) == house_of(moon):
+        res.append({'name': 'Punarpoo Yoga', 'description': 'Saturn-Moon conjunction in kendra - emotional depth, delays but eventual stability', 'strength': 'Mixed'})
+
+    # --- Sarpa Dosha (separate from Kaal Sarp) ---
+    if rahu and ketu:
+        classical = [pmap.get(n) for n in ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn'] if pmap.get(n)]
+        rahu_lon = rahu['longitude']
+        ketu_lon = ketu['longitude']
+        rahu_idx = next((i for i, p in enumerate(classical) if p['name'] == 'Rahu'), None)
+
+    # --- Vasumad Yoga ---
+    if jup and ven and in_trikona(jup) and in_trikona(ven):
+        if house_of(jup) != house_of(ven):
+            res.append({'name': 'Vasumad Yoga', 'description': 'Jupiter and Venus in different trikonas - wealth, property, and family happiness', 'strength': 'Strong'})
+
+    # --- Dhana Yoga (2nd lord in 11th or vice versa) ---
+    second_lord_name = SIGN_LORDS[ZODIAC_SIGNS[(asc_idx + 1) % 12]]
+    eleventh_lord_name = SIGN_LORDS[ZODIAC_SIGNS[(asc_idx + 10) % 12]]
+    second_lord = pmap.get(second_lord_name)
+    eleventh_lord = pmap.get(eleventh_lord_name)
+    if second_lord and eleventh_lord:
+        if house_of(second_lord) == 11 or house_of(eleventh_lord) == 2:
+            res.append({'name': 'Dhana Yoga (Lord Exchange)', 'description': '2nd lord in 11th house or 11th lord in 2nd house - strong financial gains', 'strength': 'Strong'})
+
+    # --- Lakshmi Yoga ---
+    if ven and sat:
+        ven_lord_house = house_of(pmap.get(SIGN_LORDS.get(sign_of(ven), ''), {})) if SIGN_LORDS.get(sign_of(ven)) in pmap else 0
+        sat_lord_house = house_of(pmap.get(SIGN_LORDS.get(sign_of(sat), ''), {})) if SIGN_LORDS.get(sign_of(sat)) in pmap else 0
+        if ven and in_trikona(ven) and sat and in_kendra(sat):
+            res.append({'name': 'Lakshmi Yoga', 'description': 'Venus in trikona and Saturn in kendra - wealth, luxury, and divine grace', 'strength': 'Strong'})
+
+    # --- Saraswati Yoga ---
+    if jup and ven and mer:
+        all_three_kendra_or_trikona = all(in_kendra(p) or in_trikona(p) for p in [jup, ven, mer] if p)
+        if all_three_kendra_or_trikona:
+            res.append({'name': 'Saraswati Yoga', 'description': 'Jupiter, Venus, Mercury in kendra/trikona - knowledge, arts, education, eloquence', 'strength': 'Strong'})
+
+    # --- Daridra Yoga ---
+    second_lord = pmap.get(SECOND_LORD_NAME := SIGN_LORDS[ZODIAC_SIGNS[(asc_idx + 1) % 12]])
+    twelfth_lord = pmap.get(TWELFTH_LORD_NAME := SIGN_LORDS[ZODIAC_SIGNS[(asc_idx + 11) % 12]])
+    if second_lord and twelfth_lord:
+        if in_dusthana(second_lord) and in_dusthana(twelfth_lord):
+            res.append({'name': 'Daridra Yoga', 'description': '2nd and 12th lords in dusthana houses - financial challenges, need for careful planning', 'strength': 'Malefic'})
+
+    # --- Shubhakartari Yoga ---
+    if jup and in_kendra(jup):
+        h = house_of(jup)
+        prev_h = ((h - 2) % 12) + 1
+        next_h = (h % 12) + 1
+        for pname in ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn']:
+            p = pmap.get(pname)
+            if p and house_of(p) in [prev_h, next_h] and pname not in ['Mars', 'Saturn']:
+                res.append({'name': 'Shubhakartari Yoga', 'description': 'Benefics flanking Jupiter in kendra - auspicious results, good fortune', 'strength': 'Strong'})
+                break
+
+    # Deduplicate
+    seen = set()
+    unique = []
+    for y in res:
+        key = y['name']
+        if key not in seen:
+            seen.add(key)
+            unique.append(y)
+    return unique
 
 
 def detect_doshas(planets: list) -> list:
     res = []
-    mars = next((p for p in planets if p['name']=='Mars'), None)
-    present = mars and mars['house'] in [1,4,7,8,12]
-    res.append({'name':'Mangal Dosha','description':'Mars in 1/4/7/8/12 (simplified)','present': bool(present), 'remedies':['Hanuman Chalisa','Kumbh Vivah']})
-    rahu = next((p for p in planets if p['name']=='Rahu'), None)
-    ketu = next((p for p in planets if p['name']=='Ketu'), None)
-    classical = [p for p in planets if p['name'] in ['Sun','Moon','Mercury','Venus','Mars','Jupiter','Saturn']]
-    if rahu and ketu and classical:
-        a = rahu['longitude']; b = ketu['longitude']
-        lo = min(a,b); hi = max(a,b)
-        inside = all((lo <= p['longitude'] <= hi) for p in classical)
-        present2 = inside or all(not (lo <= p['longitude'] <= hi) for p in classical)
-    else:
-        present2 = False
-    res.append({'name':'Kaal Sarp Dosha','description':'All planets confined between Rahu and Ketu (simplified)','present': bool(present2), 'remedies':['Rahu-Ketu Shanti']})
-    sun = next((p for p in planets if p['name']=='Sun'), None)
-    present3 = sun and (sun['sign'] == (rahu['sign'] if rahu else '') or sun['sign'] == (ketu['sign'] if ketu else ''))
-    res.append({'name':'Pitra Dosha','description':'Sun afflicted by nodes (sign-conjunction)','present': bool(present3), 'remedies':['Pitru Tarpan','Rahu/Ketu Shanti']})
+    pmap = {p['name']: p for p in planets}
+
+    mars = pmap.get('Mars')
+    rahu = pmap.get('Rahu')
+    ketu = pmap.get('Ketu')
+    sun = pmap.get('Sun')
+    moon = pmap.get('Moon')
+    sat = pmap.get('Saturn')
+    jup = pmap.get('Jupiter')
+    mer = pmap.get('Mercury')
+
+    # --- Mangal Dosha (enhanced with house-specific check) ---
+    mangal_houses = [1, 2, 4, 7, 8, 12]
+    if mars:
+        mangal_present = mars.get('house', 0) in mangal_houses
+        if mangal_present:
+            detail = f"Mars in house {mars['house']}"
+            if mars.get('isRetrograde'):
+                detail += " (retrograde) - reduced severity"
+            res.append({'name': 'Mangal Dosha', 'description': f"Mars in 1/2/4/7/8/12 - {detail}. Affects marriage harmony.", 'present': True, 'severity': 'High' if mars.get('house') in [1, 4, 7, 8] else 'Medium', 'remedies': ['Hanuman Chalisa', 'Kumbh Vivah', 'Mangal Puja', 'Tuesday fasting']})
+        else:
+            res.append({'name': 'Mangal Dosha', 'description': 'Mars not in dosha houses', 'present': False, 'remedies': []})
+
+    # --- Kaal Sarp Dosha (enhanced) ---
+    if rahu and ketu:
+        classical = [p for p in planets if p['name'] in ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn']]
+        if classical:
+            rahu_lon = rahu['longitude']
+            ketu_lon = ketu['longitude']
+            lo, hi = min(rahu_lon, ketu_lon), max(rahu_lon, ketu_lon)
+            all_between = all(lo <= p['longitude'] <= hi for p in classical)
+            all_outside = all(not (lo <= p['longitude'] <= hi) for p in classical)
+            if all_between or all_outside:
+                res.append({'name': 'Kaal Sarp Dosha', 'description': 'All planets confined between Rahu-Ketu axis - karmic challenges, delayed success', 'present': True, 'severity': 'High', 'remedies': ['Rahu-Ketu Shanti Puja', 'Rudra Abhishek', 'Nag Panchami worship', 'Maha Mrityunjaya Jaap']})
+            else:
+                res.append({'name': 'Kaal Sarp Dosha', 'description': 'Not present', 'present': False, 'remedies': []})
+        else:
+            res.append({'name': 'Kaal Sarp Dosha', 'description': 'Not present', 'present': False, 'remedies': []})
+
+    # --- Pitra Dosha ---
+    if sun and (rahu or ketu):
+        sun_sign = sun.get('sign', '')
+        pitra_present = False
+        if rahu and sun_sign == rahu.get('sign', ''):
+            pitra_present = True
+        if ketu and sun_sign == ketu.get('sign', ''):
+            pitra_present = True
+        if not pitra_present and rahu and ketu:
+            for node in [rahu, ketu]:
+                if node.get('house') == sun.get('house'):
+                    pitra_present = True
+                    break
+        res.append({'name': 'Pitra Dosha', 'description': 'Sun afflicted by Rahu/Ketu - ancestral karma, need for pitru remedies', 'present': bool(pitra_present), 'severity': 'Medium' if pitra_present else 'None', 'remedies': ['Pitru Tarpan', 'Pitru Paksha rituals', 'Shraddha', 'Rahu/Ketu Shanti'] if pitra_present else []})
+
+    # --- Shani Dosha (Saturn Affliction) ---
+    if sat:
+        sat_house = sat.get('house', 0)
+        if sat_house in [1, 4, 7, 8, 12]:
+            res.append({'name': 'Shani Dosha', 'description': f"Saturn in house {sat_house} - delays, obstacles, karmic lessons", 'present': True, 'severity': 'High' if sat_house in [1, 8] else 'Medium', 'remedies': ['Shani Puja', 'Hanuman Chalisa', 'Donation on Saturday', 'Shani Mantra Japa']})
+        else:
+            res.append({'name': 'Shani Dosha', 'description': 'Saturn not in dosha houses', 'present': False, 'remedies': []})
+
+    # --- Guru Chandal Dosha ---
+    if jup and rahu:
+        gc_present = jup.get('house') == rahu.get('house') or jup.get('sign') == rahu.get('sign')
+        res.append({'name': 'Guru Chandal Dosha', 'description': 'Jupiter-Rahu conjunction - confusion in wisdom, unconventional decisions', 'present': bool(gc_present), 'severity': 'Medium' if gc_present else 'None', 'remedies': ['Guru Puja', 'Vishnu Sahasranama', 'Thursday fasting'] if gc_present else []})
+
+    # --- Kemadruma Dosha ---
+    if moon:
+        moon_house = moon.get('house', 0)
+        adjacent_houses = [((moon_house - 2) % 12) + 1, (moon_house % 12) + 1]
+        has_neighbor = False
+        for pname in ['Sun', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu']:
+            p = pmap.get(pname)
+            if p and p.get('house') in adjacent_houses:
+                has_neighbor = True
+                break
+        if not has_neighbor:
+            res.append({'name': 'Kemadruma Dosha', 'description': 'No planets in 2nd/12th from Moon - emotional loneliness, financial instability', 'present': True, 'severity': 'Medium', 'remedies': ['Chandra Puja', 'Monday fasting', 'Worship at Shiva temple']})
+        else:
+            res.append({'name': 'Kemadruma Dosha', 'description': 'Planets present near Moon - not active', 'present': False, 'remedies': []})
+
+    # --- Manglik Dosha variants ---
+    if mars:
+        mars_house = mars.get('house', 0)
+        if mars_house == 1:
+            res.append({'name': 'Angarak Dosha', 'description': 'Mars in Ascendant - aggressive tendencies, need for anger management', 'present': True, 'severity': 'Medium', 'remedies': ['Mangal Mantra', 'Tuesday fasting', 'Red coral gemstone']})
+        elif mars_house == 7:
+            res.append({'name': 'Kuja Dosha (7th House)', 'description': 'Mars in 7th house - marriage conflicts, strong personality in spouse', 'present': True, 'severity': 'High', 'remedies': ['Kumbh Vivah', 'Mangal Puja', 'Compatibility analysis']})
+
+    # --- Sade Sati indicator ---
+    if sat and moon:
+        sat_house = sat.get('house', 0)
+        moon_house = moon.get('house', 0)
+        diff = (sat_house - moon_house) % 12
+        if diff in [0, 1, 11]:
+            res.append({'name': 'Sade Sati Indicator', 'description': f"Saturn near Moon (house diff {diff}) - period of testing, growth through hardship", 'present': True, 'severity': 'High', 'remedies': ['Shani Puja', 'Shani Mantra', 'Charity on Saturday', 'Hanuman Chalisa']})
+
+    # --- Rahu/Ketu Axis Dosha (Dosh) ---
+    if rahu and ketu:
+        rahu_house = rahu.get('house', 0)
+        ketu_house = ketu.get('house', 0)
+        if rahu_house in [1, 4, 7, 10] or ketu_house in [1, 4, 7, 10]:
+            res.append({'name': 'Rahu-Ketu Kendra Dosha', 'description': 'Nodes in kendra houses - unconventional life path, spiritual transformation needed', 'present': True, 'severity': 'Medium', 'remedies': ['Rahu/Ketu Puja', 'Nag Panchami', 'Vishnu worship']})
+
     return res
 
 
@@ -802,21 +1223,17 @@ def generate_kundli(body: BirthDetails) -> Dict[str, Any]:
     for p in planets:
         p['houseStatus'] = planet_status(p['name'], p['sign'])
 
-    # Default to Whole Sign if not provided; North-Indian style charts usually expect whole sign houses
     hs_code = body.houseSystem or 'W'
     house_data = calc_houses(jd, body.latitude, body.longitude, planets, hs_code)
 
-    # Panchang via shared helper
     panch = compute_panchang(body.dateOfBirth, body.timeOfBirth, body.timezone, body.latitude, body.longitude)
-    
-    # Use propertySource to choose source for Vedic properties: 'moon' | 'ascendant' | 'sunriseMoon'
+
     source = (body.propertySource or 'moon').lower()
     chosen = None
     if source == 'ascendant':
         asc = house_data['ascendant']
         chosen = {'sign': asc['sign'], 'nakshatra': asc['nakshatra'], 'pada': 1}
     elif source == 'sunrisemoon':
-        # Recompute Moon at sunrise JD if available; else fallback to current jd
         _sr, _ss, _sr_jd, _ = sunrise_sunset(body.dateOfBirth, body.timezone, body.latitude, body.longitude)
         sr_jd_effective = _sr_jd if _sr_jd else jd
         xm, _ = swe.calc_ut(sr_jd_effective, swe.MOON, swe.FLG_SIDEREAL | swe.FLG_SWIEPH)
@@ -826,7 +1243,7 @@ def generate_kundli(body: BirthDetails) -> Dict[str, Any]:
             'nakshatra': get_nakshatra(m_lon)['name'],
             'pada': get_nakshatra(m_lon)['pada']
         }
-    else:  # default to 'moon'
+    else:
         moon_details = next((p for p in planets if p['name'] == 'Moon'), None)
         if moon_details:
             chosen = {'sign': moon_details['sign'], 'nakshatra': moon_details['nakshatra'], 'pada': moon_details['nakshatraPada']}
@@ -847,16 +1264,87 @@ def generate_kundli(body: BirthDetails) -> Dict[str, Any]:
         'timezone': body.timezone,
         'ayanamsa': 'Lahiri',
         'ayanamsaValue': ayan,
-        'sunSign': next(p['sign'] for p in planets if p['name']=='Sun'),
-        'moonSign': next(p['sign'] for p in planets if p['name']=='Moon'),
+        'sunSign': next(p['sign'] for p in planets if p['name'] == 'Sun'),
+        'moonSign': next(p['sign'] for p in planets if p['name'] == 'Moon'),
         'ascendant': house_data['ascendant'],
         'houseSystem': hs_code
     }
+
+    # Divisional charts
+    divisional = charts_divisional_extended(planets, house_data['ascendant'])
+
+    # Yogas
+    yogas = detect_yogas(planets, house_data['houses'], house_data['ascendant']['sign'])
+
+    # Doshas
+    doshas = detect_doshas(planets)
+
+    # Vimshottari Dasha
+    birth_local = parse_local_datetime(body.dateOfBirth, body.timeOfBirth, body.timezone)
+    dasha = vimshottari_full(jd, birth_local)
+
+    # Current dasha at now
+    current_now = None
+    try:
+        tz = pytz.timezone(body.timezone)
+        today = datetime.now(tz).date().isoformat()
+        cur_md = next((md for md in dasha.get('mahadashas', []) if md['startDate'] <= today < md['endDate']), None)
+        if cur_md:
+            cur_ad = next((ad for ad in cur_md.get('antardasha', []) if ad['startDate'] <= today < ad['endDate']), None)
+            cur_pd = next((pd for pd in cur_ad.get('pratyantar', []) if pd['startDate'] <= today < pd['endDate']), None) if cur_ad else None
+            cur_sook = None
+            if cur_pd:
+                cur_sook = next((sd for sd in cur_pd.get('sookshma', []) if sd['startDate'] <= today < sd['endDate']), None)
+            current_now = {
+                'mahadasha': {'planet': cur_md['planet'], 'startDate': cur_md['startDate'], 'endDate': cur_md['endDate']},
+                'antardasha': {'planet': cur_ad['planet'], 'startDate': cur_ad['startDate'], 'endDate': cur_ad['endDate']} if cur_ad else None,
+                'pratyantar': {'planet': cur_pd['planet'], 'startDate': cur_pd['startDate'], 'endDate': cur_pd['endDate']} if cur_pd else None,
+                'sookshma': {'planet': cur_sook['planet'], 'startDate': cur_sook['startDate'], 'endDate': cur_sook['endDate']} if cur_sook else None,
+            }
+    except Exception:
+        current_now = None
+
+    # KP details
+    kp = kp_details(house_data['houses'], planets)
+
+    # Clean planets for response (remove internal fields)
+    clean_planets = []
+    for p in planets:
+        clean_planets.append({
+            'name': p['name'],
+            'longitude': p['longitude'],
+            'latitude': p['latitude'],
+            'speed': p['speed'],
+            'degree': p['degree'],
+            'degreeDMS': p['degreeDMS'],
+            'longitudeDMS': p['longitudeDMS'],
+            'sign': p['sign'],
+            'signLord': p['signLord'],
+            'nakshatra': p['nakshatra'],
+            'nakshatraLord': p['nakshatraLord'],
+            'nakshatraPada': p['nakshatraPada'],
+            'house': p['house'],
+            'isRetrograde': p['isRetrograde'],
+            'isCombust': p['isCombust'],
+            'avastha': p['avastha'],
+            'houseStatus': p['houseStatus'],
+        })
 
     return {
         'success': True,
         'data': {
             'basicDetails': basic,
+            'planets': clean_planets,
+            'houses': house_data['houses'],
+            'divisionalCharts': divisional,
+            'yogas': yogas,
+            'doshas': doshas,
+            'dasha': {
+                'system': 'Vimshottari',
+                'currentNow': current_now,
+                'schedule': dasha,
+            },
+            'kpDetails': kp,
             'vedicProperties': {
                 'source': body.propertySource,
                 'sourceNakshatra': vedic_source_nk,
@@ -916,7 +1404,52 @@ def planet_full_name(name: str) -> str:
 PLANET_DEFS = {
     'Sun': {
         'definitions': 'The radiant Sun is the significator (Karaka) of health, vitality, energy, and strength. It embodies qualities of leadership, courage, and personal power. Revered as a royal and aristocratic planet, the Sun represents the conscious ego and the soul, guiding the path of self-realization.',
-        'gayatri': 'Om Bhaskaraya Vidmahe Mahadyutikaraya Dheemahi Tanno Adityah Prachodayaat'
+        'gayatri': 'Om Bhaskaraya Vidmahe Mahadyutikaraya Dheemahi Tanno Adityah Prachodayaat',
+        'keywords_positive': ['leadership', 'vitality', 'confidence', 'authority', 'courage', 'generosity'],
+        'keywords_negative': ['ego', 'arrogance', 'domineering', 'self-centered'],
+        'karaka': 'Soul, father, government, authority, career, self-expression'
+    },
+    'Moon': {
+        'definitions': 'The luminous Moon governs the mind, emotions, nurturing, and intuition. She represents the subconscious, imagination, and the mother. The Moon reflects the Sun\'s light, symbolizing how we process and respond to life experiences emotionally.',
+        'gayatri': 'Om Chandraya Namaha - Om Kshira Vrindaya Vidmahe Amrit Tatvaya Dheemahi Tanno Chandrah Prachodayaat',
+        'keywords_positive': ['intuition', 'empathy', 'nurturing', 'imagination', 'emotional depth'],
+        'keywords_negative': ['mood swings', 'indecision', 'over-sensitivity', 'dependency'],
+        'karaka': 'Mind, mother, emotions, home, comfort, travel, public'
+    },
+    'Mars': {
+        'definitions': 'Mars is the warrior planet, signifying courage, ambition, energy, and the drive to act. It rules over conflict, competition, surgery, and engineering. Mars provides the willpower to overcome obstacles and the fighting spirit.',
+        'gayatri': 'Om Angarakaya Namaha - Om Ang Ankarakaya Vidmahe Shakti Hastaya Dheemahi Tanno Bhaumah Prachodayaat',
+        'keywords_positive': ['courage', 'determination', 'energy', 'initiative', 'competitiveness'],
+        'keywords_negative': ['aggression', 'anger', 'impulsiveness', 'violence'],
+        'karaka': 'Brother, courage, property, land, surgery, engineering, sports'
+    },
+    'Mercury': {
+        'definitions': 'Mercury represents intelligence, communication, analytical thinking, and adaptability. It governs speech, writing, commerce, mathematics, and wit. As the fastest planet, Mercury endows quick thinking and versatility.',
+        'gayatri': 'Om Budhaya Namaha - Om Vishwarupaya Vidmahe Krodhakaraya Dheemahi Tanno Budhah Prachodayaat',
+        'keywords_positive': ['intelligence', 'communication', 'adaptability', 'wit', 'analytical mind'],
+        'keywords_negative': ['nervousness', 'restlessness', 'manipulation', 'anxiety'],
+        'karaka': 'Speech, intellect, education, commerce, skin, friends'
+    },
+    'Jupiter': {
+        'definitions': 'Jupiter, the Great Benefic, is the guru (teacher) of the gods. It signifies wisdom, spirituality, wealth, children, and fortune. Jupiter expands whatever it touches, bringing optimism, generosity, and philosophical understanding.',
+        'gayatri': 'Om Gurave Namaha - Om Vrishabhadhipaya Vidmahe Kanya Purushaya Dheemahi Tanno Guruh Prachodayaat',
+        'keywords_positive': ['wisdom', 'generosity', 'optimism', 'spirituality', 'fortune', 'philosophy'],
+        'keywords_negative': ['overconfidence', 'excess', 'laziness', 'judgment'],
+        'karaka': 'Wisdom, children, wealth, husband (for female), dharma, guru'
+    },
+    'Venus': {
+        'definitions': 'Venus, the planet of love, beauty, and luxury, governs art, music, romance, and material pleasures. It represents the wife (for male), partnerships, and all things aesthetically pleasing. Venus is the indicator of refined taste and enjoyment.',
+        'gayatri': 'Om Shukraya Namaha - Om Asvikrathvaya Vidmahe Krodhakaraya Dheemahi Tanno Shukrah Prachodayaat',
+        'keywords_positive': ['love', 'beauty', 'harmony', 'creativity', 'luxury', 'diplomacy'],
+        'keywords_negative': ['vanity', 'overindulgence', 'laziness', 'immorality'],
+        'karaka': 'Wife (for male), love, marriage, vehicle, luxury, art, music'
+    },
+    'Saturn': {
+        'definitions': 'Saturn, the taskmaster of the zodiac, represents discipline, responsibility, hard work, and karma. Though feared, Saturn is a great teacher who brings growth through challenges. It governs longevity, structure, and maturity.',
+        'gayatri': 'Om Shanaye Namaha - Om Kaakadhwajaya Vidmahe Khadga Hastaya Dheemahi Tanno Shanayah Prachodayaat',
+        'keywords_positive': ['discipline', 'responsibility', 'patience', 'wisdom through suffering', 'structure'],
+        'keywords_negative': ['delay', 'restriction', 'fear', 'melancholy', 'loneliness'],
+        'karaka': 'Longevity, sorrow, service, land, vehicles, elderly, karma'
     }
 }
 
