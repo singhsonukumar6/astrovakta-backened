@@ -63,6 +63,8 @@ app = FastAPI(
     ],
 )
 
+app.add_middleware(APIKeyMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -73,8 +75,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.add_middleware(APIKeyMiddleware)
 
 # ──────── Swagger UI: API Key Input ────────
 from fastapi.openapi.utils import get_openapi
