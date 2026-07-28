@@ -7,7 +7,6 @@ Both backends expose the same interface via get_db(), so app/auth.py
 and other callers don't need to know which engine is active.
 """
 import os
-import re
 import sqlite3
 import logging
 
@@ -25,92 +24,38 @@ _db_connection: sqlite3.Connection | None = None
 #  PostgreSQL Adapter
 # ═══════════════════════════════════════════════════════════
 
-_pg_pool = None
+class PGConnectionWrapper:
+    """Mimics sqlite3.Connection: execute(), commit(), cursor().
 
-def _get_pg_pool():
-    global _pg_pool
-    if _pg_pool is None:
+    Uses psycopg directly (no pool) — opens a new connection per operation.
+    This is fine for low traffic. For high traffic, add psycopg-pool.
+    """
+
+    def __init__(self):
         import psycopg
         from psycopg.rows import dict_row
-        _pg_pool = psycopg.ConnectionPool(
-            conninfo=DATABASE_URL,
-            min_size=2,
-            max_size=10,
-            row_factory=dict_row,
-        )
-        logger.info("PostgreSQL connection pool created")
-    return _pg_pool
-
-
-class PGCursorWrapper:
-    """Wraps a psycopg cursor so it behaves like sqlite3 cursor + connection."""
-    def __init__(self, pool):
-        self._pool = pool
+        self._dict_row = dict_row
         self._conn = None
-        self._cur = None
 
-    def __enter__(self):
-        self._conn = self._pool.getconn()
-        self._cur = self._conn.cursor()
-        return self
-
-    def __exit__(self, *exc):
-        if self._cur:
-            self._cur.close()
-        if self._conn:
-            self._pool.putconn(self._conn)
+    def _get_conn(self):
+        if self._conn is None or self._conn.closed:
+            self._conn = psycopg.connect(DATABASE_URL, row_factory=self._dict_row)
+            self._conn.autocommit = False
+        return self._conn
 
     def execute(self, sql: str, params=None):
-        """Auto-convert ? placeholders to %s for psycopg."""
-        if params is not None and "?" in sql:
-            sql = sql.replace("?", "%s")
-        # Handle INSERT ... RETURNING id for lastrowid compatibility
-        if self._cur is None:
-            self._conn = self._pool.getconn()
-            self._cur = self._conn.cursor()
-        self._cur.execute(sql, params)
-        return self._cur
-
-    @property
-    def lastrowid(self):
-        """Emulate lastrowid — only valid right after an INSERT."""
-        # psycopg3 doesn't have lastrowid; caller should use RETURNING instead.
-        # Fallback: return None (callers that need it use RETURNING now).
-        return None
-
-    @property
-    def rowcount(self):
-        return self._cur.rowcount if self._cur else -1
-
-    def fetchone(self):
-        return self._cur.fetchone() if self._cur else None
-
-    def fetchall(self):
-        return self._cur.fetchall() if self._cur else []
-
-
-class PGConnectionWrapper:
-    """Mimics sqlite3.Connection: execute(), commit(), cursor()."""
-    def __init__(self):
-        self._pool = _get_pg_pool()
-
-    def execute(self, sql: str, params=None):
-        if params is not None and "?" in sql:
-            sql = sql.replace("?", "%s")
-        conn = self._pool.getconn()
+        conn = self._get_conn()
         cur = conn.cursor()
+        # Auto-convert ? placeholders to %s for psycopg
+        if params is not None and "?" in sql:
+            sql = sql.replace("?", "%s")
         cur.execute(sql, params)
-        # Store conn+cur so commit() can access them
-        self._active_conn = conn
         self._active_cur = cur
         return cur
 
     def commit(self):
-        if self._active_conn:
-            self._active_conn.commit()
-            self._pool.putconn(self._active_conn)
-            self._active_conn = None
-            self._active_cur = None
+        if self._conn and not self._conn.closed:
+            self._conn.commit()
 
     def cursor(self):
         return self
@@ -121,17 +66,14 @@ class PGConnectionWrapper:
 
     @row_factory.setter
     def row_factory(self, val):
-        pass  # psycopg always uses dict_row via pool config
+        pass  # psycopg always uses dict_row via connection config
 
     def executescript(self, script: str):
         """Execute multiple statements (DDL)."""
-        conn = self._pool.getconn()
-        try:
-            with conn.cursor() as cur:
-                cur.execute(script)
-            conn.commit()
-        finally:
-            self._pool.putconn(conn)
+        conn = self._get_conn()
+        with conn.cursor() as cur:
+            cur.execute(script)
+        conn.commit()
 
 
 # ═══════════════════════════════════════════════════════════
@@ -305,41 +247,37 @@ def _migrate_sqlite(cursor, table, column, col_type):
         pass
 
 
-def _migrate_pg(pool, table, column, col_type):
+def _migrate_pg(db, table, column, col_type):
     try:
-        conn = pool.getconn()
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name = %s AND column_name = %s",
-                (table, column),
-            )
-            if not cur.fetchone():
-                cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
-        conn.commit()
-        pool.putconn(conn)
+        row = db.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = ? AND column_name = ?",
+            (table, column),
+        ).fetchone()
+        if not row:
+            db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+            db.commit()
     except Exception as e:
         logger.debug(f"Migration {table}.{column}: {e}")
 
 
 def init_db() -> None:
     if USE_POSTGRES:
-        pool = _get_pg_pool()
-        conn = pool.getconn()
+        logger.info("Initializing PostgreSQL schema...")
+        db = get_db()
         try:
-            with conn.cursor() as cur:
-                cur.execute(_PG_DDL)
-            conn.commit()
-        finally:
-            pool.putconn(conn)
-        for t, c, ct in [
-            ("users", "is_admin", "BOOLEAN DEFAULT FALSE"),
-            ("users", "avatar_url", "TEXT"),
-            ("usage_logs", "response_time_ms", "INTEGER"),
-            ("usage_logs", "endpoint_group", "TEXT"),
-        ]:
-            _migrate_pg(pool, t, c, ct)
-        logger.info("PostgreSQL schema initialized")
+            db.executescript(_PG_DDL)
+            for t, c, ct in [
+                ("users", "is_admin", "BOOLEAN DEFAULT FALSE"),
+                ("users", "avatar_url", "TEXT"),
+                ("usage_logs", "response_time_ms", "INTEGER"),
+                ("usage_logs", "endpoint_group", "TEXT"),
+            ]:
+                _migrate_pg(db, t, c, ct)
+            logger.info("PostgreSQL schema initialized")
+        except Exception as e:
+            logger.error(f"PostgreSQL init failed: {e}")
+            raise
     else:
         conn = get_db()
         cursor = conn.cursor()
