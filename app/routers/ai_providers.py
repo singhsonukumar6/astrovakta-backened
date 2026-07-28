@@ -139,29 +139,44 @@ class TestProviderBody(BaseModel):
     api_key: str
 
 
-@router.post("/test")
-async def test_provider(body: TestProviderBody, user: dict = Depends(get_current_user)):
-    """Test an AI provider connection without saving."""
-    if body.provider not in SUPPORTED_PROVIDERS:
+async def _run_provider_test(provider_name: str, api_key: str):
+    """Shared logic to test an AI provider connection."""
+    if provider_name not in SUPPORTED_PROVIDERS:
         raise HTTPException(status_code=400, detail="Unsupported provider")
 
     try:
-        if body.provider == "anthropic":
+        if provider_name == "anthropic":
             async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.post(
                     "https://api.anthropic.com/v1/messages",
-                    headers={"x-api-key": body.api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"},
+                    headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"},
                     json={"model": "claude-3-haiku-20240307", "max_tokens": 10, "messages": [{"role": "user", "content": "Say OK"}]},
                 )
                 if resp.status_code == 200:
-                    return {"status": "connected", "provider": body.provider}
+                    return {"status": "connected", "provider": provider_name}
                 return {"status": "failed", "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
         else:
-            url = SUPPORTED_PROVIDERS[body.provider]["test_url"]
+            url = SUPPORTED_PROVIDERS[provider_name]["test_url"]
             async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.get(url, headers={"Authorization": f"Bearer {body.api_key}"})
+                resp = await client.get(url, headers={"Authorization": f"Bearer {api_key}"})
                 if resp.status_code == 200:
-                    return {"status": "connected", "provider": body.provider}
+                    return {"status": "connected", "provider": provider_name}
                 return {"status": "failed", "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
     except Exception as e:
         return {"status": "failed", "error": str(e)}
+
+
+@router.post("/test")
+async def test_provider(body: TestProviderBody, user: dict = Depends(get_current_user)):
+    """Test an AI provider connection without saving."""
+    return await _run_provider_test(body.provider, body.api_key)
+
+
+@router.post("/{provider_id}/test")
+async def test_saved_provider(provider_id: int, user: dict = Depends(get_current_user)):
+    """Test a saved AI provider by decrypting its stored key."""
+    p = get_ai_provider(provider_id, user["id"])
+    if not p:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    api_key = decrypt_api_key(p["encrypted_key"])
+    return await _run_provider_test(p["provider"], api_key)
