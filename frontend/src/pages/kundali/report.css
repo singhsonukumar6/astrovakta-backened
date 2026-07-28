@@ -4,6 +4,11 @@
    ============================================================ */
 
 /* ---------- CSS Custom Properties ---------- */
+@page {
+  size: A4;
+  margin: 0;
+}
+
 .report-container {
   --brand-primary: #7c3aed;
   --brand-secondary: #6366f1;
@@ -36,11 +41,24 @@
 }
 
 /* ---------- Page & Page-Break ---------- */
+@page {
+  size: A4;
+  margin: 0;
+}
+
 .page {
-  min-height: 1100px;
+  min-height: 1123px;
   padding: 48px 56px;
   position: relative;
   box-sizing: border-box;
+  page-break-after: always;
+  break-after: page;
+  width: 100%;
+}
+
+.page-avoid-break {
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
 
 .page:not(.cover-page):not(.back-page)::before {

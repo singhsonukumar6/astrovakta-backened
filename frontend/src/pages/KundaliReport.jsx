@@ -327,18 +327,35 @@ export default function KundaliReport() {
     try {
       const html2pdf = (await import('html2pdf.js')).default
       const element = reportRef.current
+
+      // Force all SVG charts to render at a fixed size for html2canvas
+      const svgs = element.querySelectorAll('svg')
+      svgs.forEach(svg => {
+        svg.setAttribute('width', svg.getBoundingClientRect().width || '400')
+        svg.setAttribute('height', svg.getBoundingClientRect().height || '300')
+      })
+
       const opt = {
-        margin: [10, 10, 10, 10],
+        margin: 0,
         filename: `${branding.clientName || birth.locationName || 'Kundali'}_Report.pdf`,
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['css', 'legacy'] },
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 1,
+          useCORS: true,
+          letterRendering: true,
+          logging: false,
+          width: 794,
+          height: 1123,
+          windowWidth: 794,
+        },
+        jsPDF: { unit: 'px', format: [794, 1123], orientation: 'portrait' },
+        pagebreak: { mode: 'css' },
       }
       await html2pdf().set(opt).from(element).save()
       toast.success('PDF downloaded!')
     } catch (err) {
       toast.error('PDF generation failed: ' + err.message)
+      console.error('PDF generation error:', err)
     } finally {
       setGeneratingPdf(false)
     }
