@@ -136,7 +136,7 @@ function Overview({ user, keys }) {
       </div>
 
       {user?.is_admin && (
-        <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 20, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <Shield size={20} color="#fbbf24" />
           <span style={{ color: '#e2e8f0', fontSize: 14 }}>
             You have admin access.
@@ -144,6 +144,12 @@ function Overview({ user, keys }) {
           </span>
         </div>
       )}
+
+      <style>{`
+        @media (max-width: 640px) {
+          .overview-verify { flex-direction: column !important; align-items: flex-start !important; }
+        }
+      `}</style>
     </div>
   )
 }
@@ -190,12 +196,12 @@ function APIKeys({ keys, onRefresh }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+      <div className="tab-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
         <div>
           <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>API Keys</h2>
           <p style={{ color: '#94a3b8', fontSize: 14 }}>Manage API keys for accessing the Vedic Astrology API.</p>
         </div>
-        <button className="btn-primary" onClick={() => setShowModal(true)} style={{ fontSize: 14 }}>
+        <button className="btn-primary" onClick={() => setShowModal(true)} style={{ fontSize: 14, flexShrink: 0 }}>
           <Plus size={16} /> New Key
         </button>
       </div>
@@ -212,8 +218,8 @@ function APIKeys({ keys, onRefresh }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {keys?.map((k) => (
             <div key={k.id} className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div className="key-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                   <span style={{ fontWeight: 700, fontSize: 16 }}>{k.name}</span>
                   <span className="badge" style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa', textTransform: 'capitalize' }}>{k.tier}</span>
                   <span style={{ color: k.is_active ? '#22c55e' : '#ef4444', fontWeight: 500, fontSize: 13 }}>{k.is_active ? 'Active' : 'Revoked'}</span>
@@ -225,7 +231,7 @@ function APIKeys({ keys, onRefresh }) {
                   )}
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(10,10,26,0.6)', borderRadius: 10, padding: '10px 14px' }}>
+              <div className="key-value-row" style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(10,10,26,0.6)', borderRadius: 10, padding: '10px 14px' }}>
                 <Key size={14} color="#64748b" />
                 <code style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 13, color: '#e2e8f0', wordBreak: 'break-all', lineHeight: 1.5 }}>
                   {maskKey(k.key, k.id)}
@@ -253,7 +259,7 @@ function APIKeys({ keys, onRefresh }) {
             onClick={() => setShowModal(false)}>
             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()} className="glass"
-              style={{ borderRadius: 'var(--radius-lg)', padding: 32, width: '100%', maxWidth: 420 }}>
+              style={{ borderRadius: 'var(--radius-lg)', padding: 32, width: '100%', maxWidth: 420, maxHeight: '90vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
                 <h3 style={{ fontSize: 20, fontWeight: 700 }}>Create API Key</h3>
                 <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={20} /></button>
@@ -277,6 +283,13 @@ function APIKeys({ keys, onRefresh }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <style>{`
+        @media (max-width: 640px) {
+          .tab-header { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; }
+          .tab-header .btn-primary { width: 100% !important; justify-content: center !important; }
+        }
+      `}</style>
     </div>
   )
 }
@@ -333,12 +346,12 @@ function AIProvidersTab() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+      <div className="tab-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
         <div>
           <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>AI Providers</h2>
           <p style={{ color: '#94a3b8', fontSize: 14 }}>Configure your own AI API keys for the /ai/* endpoints. Your keys are encrypted at rest.</p>
         </div>
-        <button className="btn-primary" onClick={() => setShowModal(true)} style={{ fontSize: 14 }}>
+        <button className="btn-primary" onClick={() => setShowModal(true)} style={{ fontSize: 14, flexShrink: 0 }}>
           <Plus size={16} /> Add Provider
         </button>
       </div>
@@ -353,7 +366,7 @@ function AIProvidersTab() {
           </button>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
+        <div className="provider-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
           {providers.map((p) => {
             const meta = providerMeta[p.provider] || { name: p.provider, color: '#7c3aed' }
             return (
@@ -428,6 +441,14 @@ function AIProvidersTab() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <style>{`
+        @media (max-width: 640px) {
+          .tab-header { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; }
+          .tab-header .btn-primary { width: 100% !important; justify-content: center !important; }
+          .provider-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   )
 }
@@ -469,12 +490,12 @@ function ReportsTab() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+      <div className="tab-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
         <div>
           <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>PDF Reports</h2>
           <p style={{ color: '#94a3b8', fontSize: 14 }}>Generate and download branded Vedic birth chart reports.</p>
         </div>
-        <button className="btn-primary" onClick={() => setShowSubmit(true)} style={{ fontSize: 14 }}>
+        <button className="btn-primary" onClick={() => setShowSubmit(true)} style={{ fontSize: 14, flexShrink: 0 }}>
           <FileText size={16} /> Generate Report
         </button>
       </div>
@@ -532,7 +553,7 @@ function ReportsTab() {
                 <h3 style={{ fontSize: 20, fontWeight: 700 }}>Generate PDF Report</h3>
                 <button onClick={() => setShowSubmit(false)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={20} /></button>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="report-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>Birth Date</label>
                   <input className="input-field" type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} />
@@ -565,6 +586,14 @@ function ReportsTab() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <style>{`
+        @media (max-width: 640px) {
+          .tab-header { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; }
+          .tab-header .btn-primary { width: 100% !important; justify-content: center !important; }
+          .report-form-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   )
 }
@@ -677,8 +706,8 @@ function Profile({ user, onUserUpdate }) {
       <p style={{ color: '#94a3b8', marginBottom: 32 }}>Manage your account details and password.</p>
 
       {/* Profile Info */}
-      <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 32, maxWidth: 500, marginBottom: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 32, maxWidth: 500, marginBottom: 24, width: '100%' }}>
+        <div className="profile-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
           <h3 style={{ fontSize: 18, fontWeight: 700 }}>Account Details</h3>
           {!editing ? (
             <button className="btn-secondary" onClick={() => setEditing(true)} style={{ fontSize: 13, padding: '8px 16px' }}>
@@ -738,8 +767,8 @@ function Profile({ user, onUserUpdate }) {
       </div>
 
       {/* Password Change */}
-      <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 32, maxWidth: 500 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 32, maxWidth: 500, width: '100%' }}>
+        <div className="profile-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
           <h3 style={{ fontSize: 18, fontWeight: 700 }}>Change Password</h3>
           {!showPassword ? (
             <button className="btn-secondary" onClick={() => setShowPassword(true)} style={{ fontSize: 13, padding: '8px 16px' }}>
@@ -782,6 +811,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview')
   const [keys, setKeys] = useState([])
   const [localUser, setLocalUser] = useState(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -804,6 +834,10 @@ export default function Dashboard() {
     }
   }, [isAuthenticated])
 
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [activeTab])
+
   const refreshKeys = () => {
     getKeys().then((data) => setKeys(Array.isArray(data) ? data : data.keys || [])).catch(() => {})
   }
@@ -825,15 +859,13 @@ export default function Dashboard() {
   const displayUser = localUser || user
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', paddingTop: 72 }}>
-      <aside
-        className="dash-sidebar"
-        style={{
-          width: 240, borderRight: '1px solid var(--border-color)',
-          padding: '24px 12px', display: 'flex', flexDirection: 'column',
-          position: 'sticky', top: 72, height: 'calc(100vh - 72px)', flexShrink: 0,
-        }}
-      >
+    <div style={{ minHeight: '100vh', paddingTop: 72 }}>
+      {/* Desktop sidebar */}
+      <aside className="dash-sidebar" style={{
+        width: 240, borderRight: '1px solid var(--border-color)',
+        padding: '24px 12px', display: 'flex', flexDirection: 'column',
+        position: 'fixed', top: 72, left: 0, bottom: 0, zIndex: 40,
+      }}>
         <div style={{ flex: 1 }}>
           {tabs.map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
@@ -851,7 +883,6 @@ export default function Dashboard() {
             </button>
           ))}
         </div>
-
         {user?.is_admin && (
           <button onClick={() => navigate('/admin')}
             style={{
@@ -864,14 +895,35 @@ export default function Dashboard() {
             <Shield size={16} /> Admin Panel
           </button>
         )}
-
         <button onClick={() => { logout(); navigate('/'); }}
           style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, border: 'none', background: 'transparent', color: '#94a3b8', fontSize: 14, cursor: 'pointer', textAlign: 'left' }}>
           <LogOut size={18} /> Log Out
         </button>
       </aside>
 
-      <main style={{ flex: 1, padding: '32px', overflow: 'auto' }}>
+      {/* Mobile bottom tab bar */}
+      <nav className="dash-bottombar">
+        {tabs.map((tab) => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+            className={activeTab === tab.id ? 'active' : ''}
+          >
+            <tab.icon size={20} />
+            <span>{tab.label}</span>
+          </button>
+        ))}
+        {user?.is_admin && (
+          <button onClick={() => navigate('/admin')}>
+            <Shield size={20} />
+            <span>Admin</span>
+          </button>
+        )}
+        <button onClick={() => { logout(); navigate('/'); }}>
+          <LogOut size={20} />
+          <span>Logout</span>
+        </button>
+      </nav>
+
+      <main className="dash-main" style={{ padding: 32, overflow: 'auto' }}>
         <AnimatePresence mode="wait">
           <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
             {activeTab === 'overview' && <Overview user={displayUser} keys={keys} />}
@@ -885,10 +937,32 @@ export default function Dashboard() {
       </main>
 
       <style>{`
+        .dash-main { margin-left: 240px; }
+        .dash-bottombar { display: none; }
+
         @media (max-width: 768px) {
-          .dash-sidebar { width: 60px !important; }
-          .dash-sidebar button { font-size: 0 !important; padding: 10px !important; justify-content: center; }
-          .dash-sidebar button svg { margin: 0 !important; }
+          .dash-sidebar { display: none !important; }
+          .dash-main { margin-left: 0 !important; padding: 20px 16px !important; padding-bottom: 90px !important; }
+          .dash-bottombar {
+            display: flex !important;
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: rgba(10,10,26,0.95); backdrop-filter: blur(12px);
+            border-top: 1px solid var(--border-color);
+            z-index: 50; padding: 6px 8px;
+            justify-content: space-around;
+          }
+          .dash-bottombar button {
+            display: flex; flex-direction: column; align-items: center; gap: 3px;
+            padding: 6px 4px; border: none; background: none;
+            color: #64748b; font-size: 10px; cursor: pointer; border-radius: 8px;
+            min-width: 0; flex: 1;
+          }
+          .dash-bottombar button.active { color: #a78bfa; background: rgba(124,58,237,0.1); }
+          .dash-bottombar button svg { flex-shrink: 0; }
+        }
+
+        @media (max-width: 480px) {
+          .dash-main { padding: 16px 12px !important; padding-bottom: 90px !important; }
         }
       `}</style>
     </div>

@@ -90,10 +90,16 @@ class PGConnectionWrapper:
 #  Unified accessor
 # ═══════════════════════════════════════════════════════════
 
+_pg_thread_local = __import__('threading').local()
+
 def get_db():
     """Return a DB connection (SQLite or PG wrapper) matching the DATABASE_URL env."""
     if USE_POSTGRES:
-        return PGConnectionWrapper()
+        pg = getattr(_pg_thread_local, 'pg_conn', None)
+        if pg is None or pg._conn is None or pg._conn.closed:
+            pg = PGConnectionWrapper()
+            _pg_thread_local.pg_conn = pg
+        return pg
     global _db_connection
     if _db_connection is None:
         _db_connection = sqlite3.connect(DB_PATH, check_same_thread=False)
