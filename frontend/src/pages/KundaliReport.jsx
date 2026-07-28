@@ -141,6 +141,7 @@ const ALL_APIS = [
   { key: 'gemstone', path: '/api/gemstone/recommendation' },
   { key: 'rudraksha', path: '/api/rudraksha/recommendation' },
   { key: 'varshaphal', path: '/horoscope/varshaphal', extraBody: { year: new Date().getFullYear() } },
+  { key: 'aiInterpretation', path: '/ai/kundli-interpretation' },
 ]
 
 const CHART_APIS = [
@@ -332,7 +333,7 @@ export default function KundaliReport() {
         image: { type: 'jpeg', quality: 0.95 },
         html2canvas: { scale: 2, useCORS: true, letterRendering: true, logging: false },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+        pagebreak: { mode: ['css', 'legacy'] },
       }
       await html2pdf().set(opt).from(element).save()
       toast.success('PDF downloaded!')

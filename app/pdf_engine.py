@@ -11,7 +11,7 @@ from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
     PageBreak, KeepTogether, HRFlowable, Image, ListFlowable, ListItem
 )
-from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle, Polygon
+from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle, Ellipse, Path, Polygon
 from reportlab.graphics import renderPDF
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -384,20 +384,71 @@ def cover_page_drawing(client_name: str, report_title: str, birth_date: str,
     d.add(Rect(0, 0, 160, 6, fillColor=SECONDARY, strokeColor=None))
     d.add(Rect(320, 0, 160, 6, fillColor=ACCENT, strokeColor=None))
     elements.append(d)
-    elements.append(Spacer(1, 30))
+    elements.append(Spacer(1, 10))
 
-    # Logo placeholder or client name
-    if logo_path and os.path.exists(logo_path):
-        elements.append(Image(logo_path, width=80, height=80))
-        elements.append(Spacer(1, 10))
-    else:
-        # Decorative circle with OM-like symbol
-        d2 = Drawing(480, 80)
-        d2.add(Circle(240, 40, 35, fillColor=PRIMARY, strokeColor=SECONDARY, strokeWidth=2))
-        d2.add(String(228, 30, 'OM', fontSize=20, fillColor=colors.white,
-                      fontName='Helvetica-Bold', textAnchor='middle'))
-        elements.append(d2)
-        elements.append(Spacer(1, 10))
+    # Floral corner decorations
+    # Floral corner decorations
+    fc = Drawing(480, 480)
+    # Top-left
+    fc.add(Rect(24, 444, 60, 2, fillColor=PRIMARY, strokeColor=None))
+    fc.add(Rect(24, 444, 2, 60, fillColor=PRIMARY, strokeColor=None))
+    fc.add(String(30, 450, '\u273D', fontSize=18, fillColor=PRIMARY, fontName='Helvetica'))
+    fc.add(String(78, 430, '\u2740', fontSize=14, fillColor=ACCENT, fontName='Helvetica'))
+    # Top-right
+    fc.add(Rect(396, 444, 60, 2, fillColor=PRIMARY, strokeColor=None))
+    fc.add(Rect(478, 444, 2, 60, fillColor=PRIMARY, strokeColor=None))
+    fc.add(String(440, 450, '\u273D', fontSize=18, fillColor=PRIMARY, fontName='Helvetica'))
+    fc.add(String(392, 430, '\u2740', fontSize=14, fillColor=ACCENT, fontName='Helvetica'))
+    # Bottom-left
+    fc.add(Rect(24, 14, 60, 2, fillColor=SECONDARY, strokeColor=None))
+    fc.add(Rect(24, 14, 2, 60, fillColor=SECONDARY, strokeColor=None))
+    fc.add(String(30, 20, '\u273D', fontSize=18, fillColor=SECONDARY, fontName='Helvetica'))
+    fc.add(String(78, 40, '\u2740', fontSize=14, fillColor=ACCENT, fontName='Helvetica'))
+    # Bottom-right
+    fc.add(Rect(396, 14, 60, 2, fillColor=SECONDARY, strokeColor=None))
+    fc.add(Rect(478, 14, 2, 16, fillColor=SECONDARY, strokeColor=None))
+    fc.add(String(440, 20, '\u273D', fontSize=18, fillColor=SECONDARY, fontName='Helvetica'))
+    fc.add(String(392, 40, '\u2740', fontSize=14, fillColor=ACCENT, fontName='Helvetica'))
+
+    elements.append(fc)
+    elements.append(Spacer(1, 20))
+
+    # Decorative floral border bar
+    fb = Drawing(480, 14)
+    fb.add(Rect(0, 6, 480, 1, fillColor=PRIMARY, strokeColor=None))
+    fb.add(String(224, 0, '\u2748 \u273F \u2748', fontSize=12, fillColor=PRIMARY, fontName='Helvetica'))
+    elements.append(fb)
+    elements.append(Spacer(1, 20))
+
+    # Ganesha icon
+    g = Drawing(480, 120)
+
+    # Golden aura
+    g.add(Circle(240, 60, 50, fillColor=colors.HexColor('#FFF8E1'), strokeColor=colors.HexColor('#FFD54F'), strokeWidth=1))
+    # Head
+    g.add(Circle(240, 65, 22, fillColor=PRIMARY, strokeColor=SECONDARY, strokeWidth=1.5))
+    # Left ear
+    g.add(Ellipse(214, 66, 14, 22, fillColor=PRIMARY, strokeColor=SECONDARY, strokeWidth=1))
+    # Right ear
+    g.add(Ellipse(266, 66, 14, 22, fillColor=PRIMARY, strokeColor=SECONDARY, strokeWidth=1))
+    # Crown
+    g.add(Path().moveTo(231, 43).lineTo(240, 30).lineTo(249, 43).close().moveTo(235, 45).lineTo(240, 35).lineTo(245, 45).close())
+    g.add(Circle(240, 28, 3, fillColor=colors.red, strokeColor=None))
+    # Eyes
+    g.add(Circle(233, 62, 2.5, fillColor=rl_colors.white, strokeColor=None))
+    g.add(Circle(247, 62, 2.5, fillColor=rl_colors.white, strokeColor=None))
+    # Trunk
+    g.add(Path().moveTo(253, 68).curveTo(265, 85, 255, 105, 240, 100).curveTo(235, 98, 238, 95, 240, 97))
+    # Body
+    g.add(Ellipse(240, 110, 24, 16, fillColor=SECONDARY, strokeColor=colors.HexColor('#E65100'), strokeWidth=1))
+    # Blessing hand
+    g.add(Path().moveTo(214, 105).curveTo(200, 95, 198, 85, 205, 82))
+    # Hand with modak
+    g.add(Path().moveTo(266, 105).curveTo(278, 112, 272, 125, 265, 120))
+    g.add(Circle(268, 123, 6, fillColor=colors.HexColor('#FFD54F'), strokeColor=colors.HexColor('#F9A825'), strokeWidth=1))
+
+    elements.append(g)
+    elements.append(Spacer(1, 6))
 
     # Brand name (if different from client name)
     if brand_name:

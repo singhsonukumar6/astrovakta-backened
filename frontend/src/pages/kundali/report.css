@@ -43,6 +43,29 @@
   box-sizing: border-box;
 }
 
+.page:not(.cover-page):not(.back-page)::before {
+  content: "❈";
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 16px;
+  color: var(--brand-primary);
+  opacity: 0.25;
+}
+
+.page:not(.cover-page):not(.back-page)::after {
+  content: "❋  ❋  ❋";
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--brand-primary);
+  opacity: 0.2;
+  letter-spacing: 12px;
+}
+
 .page-break {
   page-break-after: always;
   break-after: page;
@@ -89,6 +112,147 @@
   right: 0;
   height: 6px;
   background: linear-gradient(90deg, var(--brand-secondary), var(--brand-accent), var(--brand-primary));
+}
+
+/* Floral Corner Decorations */
+.floral-corner {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  opacity: 0.15;
+  z-index: 1;
+}
+
+.floral-corner--tl {
+  top: 16px;
+  left: 16px;
+  border-top: 3px solid var(--brand-primary);
+  border-left: 3px solid var(--brand-primary);
+}
+.floral-corner--tl::before {
+  content: "✽";
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  font-size: 22px;
+  color: var(--brand-primary);
+}
+.floral-corner--tl::after {
+  content: "❀";
+  position: absolute;
+  bottom: -12px;
+  right: -10px;
+  font-size: 16px;
+  color: var(--brand-accent);
+}
+
+.floral-corner--tr {
+  top: 16px;
+  right: 16px;
+  border-top: 3px solid var(--brand-primary);
+  border-right: 3px solid var(--brand-primary);
+}
+.floral-corner--tr::before {
+  content: "✽";
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  font-size: 22px;
+  color: var(--brand-primary);
+}
+.floral-corner--tr::after {
+  content: "❀";
+  position: absolute;
+  bottom: -12px;
+  left: -10px;
+  font-size: 16px;
+  color: var(--brand-accent);
+}
+
+.floral-corner--bl {
+  bottom: 16px;
+  left: 16px;
+  border-bottom: 3px solid var(--brand-secondary);
+  border-left: 3px solid var(--brand-secondary);
+}
+.floral-corner--bl::before {
+  content: "✽";
+  position: absolute;
+  bottom: -8px;
+  left: -8px;
+  font-size: 22px;
+  color: var(--brand-secondary);
+}
+.floral-corner--bl::after {
+  content: "❀";
+  position: absolute;
+  top: -12px;
+  right: -10px;
+  font-size: 16px;
+  color: var(--brand-accent);
+}
+
+.floral-corner--br {
+  bottom: 16px;
+  right: 16px;
+  border-bottom: 3px solid var(--brand-secondary);
+  border-right: 3px solid var(--brand-secondary);
+}
+.floral-corner--br::before {
+  content: "✽";
+  position: absolute;
+  bottom: -8px;
+  right: -8px;
+  font-size: 22px;
+  color: var(--brand-secondary);
+}
+.floral-corner--br::after {
+  content: "❀";
+  position: absolute;
+  top: -12px;
+  left: -10px;
+  font-size: 16px;
+  color: var(--brand-accent);
+}
+
+/* Floral border bars */
+.floral-border--top,
+.floral-border--bottom {
+  position: absolute;
+  left: 40px;
+  right: 40px;
+  height: 1px;
+  z-index: 1;
+}
+.floral-border--top {
+  top: 36px;
+  background: linear-gradient(90deg, transparent, var(--brand-primary), var(--brand-accent), var(--brand-primary), transparent);
+}
+.floral-border--top::before {
+  content: "❈ ✿ ❈";
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--brand-primary);
+  letter-spacing: 8px;
+  opacity: 0.4;
+}
+.floral-border--bottom {
+  bottom: 36px;
+  background: linear-gradient(90deg, transparent, var(--brand-secondary), var(--brand-accent), var(--brand-secondary), transparent);
+}
+.floral-border--bottom::after {
+  content: "❈ ✿ ❈";
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--brand-secondary);
+  letter-spacing: 8px;
+  opacity: 0.4;
 }
 
 .cover-logo {
@@ -1067,6 +1231,59 @@
   color: var(--brand-accent);
 }
 
+/* ---------- AI Predictions ---------- */
+.ai-predictions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 16px 0 24px;
+}
+
+.ai-card {
+  display: flex;
+  gap: 16px;
+  padding: 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--report-border);
+  background: var(--report-surface);
+  page-break-inside: avoid;
+  break-inside: avoid;
+  transition: all 0.2s;
+}
+
+.ai-card__icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  background: var(--report-bg);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  border: 1px solid var(--report-border);
+}
+
+.ai-card__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-card__title {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--brand-primary);
+  margin-bottom: 8px;
+}
+
+.ai-card__text {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--report-text);
+  white-space: pre-line;
+}
+
 /* ---------- Print Styles ---------- */
 @media print {
   * {
@@ -1103,6 +1320,11 @@
     break-after: auto;
   }
 
+  .page:not(.cover-page):not(.back-page)::before,
+  .page:not(.cover-page):not(.back-page)::after {
+    display: block;
+  }
+
   .page-break {
     page-break-after: always;
     break-after: page;
@@ -1123,7 +1345,9 @@
   .report-table,
   .dasha-timeline,
   .panchang-card,
-  .lucky-item {
+  .lucky-item,
+  .ai-card,
+  .ai-predictions {
     page-break-inside: avoid;
     break-inside: avoid;
   }
@@ -1132,6 +1356,13 @@
   .back-page {
     page-break-after: always;
     break-after: page;
+  }
+
+  .floral-corner,
+  .floral-border--top,
+  .floral-border--bottom {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   .report-header,
@@ -1152,6 +1383,10 @@
   .card,
   .alert-box {
     box-shadow: none;
+  }
+
+  .ai-card {
+    border: 1px solid #e2e8f0 !important;
   }
 }
 

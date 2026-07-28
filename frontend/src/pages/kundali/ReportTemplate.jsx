@@ -101,10 +101,81 @@ function RenderSvg({ data, title, label, variant }) {
 }
 
 /* ─────────── COVER PAGE ─────────── */
+function GaneshaSvg() {
+  return (
+    <svg viewBox="0 0 200 200" style={{ width: 130, height: 130, marginBottom: 20 }} xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="gld" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#ffd700" />
+          <stop offset="50%" stopColor="#ff8c00" />
+          <stop offset="100%" stopColor="#ffd700" />
+        </linearGradient>
+        <linearGradient id="skin" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#a0522d" />
+          <stop offset="100%" stopColor="#8B4513" />
+        </linearGradient>
+      </defs>
+      {/* Base/Platform */}
+      <ellipse cx="100" cy="185" rx="70" ry="10" fill="url(#gld)" opacity="0.3" />
+      {/* Body */}
+      <ellipse cx="100" cy="145" rx="38" ry="32" fill="url(#gld)" />
+      {/* Belly */}
+      <ellipse cx="100" cy="148" rx="28" ry="22" fill="#e8b830" />
+      {/* Left leg */}
+      <ellipse cx="78" cy="168" rx="10" ry="14" fill="url(#gld)" />
+      {/* Right leg */}
+      <ellipse cx="122" cy="168" rx="10" ry="14" fill="url(#gld)" />
+      {/* Head */}
+      <circle cx="100" cy="82" r="34" fill="url(#skin)" />
+      {/* Left Ear */}
+      <ellipse cx="55" cy="85" rx="22" ry="34" fill="url(#skin)" transform="rotate(-10 55 85)" />
+      <ellipse cx="55" cy="85" rx="14" ry="22" fill="#d4a574" transform="rotate(-10 55 85)" />
+      {/* Right Ear */}
+      <ellipse cx="145" cy="85" rx="22" ry="34" fill="url(#skin)" transform="rotate(10 145 85)" />
+      <ellipse cx="145" cy="85" rx="14" ry="22" fill="#d4a574" transform="rotate(10 145 85)" />
+      {/* Crown/Tikka */}
+      <path d="M85 50 L92 35 L100 48 L108 35 L115 50 Z" fill="url(#gld)" />
+      <circle cx="100" cy="32" r="4" fill="#ff4444" />
+      {/* Eyes */}
+      <ellipse cx="88" cy="76" rx="3" ry="4" fill="#1a1a1a" />
+      <ellipse cx="112" cy="76" rx="3" ry="4" fill="#1a1a1a" />
+      {/* Eye white dots */}
+      <circle cx="89" cy="74" r="1.2" fill="#fff" />
+      <circle cx="113" cy="74" r="1.2" fill="#fff" />
+      {/* Trunk */}
+      <path d="M118 85 Q135 110 120 140 Q105 160 85 155" stroke="url(#skin)" strokeWidth="9" fill="none" strokeLinecap="round" />
+      {/* Trunk curve end */}
+      <path d="M85 155 Q78 152 82 147" stroke="url(#skin)" strokeWidth="7" fill="none" strokeLinecap="round" />
+      {/* Left Hand (up, blessing) */}
+      <path d="M62 130 Q40 115 45 100" stroke="url(#gld)" strokeWidth="7" fill="none" strokeLinecap="round" />
+      {/* Right Hand holding modak */}
+      <path d="M138 130 Q155 140 145 155" stroke="url(#gld)" strokeWidth="7" fill="none" strokeLinecap="round" />
+      {/* Modak */}
+      <ellipse cx="148" cy="158" rx="8" ry="6" fill="#d4a017" />
+      <path d="M142 155 Q148 150 154 155" stroke="#b8860b" strokeWidth="1.5" fill="none" />
+      {/* Necklaces */}
+      <ellipse cx="100" cy="120" rx="30" ry="6" fill="none" stroke="url(#gld)" strokeWidth="2" />
+      <ellipse cx="100" cy="126" rx="26" ry="4" fill="none" stroke="url(#gld)" strokeWidth="1.5" />
+      {/* Aura */}
+      <circle cx="100" cy="82" r="50" fill="none" stroke="url(#gld)" strokeWidth="1" opacity="0.3" strokeDasharray="3,4" />
+    </svg>
+  );
+}
+
 function CoverPage({ data, branding }) {
   const basic = data?.kundli?.data?.basicDetails || {};
   return (
     <div className="page cover-page">
+      {/* Floral corner decorations */}
+      <div className="floral-corner floral-corner--tl" />
+      <div className="floral-corner floral-corner--tr" />
+      <div className="floral-corner floral-corner--bl" />
+      <div className="floral-corner floral-corner--br" />
+      <div className="floral-border floral-border--top" />
+      <div className="floral-border floral-border--bottom" />
+
+      <GaneshaSvg />
+
       {branding.logoUrl ? (
         <img src={branding.logoUrl} alt={branding.brandName} className="cover-logo" />
       ) : (
@@ -819,6 +890,90 @@ function ForeignSection({ data }) {
   );
 }
 
+/* ─────────── AI PREDICTIONS ─────────── */
+function AIPredictions({ data }) {
+  const aiResp = data?.aiInterpretation || {};
+  const aiData = aiResp.data || aiResp.response || {};
+  const interpretation = aiData.interpretation || '';
+  const planets = safeArr(aiData.planets);
+  const houses = safeArr(aiData.houses);
+  const yogas = safeArr(aiData.yogas);
+  const doshas = safeArr(aiData.doshas);
+  const currentDasha = aiData.currentDasha || {};
+  const source = aiData.source || '';
+
+  if (!interpretation && !planets.length) return null;
+
+  const sections = interpretation ? interpretation.split(/\n(?=\d\.\s|\*\*[A-Z])/).filter(Boolean) : [];
+
+  return (
+    <div className="page">
+      <div className="floral-border floral-border--top" />
+      <div className="floral-border floral-border--bottom" />
+
+      <SectionHeading>🔮 AI-Powered Life Predictions</SectionHeading>
+      {source === 'ai' && (
+        <div className="alert-box alert-box--info" style={{ marginBottom: 16 }}>
+          <div className="alert-box__title">✨ AI-Generated Insights</div>
+          <div className="alert-box__body">
+            These predictions are generated using advanced AI based on your complete birth chart analysis.
+            They combine traditional Vedic astrology principles with modern interpretive techniques.
+          </div>
+        </div>
+      )}
+
+      {interpretation ? (
+        <div className="ai-predictions">
+          {sections.map((section, i) => {
+            const cleanText = section.replace(/^\d+\.\s*\*\*/g, '').replace(/\*\*/g, '');
+            const lines = cleanText.trim().split('\n').filter(Boolean);
+            const title = lines[0] || '';
+            const body = lines.slice(1).join('\n').trim();
+            const bgColors = [
+              'rgba(124,58,237,0.04)', 'rgba(236,72,153,0.04)',
+              'rgba(99,102,241,0.04)', 'rgba(251,191,36,0.04)',
+              'rgba(16,185,129,0.04)', 'rgba(239,68,68,0.04)',
+              'rgba(59,130,246,0.04)', 'rgba(245,158,11,0.04)',
+              'rgba(139,92,246,0.04)',
+            ];
+            return (
+              <div key={i} className="ai-card keep-together" style={{ background: bgColors[i % bgColors.length] }}>
+                <div className="ai-card__icon">
+                  {['🔮', '💼', '💰', '🏥', '❤️', '👨‍👩‍👧‍👦', '📚', '🕊️', '📅'][i % 9]}
+                </div>
+                <div className="ai-card__content">
+                  <div className="ai-card__title">{title}</div>
+                  {body && <div className="ai-card__text">{body}</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="summary-box">
+          <div className="summary-box__icon">🔮</div>
+          <div className="summary-box__content">
+            <div className="summary-box__title">Chart Analysis</div>
+            <div className="summary-box__text">
+              Detailed chart analysis data is available. {planets.length} planets analyzed, {houses.length} houses mapped.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {currentDasha.mahadasha && (
+        <div className="alert-box alert-box--branded" style={{ marginTop: 16 }}>
+          <div className="alert-box__title">🪐 Current Dasha Period</div>
+          <div className="alert-box__body">
+            <strong>{currentDasha.mahadasha}</strong>
+            {currentDasha.antardasha && <> — Antardasha: <strong>{currentDasha.antardasha}</strong></>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─────────── LUCKY ELEMENTS ─────────── */
 function LuckyElements({ data }) {
   const color = data?.luckyColor?.data || {};
@@ -1076,6 +1231,8 @@ export default function ReportTemplate({ data = {}, branding = {} }) {
       <EducationSection data={data} />
       <ChildSection data={data} />
       <ForeignSection data={data} />
+
+      <AIPredictions data={data} />
 
       <LuckyElements data={data} />
       <GemstoneRecommendation data={data} />
