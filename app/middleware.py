@@ -22,18 +22,12 @@ SKIP_PATHS = {
     "/redoc",
 }
 
-SKIP_PREFIXES = (
-    "/auth",
-    "/api/location",
-    "/api/charts",
-)
-
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
 
-        if path in SKIP_PATHS or any(path.startswith(p) for p in SKIP_PREFIXES):
+        if path in SKIP_PATHS or path.startswith("/auth"):
             response = await call_next(request)
             return response
 

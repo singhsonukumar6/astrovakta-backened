@@ -1,7 +1,8 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Play, Download, Settings, ChevronDown, ChevronUp, Loader2, FileText, Palette, Image, MapPin, X } from 'lucide-react'
+import { Play, Download, Settings, ChevronDown, ChevronUp, Loader2, FileText, Palette, Image, MapPin, X, Key, ExternalLink } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { Link } from 'react-router-dom'
 import api from '../lib/api.js'
 import ReportTemplate from './kundali/ReportTemplate.jsx'
 import './kundali/report.css'
@@ -28,9 +29,7 @@ const DEFAULT_BIRTH = {
   locationName: 'New Delhi, India',
 }
 
-const API_KEY = import.meta.env.VITE_API_KEY || localStorage.getItem('user_api_key') || ''
-
-function LocationSearch({ value, onSelect }) {
+function LocationSearch({ value, onSelect, apiKey }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [open, setOpen] = useState(false)
@@ -44,7 +43,7 @@ function LocationSearch({ value, onSelect }) {
     debounceRef.current = setTimeout(async () => {
       setLoading(true)
       try {
-        const res = await api.get('/api/location/search', { params: { q, limit: 5 }, headers: { 'X-API-Key': API_KEY } })
+        const res = await api.get('/api/location/search', { params: { q, limit: 5 }, headers: { 'X-API-Key': apiKey } })
         setResults(res.data?.locations || [])
         setOpen(true)
       } catch { setResults([]) }
@@ -58,7 +57,7 @@ function LocationSearch({ value, onSelect }) {
     setOpen(false)
     let tz = 'Asia/Kolkata'
     try {
-      const tzRes = await api.get('/api/location/timezone', { params: { lat: loc.latitude, lon: loc.longitude }, headers: { 'X-API-Key': API_KEY } })
+      const tzRes = await api.get('/api/location/timezone', { params: { lat: loc.latitude, lon: loc.longitude }, headers: { 'X-API-Key': apiKey } })
       tz = tzRes.data?.timezone || tz
     } catch {}
     onSelect({ latitude: loc.latitude, longitude: loc.longitude, timezone: tz, locationName: loc.displayName })
@@ -169,6 +168,10 @@ const DIVISIONAL_APIS = [
 ]
 
 export default function KundaliReport() {
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('kundali_api_key') || '')
+  const [apiKeyInput, setApiKeyInput] = useState(() => localStorage.getItem('kundali_api_key') || '')
+  const [apiKeyValid, setApiKeyValid] = useState(() => !!localStorage.getItem('kundali_api_key'))
+  const [validating, setValidating] = useState(false)
   const [birth, setBirth] = useState(DEFAULT_BIRTH)
   const [branding, setBranding] = useState(DEFAULT_BRANDING)
   const [showBranding, setShowBranding] = useState(false)
@@ -180,6 +183,37 @@ export default function KundaliReport() {
 
   const totalApis = ALL_APIS.length + CHART_APIS.length + DIVISIONAL_APIS.length
 
+  const validateApiKey = async () => {
+    if (!apiKeyInput.trim()) return toast.error('Please enter an API key')
+    setValidating(true)
+    try {
+      const res = await api.get('/api/kundli', {
+        params: { dateOfBirth: '1990-05-15', timeOfBirth: '10:30', latitude: 28.6139, longitude: 77.209, timezone: 'Asia/Kolkata' },
+        headers: { 'X-API-Key': apiKeyInput.trim() },
+        validateStatus: () => true,
+      })
+      if (res.status === 401) {
+        toast.error('Invalid API key. Please check and try again.')
+        return
+      }
+      setApiKey(apiKeyInput.trim())
+      localStorage.setItem('kundali_api_key', apiKeyInput.trim())
+      setApiKeyValid(true)
+      toast.success('API key verified!')
+    } catch {
+      toast.error('Could not verify API key. Please try again.')
+    } finally {
+      setValidating(false)
+    }
+  }
+
+  const clearApiKey = () => {
+    setApiKey('')
+    setApiKeyInput('')
+    setApiKeyValid(false)
+    localStorage.removeItem('kundali_api_key')
+  }
+
   const fetchAllData = useCallback(async () => {
     if (!birth.latitude || !birth.longitude) {
       toast.error('Please select a valid location')
@@ -190,7 +224,7 @@ export default function KundaliReport() {
     setProgress({ done: 0, total: totalApis, current: 'Starting...' })
 
     const bd = buildBirthData(birth)
-    const headers = { 'X-API-Key': API_KEY, 'Content-Type': 'application/json' }
+    const headers = { 'X-API-Key': apiKey, 'Content-Type': 'application/json' }
     const results = {}
 
     const fetchJson = async (path, body) => {
@@ -284,7 +318,7 @@ export default function KundaliReport() {
       setLoading(false)
       setProgress({ done: 0, total: 0, current: '' })
     }
-  }, [birth, totalApis])
+  }, [birth, totalApis, apiKey])
 
   const downloadPdf = useCallback(async () => {
     if (!reportRef.current) return
@@ -323,7 +357,58 @@ export default function KundaliReport() {
           </div>
         </div>
 
-        {!reportData && (
+        {!apiKeyValid && (
+          <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 32, maxWidth: 560, marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+              <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(124,58,237,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Key size={24} color="#a78bfa" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 2 }}>API Key Required</h3>
+                <p style={{ color: '#94a3b8', fontSize: 13 }}>Enter your AstroVakta API key to generate reports</p>
+              </div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>Your API Key</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  className="input-field"
+                  type="password"
+                  placeholder="avk_..."
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && validateApiKey()}
+                  style={{ flex: 1, fontSize: 13 }}
+                />
+                <button className="btn-primary" onClick={validateApiKey} disabled={validating} style={{ flexShrink: 0 }}>
+                  {validating ? 'Verifying...' : 'Verify'}
+                </button>
+              </div>
+            </div>
+            <p style={{ color: '#64748b', fontSize: 12 }}>
+              Don't have an API key?{' '}
+              <Link to="/dashboard" style={{ color: '#a78bfa', textDecoration: 'none', fontWeight: 500 }}>
+                Get one from your dashboard <ExternalLink size={11} style={{ verticalAlign: -1 }} />
+              </Link>
+            </p>
+          </div>
+        )}
+
+        {apiKeyValid && (
+          <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: '10px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Key size={14} color="#22c55e" />
+              <span style={{ fontSize: 13, color: '#94a3b8' }}>
+                API Key: <code style={{ color: '#e2e8f0', fontFamily: 'var(--font-mono)' }}>{apiKey.slice(0, 8)}...{apiKey.slice(-4)}</code>
+              </span>
+            </div>
+            <button onClick={clearApiKey} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 12, padding: '4px 8px' }}>
+              Change
+            </button>
+          </div>
+        )}
+
+        {apiKeyValid && !reportData && (
           <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 24, marginBottom: 24 }}>
             <h3 style={{ fontSize: 16, fontWeight: 700, color: '#a78bfa', marginBottom: 16 }}>Birth Details</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 16 }}>
@@ -341,6 +426,7 @@ export default function KundaliReport() {
                 <LocationSearch
                   value={birth.locationName}
                   onSelect={(loc) => setBirth({ ...birth, ...loc })}
+                  apiKey={apiKey}
                 />
               </div>
             </div>
