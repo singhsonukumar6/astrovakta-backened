@@ -19,6 +19,18 @@ USE_POSTGRES = DATABASE_URL.startswith("postgresql://") or DATABASE_URL.startswi
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "astrovakta.db")
 _db_connection: sqlite3.Connection | None = None
 
+# ─── PostgreSQL import (lazy, only when needed) ───
+_psycopg = None
+_dict_row = None
+
+def _ensure_psycopg():
+    global _psycopg, _dict_row
+    if _psycopg is None:
+        import psycopg
+        from psycopg.rows import dict_row
+        _psycopg = psycopg
+        _dict_row = dict_row
+
 
 # ═══════════════════════════════════════════════════════════
 #  PostgreSQL Adapter
@@ -32,14 +44,12 @@ class PGConnectionWrapper:
     """
 
     def __init__(self):
-        import psycopg
-        from psycopg.rows import dict_row
-        self._dict_row = dict_row
+        _ensure_psycopg()
         self._conn = None
 
     def _get_conn(self):
         if self._conn is None or self._conn.closed:
-            self._conn = psycopg.connect(DATABASE_URL, row_factory=self._dict_row)
+            self._conn = _psycopg.connect(DATABASE_URL, row_factory=_dict_row)
             self._conn.autocommit = False
         return self._conn
 
