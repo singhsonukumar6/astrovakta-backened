@@ -4,7 +4,22 @@ import json
 from datetime import datetime, timezone
 from typing import Optional, List
 
-from .database import get_db
+from .database import get_db, USE_POSTGRES
+
+
+def _convert_placeholders(sql):
+    """Convert SQLite ? placeholders to PostgreSQL %s."""
+    return sql.replace("?", "%s") if USE_POSTGRES else sql
+
+
+def _insert_and_get_id(table, returning_cols, db, sql, params):
+    """Execute INSERT and return the new row. Works on both backends.
+    Uses RETURNING clause (SQLite 3.35+ and PostgreSQL both support it)."""
+    sql_returning = sql.rstrip().rstrip(";") + f" RETURNING {returning_cols}"
+    if USE_POSTGRES:
+        sql_returning = sql_returning.replace("?", "%s")
+    cur = db.execute(sql_returning, params)
+    return cur.fetchone()
 
 TIER_LIMITS = {
     "free": 100,
@@ -29,12 +44,14 @@ def generate_api_key() -> str:
 # ──────────────── USER CRUD ────────────────
 def create_user(email: str, name: str, password: str) -> dict:
     db = get_db()
-    cur = db.execute(
+    row = _insert_and_get_id(
+        "users", "id", db,
         "INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)",
         (email.lower().strip(), name.strip(), hash_password(password)),
     )
     db.commit()
-    return get_user_by_id(cur.lastrowid)
+    new_id = row["id"] if row else None
+    return get_user_by_id(new_id) if new_id else None
 
 
 def authenticate_user(email: str, password: str) -> Optional[dict]:
@@ -61,12 +78,14 @@ def create_api_key(user_id: int, name: str, tier: str = "free") -> dict:
     key = generate_api_key()
     rate_limit = TIER_LIMITS.get(tier, TIER_LIMITS["free"])
     db = get_db()
-    cur = db.execute(
+    row = _insert_and_get_id(
+        "api_keys", "id", db,
         "INSERT INTO api_keys (user_id, key, name, tier, rate_limit) VALUES (?, ?, ?, ?, ?)",
         (user_id, key, name.strip(), tier, rate_limit),
     )
     db.commit()
-    row = db.execute("SELECT * FROM api_keys WHERE id = ?", (cur.lastrowid,)).fetchone()
+    new_id = row["id"] if row else None
+    row = db.execute("SELECT * FROM api_keys WHERE id = ?", (new_id,)).fetchone()
     return dict(row)
 
 
@@ -75,7 +94,7 @@ def validate_api_key(key: str) -> Optional[dict]:
     row = db.execute(
         "SELECT ak.*, u.email, u.name AS user_name, u.plan, u.is_admin "
         "FROM api_keys ak JOIN users u ON ak.user_id = u.id "
-        "WHERE ak.key = ? AND ak.is_active = 1",
+        "WHERE ak.key = ? AND ak.is_active = TRUE",
         (key,),
     ).fetchone()
     if not row:
@@ -93,7 +112,7 @@ def validate_api_key(key: str) -> Optional[dict]:
 def revoke_api_key(key_id: int, user_id: int) -> bool:
     now = datetime.now(timezone.utc).isoformat()
     cur = get_db().execute(
-        "UPDATE api_keys SET is_active = 0, revoked_at = ? WHERE id = ? AND user_id = ?",
+        "UPDATE api_keys SET is_active = FALSE, revoked_at = ? WHERE id = ? AND user_id = ?",
         (now, key_id, user_id),
     )
     get_db().commit()
@@ -204,7 +223,7 @@ def update_user_profile(user_id: int, name: Optional[str] = None, plan: Optional
     if plan is not None:
         new_limit = TIER_LIMITS.get(plan, TIER_LIMITS["free"])
         db.execute(
-            "UPDATE api_keys SET tier = ?, rate_limit = ? WHERE user_id = ? AND is_active = 1",
+            "UPDATE api_keys SET tier = ?, rate_limit = ? WHERE user_id = ? AND is_active = TRUE",
             (plan, new_limit, user_id),
         )
         db.commit()
@@ -219,7 +238,7 @@ def is_admin(user_id: int) -> bool:
 
 
 def set_user_admin(user_id: int, admin: bool) -> bool:
-    cur = get_db().execute("UPDATE users SET is_admin = ? WHERE id = ?", (1 if admin else 0, user_id))
+    cur = get_db().execute("UPDATE users SET is_admin = ? WHERE id = ?", (admin, user_id))
     get_db().commit()
     return cur.rowcount > 0
 
@@ -251,7 +270,7 @@ def get_all_users(page: int = 1, per_page: int = 20, search: str = "",
         u = dict(r)
         u.pop("password_hash", None)
         key_count = db.execute(
-            "SELECT COUNT(*) as cnt FROM api_keys WHERE user_id = ? AND is_active = 1", (u["id"],)
+            "SELECT COUNT(*) as cnt FROM api_keys WHERE user_id = ? AND is_active = TRUE", (u["id"],)
         ).fetchone()["cnt"]
         req_count = db.execute(
             "SELECT COUNT(*) as cnt FROM usage_logs ul "
@@ -271,7 +290,7 @@ def admin_update_user_plan(user_id: int, new_plan: str) -> Optional[dict]:
     db.execute("UPDATE users SET plan = ? WHERE id = ?", (new_plan, user_id))
     new_limit = TIER_LIMITS.get(new_plan, TIER_LIMITS["free"])
     db.execute(
-        "UPDATE api_keys SET tier = ?, rate_limit = ? WHERE user_id = ? AND is_active = 1",
+        "UPDATE api_keys SET tier = ?, rate_limit = ? WHERE user_id = ? AND is_active = TRUE",
         (new_plan, new_limit, user_id),
     )
     db.commit()
@@ -282,7 +301,7 @@ def admin_revoke_all_keys(user_id: int) -> int:
     """Revoke all active keys for a user. Returns count revoked."""
     now = datetime.now(timezone.utc).isoformat()
     cur = get_db().execute(
-        "UPDATE api_keys SET is_active = 0, revoked_at = ? WHERE user_id = ? AND is_active = 1",
+        "UPDATE api_keys SET is_active = FALSE, revoked_at = ? WHERE user_id = ? AND is_active = TRUE",
         (now, user_id),
     )
     get_db().commit()
@@ -420,7 +439,7 @@ def admin_get_stats() -> dict:
         "SELECT COUNT(*) as cnt FROM users WHERE DATE(created_at) = DATE('now')"
     ).fetchone()["cnt"]
     keys_total = db.execute("SELECT COUNT(*) as cnt FROM api_keys").fetchone()["cnt"]
-    keys_active = db.execute("SELECT COUNT(*) as cnt FROM api_keys WHERE is_active = 1").fetchone()["cnt"]
+    keys_active = db.execute("SELECT COUNT(*) as cnt FROM api_keys WHERE is_active = TRUE").fetchone()["cnt"]
     requests_total = db.execute("SELECT COUNT(*) as cnt FROM usage_logs").fetchone()["cnt"]
     requests_today = db.execute(
         "SELECT COUNT(*) as cnt FROM usage_logs WHERE DATE(timestamp) = DATE('now')"
@@ -465,7 +484,7 @@ def admin_get_all_keys(page: int = 1, per_page: int = 50) -> dict:
 def admin_revoke_key(key_id: int) -> bool:
     now = datetime.now(timezone.utc).isoformat()
     cur = get_db().execute(
-        "UPDATE api_keys SET is_active = 0, revoked_at = ? WHERE id = ?", (now, key_id)
+        "UPDATE api_keys SET is_active = FALSE, revoked_at = ? WHERE id = ?", (now, key_id)
     )
     get_db().commit()
     return cur.rowcount > 0
@@ -508,12 +527,14 @@ def admin_get_usage_endpoints(limit: int = 20) -> list:
 def create_ai_provider(user_id: int, provider: str, api_key_encrypted: str,
                        model: str = None) -> dict:
     db = get_db()
-    cur = db.execute(
+    row = _insert_and_get_id(
+        "ai_providers", "id", db,
         "INSERT INTO ai_providers (user_id, provider, api_key_encrypted, model) VALUES (?, ?, ?, ?)",
         (user_id, provider, api_key_encrypted, model),
     )
     db.commit()
-    row = db.execute("SELECT * FROM ai_providers WHERE id = ?", (cur.lastrowid,)).fetchone()
+    new_id = row["id"] if row else None
+    row = db.execute("SELECT * FROM ai_providers WHERE id = ?", (new_id,)).fetchone()
     return dict(row)
 
 
@@ -537,12 +558,12 @@ def get_active_ai_provider(user_id: int, preferred_provider: str = None) -> Opti
     db = get_db()
     if preferred_provider:
         row = db.execute(
-            "SELECT * FROM ai_providers WHERE user_id = ? AND provider = ? AND is_active = 1",
+            "SELECT * FROM ai_providers WHERE user_id = ? AND provider = ? AND is_active = TRUE",
             (user_id, preferred_provider),
         ).fetchone()
     else:
         row = db.execute(
-            "SELECT * FROM ai_providers WHERE user_id = ? AND is_active = 1 "
+            "SELECT * FROM ai_providers WHERE user_id = ? AND is_active = TRUE "
             "ORDER BY created_at DESC LIMIT 1",
             (user_id,),
         ).fetchone()
@@ -581,12 +602,14 @@ def delete_ai_provider(provider_id: int, user_id: int) -> bool:
 # ──────────────── BACKGROUND JOB FUNCTIONS ────────────────
 def create_job(user_id: int, job_type: str, input_data: dict) -> dict:
     db = get_db()
-    cur = db.execute(
+    row = _insert_and_get_id(
+        "background_jobs", "id", db,
         "INSERT INTO background_jobs (user_id, job_type, input_data) VALUES (?, ?, ?)",
         (user_id, job_type, json.dumps(input_data)),
     )
     db.commit()
-    row = db.execute("SELECT * FROM background_jobs WHERE id = ?", (cur.lastrowid,)).fetchone()
+    new_id = row["id"] if row else None
+    row = db.execute("SELECT * FROM background_jobs WHERE id = ?", (new_id,)).fetchone()
     return dict(row)
 
 
@@ -638,14 +661,16 @@ def get_user_jobs(user_id: int, status: str = None, limit: int = 20) -> list:
 def store_job_result(job_id: int, result_type: str, result_blob: bytes,
                      filename: str = None) -> dict:
     db = get_db()
-    cur = db.execute(
+    row = _insert_and_get_id(
+        "job_results", "id", db,
         "INSERT INTO job_results (job_id, result_type, result_blob, file_size, filename) "
         "VALUES (?, ?, ?, ?, ?)",
         (job_id, result_type, result_blob, len(result_blob), filename),
     )
     db.commit()
+    new_id = row["id"] if row else None
     row = db.execute("SELECT id, job_id, result_type, file_size, filename, created_at FROM job_results WHERE id = ?",
-                     (cur.lastrowid,)).fetchone()
+                     (new_id,)).fetchone()
     return dict(row) if row else None
 
 

@@ -12,3 +12,6 @@ reportlab==5.0.0
 redis==5.0.0
 celery==5.4.0
 cryptography==43.0.0
+psycopg[binary]>=3.2,<4
+cairosvg==2.7.1
+Pillow>=10,<12

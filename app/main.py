@@ -65,7 +65,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",")
+        if o.strip()
+    ] or ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -137,6 +140,15 @@ except Exception as e:
 @app.on_event("startup")
 def on_startup():
     init_db()
+    if os.getenv("AUTO_CREATE_ADMIN", "0") == "1":
+        try:
+            import sys
+            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+            from create_admin import create_admin
+            create_admin()
+        except Exception as e:
+            import logging as _logging
+            _logging.warning(f"Auto-create admin skipped: {e}")
 
 @app.get("/health")
 def health_check():

@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+import os
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -21,7 +22,7 @@ from ..auth import (
 
 router = APIRouter()
 
-SECRET_KEY = "ASTROVAKTA_SECRET_KEY"
+SECRET_KEY = os.getenv("JWT_SECRET", "dev-only-fallback-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 72
 

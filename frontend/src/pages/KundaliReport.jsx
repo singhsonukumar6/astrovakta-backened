@@ -28,7 +28,7 @@ const DEFAULT_BIRTH = {
   locationName: 'New Delhi, India',
 }
 
-const API_KEY = 'avk_275725f91c83cc7dcb171be153bcffb6'
+const API_KEY = import.meta.env.VITE_API_KEY || localStorage.getItem('user_api_key') || ''
 
 function LocationSearch({ value, onSelect }) {
   const [query, setQuery] = useState('')

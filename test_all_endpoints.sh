@@ -4,8 +4,13 @@
 
 set -eo pipefail
 
-BASE="http://127.0.0.1:5000"
-API_KEY="avk_275725f91c83cc7dcb171be153bcffb6"
+BASE="${ASTROVAKTA_BASE_URL:-http://127.0.0.1:5000}"
+API_KEY="${ASTROVAKTA_API_KEY:-}"
+if [ -z "$API_KEY" ]; then
+  echo "ERROR: Set ASTROVAKTA_API_KEY env var to your API key."
+  echo "  Example: export ASTROVAKTA_API_KEY=avk_your_key_here"
+  exit 1
+fi
 JWT_TOKEN=""
 
 PASS=0; FAIL=0; SKIP=0

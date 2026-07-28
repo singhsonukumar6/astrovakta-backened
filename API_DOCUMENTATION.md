@@ -68,7 +68,7 @@ curl -X POST http://localhost:5000/api/kundli \
 All protected endpoints require an `X-API-Key` header:
 
 ```
-X-API-Key: avk_275725f91c83cc7dcb171be153bcffb6
+X-API-Key: <your-api-key-here>
 ```
 
 ### JWT Authentication (for user/admin endpoints)
