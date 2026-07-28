@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Play, Copy, ChevronDown, Clock, CheckCircle2, XCircle, Code, Globe, Maximize2, X, Settings, Search, MapPin, Loader2, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Play, Copy, ChevronDown, Clock, CheckCircle2, XCircle, Code, Globe, Maximize2, X, Search, MapPin, Loader2, ToggleLeft, ToggleRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api.js'
 import { endpointCategories } from './sandbox_endpoints.js'
@@ -443,13 +443,9 @@ export default function Sandbox() {
   const [apiKey, setApiKey] = useState('')
   const [viewMode, setViewMode] = useState('web')
   const [searchQuery, setSearchQuery] = useState('')
-  const [showAiConfig, setShowAiConfig] = useState(false)
-  const [aiProviderUrl, setAiProviderUrl] = useState('')
-  const [aiProviderKey, setAiProviderKey] = useState('')
 
   const allEndpoints = useMemo(() => Object.values(endpointCategories).flat(), [])
   const currentEndpoint = useMemo(() => allEndpoints.find(e => e.path === selectedEndpoint), [allEndpoints, selectedEndpoint])
-  const isAiEndpoint = currentEndpoint?.ai === true
 
   const filteredCategories = useMemo(() => {
     if (!searchQuery) return endpointCategories
@@ -539,15 +535,6 @@ export default function Sandbox() {
       if (currentEndpoint?.method === 'POST') {
         const bodyStr = jsonMode ? rawBody : JSON.stringify(buildBody(formValues), null, 2)
         requestData = JSON.parse(bodyStr || '{}')
-        if (isAiEndpoint) {
-          if (!aiProviderUrl) {
-            toast.error('Configure AI Provider URL first (Settings icon)')
-            setLoading(false)
-            return
-          }
-          requestData._aiProviderUrl = aiProviderUrl
-          requestData._aiProviderKey = aiProviderKey
-        }
       }
 
       const isPdfEndpoint = currentEndpoint?.pdf
@@ -600,7 +587,7 @@ export default function Sandbox() {
     } finally {
       setLoading(false)
     }
-  }, [selectedEndpoint, formValues, rawBody, jsonMode, apiKey, currentEndpoint, isAiEndpoint, aiProviderUrl, aiProviderKey, buildBody])
+  }, [selectedEndpoint, formValues, rawBody, jsonMode, apiKey, currentEndpoint, buildBody])
 
   const copyResponse = () => {
     navigator.clipboard.writeText(JSON.stringify(response, null, 2)).then(() => toast.success('Response copied!')).catch(() => toast.error('Failed to copy'))
@@ -639,11 +626,6 @@ export default function Sandbox() {
               <div style={{ marginBottom: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                   <label style={{ fontSize: 13, color: '#94a3b8' }}>Endpoint</label>
-                  {isAiEndpoint && (
-                    <button onClick={() => setShowAiConfig(!showAiConfig)} style={{ display: 'flex', alignItems: 'center', gap: 4, background: showAiConfig ? 'rgba(251,191,36,0.2)' : 'rgba(100,116,139,0.2)', border: 'none', borderRadius: 6, padding: '4px 8px', color: showAiConfig ? '#fbbf24' : '#94a3b8', fontSize: 11, cursor: 'pointer' }}>
-                        <Settings size={12} /> AI Provider
-                    </button>
-                  )}
                 </div>
                 <div style={{ position: 'relative' }}>
                   <select className="input-field" value={selectedEndpoint} onChange={(e) => handleEndpointChange(e.target.value)} style={{ appearance: 'none', paddingRight: 36, cursor: 'pointer' }}>
@@ -656,21 +638,6 @@ export default function Sandbox() {
                   <ChevronDown size={16} color="#64748b" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
                 </div>
               </div>
-
-              {/* AI Provider Config */}
-              {isAiEndpoint && showAiConfig && (
-                <div style={{ marginBottom: 16, padding: 14, background: 'rgba(251,191,36,0.05)', borderRadius: 10, border: '1px solid rgba(251,191,36,0.15)' }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#fbbf24', marginBottom: 10 }}>AI Provider Configuration</label>
-                  <div style={{ marginBottom: 10 }}>
-                    <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Provider URL</label>
-                    <input className="input-field" placeholder="https://api.openai.com/v1/chat/completions" value={aiProviderUrl} onChange={(e) => setAiProviderUrl(e.target.value)} style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }} />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>API Key</label>
-                    <input className="input-field" placeholder="sk-..." type="password" value={aiProviderKey} onChange={(e) => setAiProviderKey(e.target.value)} style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }} />
-                  </div>
-                </div>
-              )}
 
               {/* Form / JSON Toggle */}
               {currentEndpoint?.method === 'POST' && hasFields && (
