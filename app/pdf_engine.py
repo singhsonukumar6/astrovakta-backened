@@ -671,17 +671,16 @@ def header_footer(canvas, doc, client_name: str = '', report_type: str = '',
 
 # ──────────────────────────── SVG TO IMAGE ────────────────────────────
 def svg_to_image_flowable(svg_string: str, width: float = 200, height: float = 150):
-    """Convert an SVG string to a ReportLab Image flowable using cairosvg."""
+    """Convert an SVG string to a ReportLab Image flowable using cairosvg.
+    Raises on failure so callers can fall back (e.g. draw_south_indian_kundli)."""
     import os as _os
 
-    # macOS-only: ensure cairo can find Homebrew's libcairo
     if sys.platform == 'darwin':
         _old_dyld = _os.environ.get('DYLD_LIBRARY_PATH', '')
         if '/opt/homebrew/lib' not in _old_dyld:
             _os.environ['DYLD_LIBRARY_PATH'] = '/opt/homebrew/lib' + (f':{_old_dyld}' if _old_dyld else '')
     try:
         import importlib
-        # Remove cached cairo modules so they re-import with the new env var
         for mod_name in list(sys.modules.keys()):
             if 'cairo' in mod_name.lower():
                 del sys.modules[mod_name]
@@ -698,7 +697,7 @@ def svg_to_image_flowable(svg_string: str, width: float = 200, height: float = 1
         return Image(buf, width=width, height=height)
     except Exception as e:
         logger.warning(f"SVG-to-image conversion failed: {e}")
-        return Spacer(1, 1)
+        raise
     finally:
         if sys.platform == 'darwin' and _old_dyld:
             _os.environ['DYLD_LIBRARY_PATH'] = _old_dyld

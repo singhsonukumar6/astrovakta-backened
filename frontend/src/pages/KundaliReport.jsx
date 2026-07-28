@@ -324,42 +324,87 @@ export default function KundaliReport() {
   const downloadPdf = useCallback(async () => {
     if (!reportRef.current) return
     setGeneratingPdf(true)
+    let container = null
+    const blobUrls = []
     try {
       const html2pdf = (await import('html2pdf.js')).default
-      const element = reportRef.current
 
-      // Force all SVG charts to render at a fixed size for html2canvas
-      const svgs = element.querySelectorAll('svg')
+      // Build offscreen container outside framer-motion transforms
+      // (html2canvas ignores elements inside CSS transformed parents)
+      container = document.createElement('div')
+      container.style.position = 'fixed'
+      container.style.top = '-9999px'
+      container.style.left = '0'
+      container.style.width = '794px'
+      container.style.zIndex = '-10000'
+      container.style.background = '#ffffff'
+      container.style.color = '#1a1a2e'
+      container.style.overflow = 'hidden'
+      document.body.appendChild(container)
+
+      const clone = reportRef.current.cloneNode(true)
+      container.appendChild(clone)
+
+      // Convert all SVGs to <img> blob URLs — html2canvas cannot render
+      // inline SVGs reliably (renders blank areas for complex chart SVGs)
+      const svgs = clone.querySelectorAll('svg')
+      const loadPromises = []
       svgs.forEach(svg => {
-        svg.setAttribute('width', svg.getBoundingClientRect().width || '400')
-        svg.setAttribute('height', svg.getBoundingClientRect().height || '300')
+        try {
+          const w = svg.getAttribute('width') || '400'
+          const h = svg.getAttribute('height') || '300'
+          const svgStr = new XMLSerializer().serializeToString(svg)
+          const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
+          const url = URL.createObjectURL(blob)
+          blobUrls.push(url)
+
+          const img = document.createElement('img')
+          img.src = url
+          img.setAttribute('width', w)
+          img.setAttribute('height', h)
+          img.style.width = /^\d+$/.test(w) ? w + 'px' : w
+          img.style.height = /^\d+$/.test(h) ? h + 'px' : h
+          img.style.maxWidth = '100%'
+          loadPromises.push(new Promise(r => { img.onload = r; img.onerror = r }))
+          svg.parentNode.replaceChild(img, svg)
+        } catch (e) {
+          console.warn('SVG->img conversion error:', e)
+        }
       })
+
+      // Wait for images to load (3s timeout max)
+      await Promise.race([
+        Promise.all(loadPromises),
+        new Promise(r => setTimeout(r, 3000)),
+      ])
 
       const opt = {
         margin: 0,
-        filename: `${branding.clientName || birth.locationName || 'Kundali'}_Report.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
+        filename: `${birth.locationName || 'Kundali'}_Report.pdf`,
+        image: { type: 'jpeg', quality: 0.95 },
         html2canvas: {
-          scale: 1,
+          scale: 2,
           useCORS: true,
           letterRendering: true,
           logging: false,
-          width: 794,
-          height: 1123,
           windowWidth: 794,
         },
-        jsPDF: { unit: 'px', format: [794, 1123], orientation: 'portrait' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak: { mode: 'css' },
       }
-      await html2pdf().set(opt).from(element).save()
+      await html2pdf().set(opt).from(clone).save()
       toast.success('PDF downloaded!')
     } catch (err) {
-      toast.error('PDF generation failed: ' + err.message)
       console.error('PDF generation error:', err)
+      toast.error('PDF generation failed. Use Print / Save as PDF instead.')
     } finally {
       setGeneratingPdf(false)
+      blobUrls.forEach(u => URL.revokeObjectURL(u))
+      if (container && container.parentNode) {
+        container.parentNode.removeChild(container)
+      }
     }
-  }, [branding, birth])
+  }, [birth])
 
   const handlePrint = useCallback(() => {
     window.print()
