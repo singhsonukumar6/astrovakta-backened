@@ -116,7 +116,18 @@ CREATE TABLE IF NOT EXISTS users (
     plan TEXT DEFAULT 'free',
     is_admin BOOLEAN DEFAULT 0,
     avatar_url TEXT,
+    email_verified BOOLEAN DEFAULT 0,
+    verification_token TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS password_resets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token TEXT UNIQUE NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    used BOOLEAN DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
 );
 CREATE TABLE IF NOT EXISTS api_keys (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -188,6 +199,16 @@ CREATE TABLE IF NOT EXISTS users (
     plan TEXT DEFAULT 'free',
     is_admin BOOLEAN DEFAULT FALSE,
     avatar_url TEXT,
+    email_verified BOOLEAN DEFAULT FALSE,
+    verification_token TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS password_resets (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    token TEXT UNIQUE NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE TABLE IF NOT EXISTS api_keys (
@@ -280,6 +301,8 @@ def init_db() -> None:
             for t, c, ct in [
                 ("users", "is_admin", "BOOLEAN DEFAULT FALSE"),
                 ("users", "avatar_url", "TEXT"),
+                ("users", "email_verified", "BOOLEAN DEFAULT FALSE"),
+                ("users", "verification_token", "TEXT"),
                 ("usage_logs", "response_time_ms", "INTEGER"),
                 ("usage_logs", "endpoint_group", "TEXT"),
             ]:
@@ -294,6 +317,8 @@ def init_db() -> None:
         cursor.executescript(_SQLITE_DDL)
         _migrate_sqlite(cursor, "users", "is_admin", "BOOLEAN DEFAULT 0")
         _migrate_sqlite(cursor, "users", "avatar_url", "TEXT")
+        _migrate_sqlite(cursor, "users", "email_verified", "BOOLEAN DEFAULT 0")
+        _migrate_sqlite(cursor, "users", "verification_token", "TEXT")
         _migrate_sqlite(cursor, "usage_logs", "response_time_ms", "INTEGER")
         _migrate_sqlite(cursor, "usage_logs", "endpoint_group", "TEXT")
         conn.commit()

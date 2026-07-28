@@ -708,3 +708,118 @@ def get_all_jobs(page: int = 1, per_page: int = 50, status: str = None) -> dict:
         params + [per_page, offset],
     ).fetchall()
     return {"jobs": [dict(r) for r in rows], "total": total, "page": page}
+
+
+# ──────────────── EMAIL VERIFICATION ────────────────
+import secrets as _secrets
+
+
+def create_verification_token(user_id: int) -> str:
+    token = _secrets.token_urlsafe(48)
+    db = get_db()
+    if USE_POSTGRES:
+        db.execute(
+            "UPDATE users SET verification_token = %s WHERE id = %s",
+            (token, user_id),
+        )
+    else:
+        db.execute(
+            "UPDATE users SET verification_token = ? WHERE id = ?",
+            (token, user_id),
+        )
+    db.commit()
+    return token
+
+
+def verify_email_token(token: str) -> Optional[dict]:
+    db = get_db()
+    if USE_POSTGRES:
+        row = db.execute(
+            "SELECT * FROM users WHERE verification_token = %s", (token,)
+        ).fetchone()
+    else:
+        row = db.execute(
+            "SELECT * FROM users WHERE verification_token = ?", (token,)
+        ).fetchone()
+    if not row:
+        return None
+    user = dict(row)
+    db.execute(
+        "UPDATE users SET email_verified = TRUE, verification_token = NULL WHERE id = ?"
+        if not USE_POSTGRES else
+        "UPDATE users SET email_verified = TRUE, verification_token = NULL WHERE id = %s",
+        (user["id"],),
+    )
+    db.commit()
+    return user
+
+
+# ──────────────── PASSWORD RESET ────────────────
+def create_password_reset_token(user_id: int) -> str:
+    token = _secrets.token_urlsafe(48)
+    db = get_db()
+    from datetime import timedelta
+    expires = datetime.now(timezone.utc) + timedelta(hours=1)
+    expires_str = expires.isoformat()
+    row = _insert_and_get_id(
+        "password_resets", "id", db,
+        "INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)",
+        (user_id, token, expires_str),
+    )
+    db.commit()
+    return token
+
+
+def verify_password_reset_token(token: str) -> Optional[dict]:
+    db = get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    if USE_POSTGRES:
+        row = db.execute(
+            "SELECT pr.*, u.id as uid, u.email, u.name "
+            "FROM password_resets pr JOIN users u ON pr.user_id = u.id "
+            "WHERE pr.token = %s AND pr.used = FALSE AND pr.expires_at > %s",
+            (token, now),
+        ).fetchone()
+    else:
+        row = db.execute(
+            "SELECT pr.*, u.id as uid, u.email, u.name "
+            "FROM password_resets pr JOIN users u ON pr.user_id = u.id "
+            "WHERE pr.token = ? AND pr.used = 0 AND pr.expires_at > ?",
+            (token, now),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def use_password_reset_token(token: str) -> bool:
+    db = get_db()
+    if USE_POSTGRES:
+        cur = db.execute(
+            "UPDATE password_resets SET used = TRUE WHERE token = %s", (token,)
+        )
+    else:
+        cur = db.execute(
+            "UPDATE password_resets SET used = 1 WHERE token = ?", (token,)
+        )
+    db.commit()
+    return cur.rowcount > 0
+
+
+def reset_password_with_token(token: str, new_password: str) -> bool:
+    reset_info = verify_password_reset_token(token)
+    if not reset_info:
+        return False
+    user_id = reset_info["uid"]
+    db = get_db()
+    if USE_POSTGRES:
+        db.execute(
+            "UPDATE users SET password_hash = %s WHERE id = %s",
+            (hash_password(new_password), user_id),
+        )
+    else:
+        db.execute(
+            "UPDATE users SET password_hash = ? WHERE id = ?",
+            (hash_password(new_password), user_id),
+        )
+    use_password_reset_token(token)
+    db.commit()
+    return True

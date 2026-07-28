@@ -44,9 +44,16 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('token')
   }, [])
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const data = await getMe()
+      setUser(data.user || data)
+    } catch {}
+  }, [])
+
   return (
     <AuthContext.Provider
-      value={{ user, token, login, logout, loading, isAuthenticated: !!token && !!user }}
+      value={{ user, token, login, logout, loading, isAuthenticated: !!token && !!user, refreshUser }}
     >
       {children}
     </AuthContext.Provider>

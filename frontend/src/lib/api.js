@@ -38,6 +38,18 @@ export const updateProfile = (data) =>
 export const changePassword = (current_password, new_password) =>
   api.post('/auth/change-password', { current_password, new_password }).then((r) => r.data)
 
+export const verifyEmail = (token) =>
+  api.get(`/auth/verify-email?token=${token}`).then((r) => r.data)
+
+export const resendVerification = (email) =>
+  api.post('/auth/resend-verification', { email }).then((r) => r.data)
+
+export const forgotPassword = (email) =>
+  api.post('/auth/forgot-password', { email }).then((r) => r.data)
+
+export const resetPassword = (token, new_password) =>
+  api.post('/auth/reset-password', { token, new_password }).then((r) => r.data)
+
 // ──── API KEYS ────
 export const getKeys = () => api.get('/auth/keys').then((r) => r.data)
 

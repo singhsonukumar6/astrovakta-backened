@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 import os
+import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -11,6 +12,7 @@ from ..auth import (
     create_user,
     authenticate_user,
     get_user_by_id,
+    get_user_by_email,
     create_api_key,
     revoke_api_key,
     list_api_keys,
@@ -18,6 +20,11 @@ from ..auth import (
     update_user_profile,
     change_password,
     hash_password,
+    create_verification_token,
+    verify_email_token,
+    create_password_reset_token,
+    reset_password_with_token,
+    TIER_LIMITS,
 )
 
 router = APIRouter()
@@ -56,6 +63,15 @@ class ChangePasswordBody(BaseModel):
     new_password: str = Field(..., min_length=6, max_length=128)
 
 
+class ForgotPasswordBody(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordBody(BaseModel):
+    token: str
+    new_password: str = Field(..., min_length=6, max_length=128)
+
+
 def create_access_token(user_id: int) -> str:
     expire = datetime.now(timezone.utc) + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
     return jwt.encode({"sub": str(user_id), "exp": expire}, SECRET_KEY, algorithm=ALGORITHM)
@@ -83,6 +99,8 @@ def _user_response(user: dict, token: str) -> dict:
             "name": user["name"],
             "plan": user["plan"],
             "is_admin": bool(user.get("is_admin")),
+            "email_verified": bool(user.get("email_verified")),
+            "avatar_url": user.get("avatar_url"),
             "created_at": user["created_at"],
         },
     }
@@ -96,7 +114,20 @@ def register(body: RegisterBody):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
     user = create_user(body.email, body.name, body.password)
     token = create_access_token(user["id"])
-    return _user_response(user, token)
+
+    verification_token = create_verification_token(user["id"])
+    email_sent = False
+    try:
+        from ..email_service import send_verification_email
+        email_sent = send_verification_email(body.email, verification_token, body.name)
+        if not email_sent:
+            print(f"[AUTH] WARNING: Verification email failed to send to {body.email}")
+    except Exception as e:
+        print(f"[AUTH] ERROR: Verification email exception for {body.email}: {e}")
+
+    resp = _user_response(user, token)
+    resp["email_sent"] = email_sent
+    return resp
 
 
 @router.post("/login")
@@ -116,6 +147,8 @@ def me(user: dict = Depends(get_current_user)):
         "name": user["name"],
         "plan": user["plan"],
         "is_admin": bool(user.get("is_admin")),
+        "email_verified": bool(user.get("email_verified")),
+        "avatar_url": user.get("avatar_url"),
         "created_at": user["created_at"],
     }
 
@@ -197,3 +230,59 @@ def change_password_endpoint(body: ChangePasswordBody, user: dict = Depends(get_
     if not ok:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
     return {"detail": "Password changed successfully"}
+
+
+# ──────────────── EMAIL VERIFICATION ────────────────
+
+@router.get("/verify-email")
+def verify_email(token: str):
+    user = verify_email_token(token)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired verification token")
+    return {"detail": "Email verified successfully", "email": user["email"]}
+
+
+@router.post("/resend-verification")
+def resend_verification(body: ForgotPasswordBody):
+    user = get_user_by_email(body.email)
+    if not user:
+        return {"detail": "If that email is registered, a verification link has been sent."}
+    if user.get("email_verified"):
+        return {"detail": "Email is already verified."}
+    verification_token = create_verification_token(user["id"])
+    email_sent = False
+    try:
+        from ..email_service import send_verification_email
+        email_sent = send_verification_email(body.email, verification_token, user["name"])
+        if not email_sent:
+            print(f"[AUTH] WARNING: Resend verification email failed to {body.email}")
+    except Exception as e:
+        print(f"[AUTH] ERROR: Resend verification email exception for {body.email}: {e}")
+    return {"detail": "If that email is registered, a verification link has been sent.", "email_sent": email_sent}
+
+
+# ──────────────── PASSWORD RESET ────────────────
+
+@router.post("/forgot-password")
+def forgot_password(body: ForgotPasswordBody):
+    user = get_user_by_email(body.email)
+    if not user:
+        return {"detail": "If that email is registered, a password reset link has been sent."}
+    reset_token = create_password_reset_token(user["id"])
+    email_sent = False
+    try:
+        from ..email_service import send_password_reset_email
+        email_sent = send_password_reset_email(body.email, reset_token, user["name"])
+        if not email_sent:
+            print(f"[AUTH] WARNING: Password reset email failed to {body.email}")
+    except Exception as e:
+        print(f"[AUTH] ERROR: Password reset email exception for {body.email}: {e}")
+    return {"detail": "If that email is registered, a password reset link has been sent.", "email_sent": email_sent}
+
+
+@router.post("/reset-password")
+def reset_password(body: ResetPasswordBody):
+    ok = reset_password_with_token(body.token, body.new_password)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset token")
+    return {"detail": "Password reset successfully"}

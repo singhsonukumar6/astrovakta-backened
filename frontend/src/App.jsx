@@ -10,6 +10,10 @@ import Sandbox from './pages/Sandbox.jsx'
 import Admin from './pages/Admin.jsx'
 import Docs from './pages/Docs.jsx'
 import KundaliReport from './pages/KundaliReport.jsx'
+import VerifyEmail from './pages/VerifyEmail.jsx'
+import VerifyEmailPrompt from './pages/VerifyEmailPrompt.jsx'
+import ForgotPassword from './pages/ForgotPassword.jsx'
+import ResetPassword from './pages/ResetPassword.jsx'
 import Starfield from './components/Starfield.jsx'
 
 export default function App() {
@@ -28,6 +32,10 @@ export default function App() {
           <Route path="/sandbox" element={<Sandbox />} />
           <Route path="/docs" element={<Docs />} />
           <Route path="/kundali-report" element={<KundaliReport />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/verify-email-prompt" element={<VerifyEmailPrompt />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
         </Routes>
       </main>
       <Footer />

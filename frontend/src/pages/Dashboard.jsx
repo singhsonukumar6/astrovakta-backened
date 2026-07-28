@@ -26,6 +26,7 @@ import {
   Download,
   Sparkles,
   Settings,
+  Mail,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth.jsx'
@@ -34,6 +35,7 @@ import {
   listProviders, createProvider, deleteProvider, testProvider,
   getMyJobs, submitPdfJob,
   updateProfile, changePassword,
+  resendVerification,
 } from '../lib/api.js'
 
 const tabs = [
@@ -61,9 +63,22 @@ const jobStatusColors = {
 
 // ──────────── OVERVIEW TAB ────────────
 function Overview({ user, keys }) {
+  const [resending, setResending] = useState(false)
   const totalKeys = keys?.length || 0
   const activeKeys = keys?.filter((k) => k.is_active).length || 0
   const totalReqs = keys?.reduce((s, k) => s + (k.request_count || 0), 0) || 0
+
+  const handleResendVerification = async () => {
+    setResending(true)
+    try {
+      await resendVerification(user?.email)
+      toast.success('Verification email sent! Check your inbox.')
+    } catch {
+      toast.error('Failed to send verification email')
+    } finally {
+      setResending(false)
+    }
+  }
 
   return (
     <div>
@@ -73,6 +88,29 @@ function Overview({ user, keys }) {
       <p style={{ color: '#94a3b8', marginBottom: 32 }}>
         Here's an overview of your AstroVakta developer account.
       </p>
+
+      {user && !user.email_verified && (
+        <div className="glass" style={{
+          borderRadius: 'var(--radius-lg)', padding: 16, marginBottom: 24,
+          border: '1px solid rgba(245,158,11,0.3)', display: 'flex',
+          alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Mail size={18} color="#fbbf24" />
+            <span style={{ color: '#fbbf24', fontSize: 14, fontWeight: 500 }}>
+              Please verify your email address.
+            </span>
+          </div>
+          <button
+            onClick={handleResendVerification}
+            disabled={resending}
+            className="btn-secondary"
+            style={{ fontSize: 13, padding: '6px 14px' }}
+          >
+            {resending ? 'Sending...' : 'Resend Verification'}
+          </button>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20, marginBottom: 32 }}>
         {[
@@ -672,6 +710,27 @@ function Profile({ user, onUserUpdate }) {
             {user?.plan || 'Free'}
           </span>
         </div>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: 'block', fontSize: 14, color: '#94a3b8', marginBottom: 8 }}>Email Status</label>
+          {user?.email_verified ? (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 12, fontSize: 13, fontWeight: 600, background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}>
+              <CheckCircle2 size={14} /> Verified
+            </span>
+          ) : (
+            <button
+              className="btn-secondary"
+              onClick={async () => {
+                try {
+                  await resendVerification(user?.email)
+                  toast.success('Verification email sent!')
+                } catch { toast.error('Failed to send') }
+              }}
+              style={{ fontSize: 13, padding: '6px 14px' }}
+            >
+              <Mail size={14} /> Verify Email
+            </button>
+          )}
+        </div>
         <div>
           <label style={{ display: 'block', fontSize: 14, color: '#94a3b8', marginBottom: 8 }}>Member Since</label>
           <input className="input-field" value={user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'} readOnly />
@@ -732,6 +791,12 @@ export default function Dashboard() {
   useEffect(() => {
     if (!authLoading && !isAuthenticated) navigate('/login')
   }, [authLoading, isAuthenticated, navigate])
+
+  useEffect(() => {
+    if (isAuthenticated && user && !user.email_verified) {
+      navigate('/verify-email-prompt', { state: { email: user.email } })
+    }
+  }, [isAuthenticated, user, navigate])
 
   useEffect(() => {
     if (isAuthenticated) {

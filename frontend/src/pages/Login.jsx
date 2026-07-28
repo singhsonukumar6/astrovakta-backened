@@ -20,8 +20,13 @@ export default function Login() {
     try {
       const data = await apiLogin(email, password)
       login(data.token, data.user)
-      toast.success('Welcome back!')
-      navigate('/dashboard')
+      if (!data.user.email_verified) {
+        toast('Please verify your email before continuing.', { icon: '📧' })
+        navigate('/verify-email-prompt', { state: { email: data.user.email } })
+      } else {
+        toast.success('Welcome back!')
+        navigate('/dashboard')
+      }
     } catch (err) {
       toast.error(err.response?.data?.detail || err.response?.data?.error || 'Login failed')
     } finally {
@@ -143,10 +148,13 @@ export default function Login() {
               </div>
             </div>
 
-            <div style={{ marginBottom: 32 }}>
-              <label style={{ display: 'block', fontSize: 14, color: '#94a3b8', marginBottom: 8 }}>
-                Password
-              </label>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <label style={{ fontSize: 14, color: '#94a3b8' }}>Password</label>
+                <Link to="/forgot-password" style={{ fontSize: 13, color: '#a78bfa', fontWeight: 500, textDecoration: 'none' }}>
+                  Forgot password?
+                </Link>
+              </div>
               <div style={{ position: 'relative' }}>
                 <Lock
                   size={18}
