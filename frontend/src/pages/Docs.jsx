@@ -434,7 +434,7 @@ ${COM.split('').map((c, i) => i < 500 ? c : '').join('')}
 
 **Configure via:**
 - Admin panel: \`http://localhost:5173/admin\` → AI Providers tab
-- API: \`POST /ai-providers/providers\`
+- API: \`POST /ai-providers\`
 
 **Supported providers:** OpenAI, Anthropic, Groq, Together AI, Ollama, and any OpenAI-compatible API.`,
       },

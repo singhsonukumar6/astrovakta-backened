@@ -113,19 +113,19 @@ export const adminGetUsageByUser = (limit = 50) =>
 
 // ──── AI PROVIDERS ────
 export const listProviders = () =>
-  api.get('/ai-providers/providers').then((r) => r.data)
+  api.get('/ai-providers').then((r) => r.data)
 
 export const createProvider = (data) =>
-  api.post('/ai-providers/providers', data).then((r) => r.data)
+  api.post('/ai-providers', data).then((r) => r.data)
 
 export const updateProvider = (id, data) =>
-  api.put(`/ai-providers/providers/${id}`, data).then((r) => r.data)
+  api.put(`/ai-providers/${id}`, data).then((r) => r.data)
 
 export const deleteProvider = (id) =>
-  api.delete(`/ai-providers/providers/${id}`).then((r) => r.data)
+  api.delete(`/ai-providers/${id}`).then((r) => r.data)
 
 export const testProvider = (id) =>
-  api.post(`/ai-providers/providers/${id}/test`).then((r) => r.data)
+  api.post(`/ai-providers/${id}/test`).then((r) => r.data)
 
 export const getSupportedProviders = () =>
   api.get('/ai-providers/supported').then((r) => r.data)
