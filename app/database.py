@@ -58,7 +58,7 @@ class PGConnectionWrapper:
                     DATABASE_URL,
                     min_size=1,
                     max_size=10,
-                    open=False,
+                    open=True,
                     timeout=30,
                     max_lifetime=300,
                 )
@@ -336,9 +336,12 @@ def _migrate_pg(db, table, column, col_type):
 def init_db() -> None:
     if USE_POSTGRES:
         logger.info("Initializing PostgreSQL schema...")
-        db = get_db()
+        _ensure_psycopg()
+        conn = _psycopg.connect(DATABASE_URL, connect_timeout=10, row_factory=_dict_row)
         try:
-            db.executescript(_PG_DDL)
+            with conn.cursor() as cur:
+                cur.execute(_PG_DDL)
+            conn.commit()
             for t, c, ct in [
                 ("users", "is_admin", "BOOLEAN DEFAULT FALSE"),
                 ("users", "avatar_url", "TEXT"),
@@ -347,13 +350,23 @@ def init_db() -> None:
                 ("usage_logs", "response_time_ms", "INTEGER"),
                 ("usage_logs", "endpoint_group", "TEXT"),
             ]:
-                _migrate_pg(db, t, c, ct)
+                try:
+                    row = conn.execute(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_name = %s AND column_name = %s",
+                        (table, column),
+                    ).fetchone()
+                    if not row:
+                        conn.execute(f"ALTER TABLE {t} ADD COLUMN {c} {ct}")
+                        conn.commit()
+                except Exception as e:
+                    logger.debug(f"Migration {t}.{c}: {e}")
             logger.info("PostgreSQL schema initialized")
         except Exception as e:
             logger.error(f"PostgreSQL init failed: {e}")
             raise
         finally:
-            db.close()
+            conn.close()
     else:
         conn = get_db()
         cursor = conn.cursor()
