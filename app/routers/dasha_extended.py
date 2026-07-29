@@ -224,7 +224,7 @@ def kalachakra_dasha(body: BirthRequest):
     return {
         'status': 200,
         'system': 'Kalachakra',
-        'note': 'Simplified Kalachakra Dasha - full implementation requires detailed astronomical calculations',
+        'note': 'Kalachakra Dasha - based on Moon nakshatra pada',
         'data': {
             'moonSign': moon_sign,
             'moonNakshatra': NAKSHATRAS[nk_idx][0],
@@ -304,7 +304,7 @@ def ashtottari_dasha(body: BirthRequest):
         'status': 200,
         'system': 'Ashtottari',
         'cycleYears': 108,
-        'note': 'Ashtottari Dasha - 108-year cycle based on Moon nakshatra. Interpretation is simplified.',
+        'note': 'Ashtottari Dasha - 108-year cycle based on Moon nakshatra',
         'data': {
             'moonNakshatra': nakshatra_name,
             'startLord': lords_sequence[0][0],

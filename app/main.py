@@ -407,13 +407,7 @@ except Exception as e:
     import logging as _logging20
     _logging20.error(f"Failed to include POOJA router: {e}")
 
-# Calendar API router
-try:
-    from .routers.calendar_api import router as calendar_api_router
-    app.include_router(calendar_api_router, prefix="", tags=['Calendar'])
-except Exception as e:
-    import logging as _logging21
-    _logging21.error(f"Failed to include CALENDAR API router: {e}")
+# Calendar API - merged routes (calendar-api/* deprecated, use /calendar/*)
 
 # Dasha Extended router
 try:
