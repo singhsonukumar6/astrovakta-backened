@@ -11,9 +11,10 @@ def _to_dict(row):
     """Convert a database row to dict — works with sqlite3.Row and psycopg dict_row."""
     if row is None:
         return None
-    if USE_POSTGRES:
-        return dict(row) if hasattr(row, 'keys') else row
-    return dict(row)
+    try:
+        return {k: v for k, v in row.items()}
+    except (AttributeError, TypeError):
+        return row
 
 
 def _convert_placeholders(sql):
