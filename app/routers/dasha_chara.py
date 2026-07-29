@@ -198,7 +198,7 @@ def chara_dasha(body: CharaDashaRequest) -> Dict[str, Any]:
 
     return {
         'status': 200,
-        'system': 'Chara Dasha (simplified)',
+        'system': 'Chara Dasha (Jaimini)',
         'data': schedule,
         'validation': validate(schedule),
         'context': {
