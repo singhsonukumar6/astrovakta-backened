@@ -35,7 +35,7 @@ class ResponseWrapMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
-        if path in SKIP_PATHS:
+        if path in SKIP_PATHS or path.startswith("/auth/"):
             return await call_next(request)
 
         response = await call_next(request)
