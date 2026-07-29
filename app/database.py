@@ -56,9 +56,11 @@ class PGConnectionWrapper:
                 from psycopg_pool import ConnectionPool
                 cls._pool = ConnectionPool(
                     DATABASE_URL,
-                    min_size=2,
+                    min_size=1,
                     max_size=10,
-                    open=True,
+                    open=False,
+                    timeout=30,
+                    max_lifetime=300,
                 )
                 logger.info("PostgreSQL connection pool created (min=2, max=10)")
             except Exception:
@@ -110,10 +112,13 @@ class PGConnectionWrapper:
         pass
 
     def executescript(self, script: str):
-        conn = self._get_conn()
-        with conn.cursor() as cur:
-            cur.execute(script)
-        conn.commit()
+        try:
+            conn = self._get_conn()
+            with conn.cursor() as cur:
+                cur.execute(script)
+            conn.commit()
+        finally:
+            self.close()
 
 
 # ═══════════════════════════════════════════════════════════
@@ -347,6 +352,8 @@ def init_db() -> None:
         except Exception as e:
             logger.error(f"PostgreSQL init failed: {e}")
             raise
+        finally:
+            db.close()
     else:
         conn = get_db()
         cursor = conn.cursor()
