@@ -7,6 +7,15 @@ from typing import Optional, List
 from .database import get_db, USE_POSTGRES
 
 
+def _to_dict(row):
+    """Convert a database row to dict — works with sqlite3.Row and psycopg dict_row."""
+    if row is None:
+        return None
+    if USE_POSTGRES:
+        return dict(row) if hasattr(row, 'keys') else row
+    return dict(row)
+
+
 def _convert_placeholders(sql):
     """Convert SQLite ? placeholders to PostgreSQL %s."""
     return sql.replace("?", "%s") if USE_POSTGRES else sql
@@ -63,14 +72,14 @@ def authenticate_user(email: str, password: str) -> Optional[dict]:
 
 def get_user_by_id(user_id: int) -> Optional[dict]:
     row = get_db().execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-    return dict(row) if row else None
+    return _to_dict(row) if row else None
 
 
 def get_user_by_email(email: str) -> Optional[dict]:
     row = get_db().execute(
         "SELECT * FROM users WHERE email = ?", (email.lower().strip(),)
     ).fetchone()
-    return dict(row) if row else None
+    return _to_dict(row) if row else None
 
 
 # ──────────────── API KEY CRUD ────────────────
@@ -86,7 +95,7 @@ def create_api_key(user_id: int, name: str, tier: str = "free") -> dict:
     db.commit()
     new_id = row["id"] if row else None
     row = db.execute("SELECT * FROM api_keys WHERE id = ?", (new_id,)).fetchone()
-    return dict(row)
+    return _to_dict(row)
 
 
 def validate_api_key(key: str) -> Optional[dict]:
@@ -113,7 +122,7 @@ def validate_api_key(key: str) -> Optional[dict]:
         (now, row["id"]),
     )
     db.commit()
-    info = dict(row)
+    info = _to_dict(row)
     info["requests_today"] = requests_today
     return info
 
@@ -544,7 +553,7 @@ def create_ai_provider(user_id: int, provider: str, api_key_encrypted: str,
     db.commit()
     new_id = row["id"] if row else None
     row = db.execute("SELECT * FROM ai_providers WHERE id = ?", (new_id,)).fetchone()
-    return dict(row)
+    return _to_dict(row)
 
 
 def list_ai_providers(user_id: int) -> list:
@@ -559,7 +568,7 @@ def get_ai_provider(provider_id: int, user_id: int) -> Optional[dict]:
         "SELECT * FROM ai_providers WHERE id = ? AND user_id = ?",
         (provider_id, user_id),
     ).fetchone()
-    return dict(row) if row else None
+    return _to_dict(row) if row else None
 
 
 def get_active_ai_provider(user_id: int, preferred_provider: str = None) -> Optional[dict]:
@@ -576,7 +585,7 @@ def get_active_ai_provider(user_id: int, preferred_provider: str = None) -> Opti
             "ORDER BY created_at DESC LIMIT 1",
             (user_id,),
         ).fetchone()
-    return dict(row) if row else None
+    return _to_dict(row) if row else None
 
 
 def update_ai_provider(provider_id: int, user_id: int, **kwargs) -> bool:
@@ -619,7 +628,7 @@ def create_job(user_id: int, job_type: str, input_data: dict) -> dict:
     db.commit()
     new_id = row["id"] if row else None
     row = db.execute("SELECT * FROM background_jobs WHERE id = ?", (new_id,)).fetchone()
-    return dict(row)
+    return _to_dict(row)
 
 
 def update_job_status(job_id: int, status: str, celery_task_id: str = None,
@@ -648,7 +657,7 @@ def update_job_status(job_id: int, status: str, celery_task_id: str = None,
 
 def get_job(job_id: int) -> Optional[dict]:
     row = get_db().execute("SELECT * FROM background_jobs WHERE id = ?", (job_id,)).fetchone()
-    return dict(row) if row else None
+    return _to_dict(row) if row else None
 
 
 def get_user_jobs(user_id: int, status: str = None, limit: int = 20) -> list:
@@ -680,14 +689,14 @@ def store_job_result(job_id: int, result_type: str, result_blob: bytes,
     new_id = row["id"] if row else None
     row = db.execute("SELECT id, job_id, result_type, file_size, filename, created_at FROM job_results WHERE id = ?",
                      (new_id,)).fetchone()
-    return dict(row) if row else None
+    return _to_dict(row) if row else None
 
 
 def get_job_result(job_id: int) -> Optional[dict]:
     row = get_db().execute(
         "SELECT * FROM job_results WHERE job_id = ?", (job_id,)
     ).fetchone()
-    return dict(row) if row else None
+    return _to_dict(row) if row else None
 
 
 def get_job_result_blob(job_id: int) -> Optional[bytes]:
@@ -752,7 +761,7 @@ def verify_email_token(token: str) -> Optional[dict]:
         ).fetchone()
     if not row:
         return None
-    user = dict(row)
+    user = _to_dict(row)
     db.execute(
         "UPDATE users SET email_verified = TRUE, verification_token = NULL WHERE id = ?"
         if not USE_POSTGRES else
@@ -796,7 +805,7 @@ def verify_password_reset_token(token: str) -> Optional[dict]:
             "WHERE pr.token = ? AND pr.used = 0 AND pr.expires_at > ?",
             (token, now),
         ).fetchone()
-    return dict(row) if row else None
+    return _to_dict(row) if row else None
 
 
 def use_password_reset_token(token: str) -> bool:
