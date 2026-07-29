@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 import pytz
-import random
+import hashlib
 
 router = APIRouter()
 
@@ -538,6 +538,21 @@ PLANETARY_REMEDIES = {
 # Helper utilities
 # ──────────────────────────────────────────────
 
+def _dpick(items, chart, req):
+    if not items:
+        return items[0] if items else None
+    moon = next((p for p in chart.get("planets",[]) if p.get("name")=="Moon"), {})
+    asc = chart.get("ascendant", {})
+    mlon = int(moon.get("longitude", 0)) % 360
+    adeg = int(asc.get("degree", 0))
+    try:
+        now = __import__("datetime").datetime.now(__import__("pytz").timezone(req.timezone))
+    except:
+        now = __import__("datetime").datetime.now()
+    s = f"{mlon}-{adeg}-{now.day}-{now.month}-{now.year % 100}"
+    h = int(__import__("hashlib").md5(s.encode()).hexdigest()[:8], 16)
+    return items[h % len(items)]
+
 def _build_chart(date_of_birth: str, time_of_birth: str, lat: float, lon: float, tz: str):
     from ..main import to_julian, calc_planets, calc_houses
     jd = to_julian(date_of_birth, time_of_birth, tz)
@@ -607,21 +622,21 @@ def _dasha_lord(jd: float) -> str:
     return 'Jupiter'
 
 
-def _pick_template(bank: dict, sign: str) -> dict:
+def _pick_template(bank: dict, sign: str, chart: dict, req: HoroscopeRequest) -> dict:
     templates = bank.get(sign, bank.get('Aries', []))
     if not templates:
         return {"positive": "", "challenging": ""}
-    return random.choice(templates)
+    return _dpick(templates, chart, req)
 
 
-def _build_response(sign: str, period: str, overview: dict, extra: dict) -> dict:
-    lucky_color = random.choice(LUCKY_COLORS.get(sign, ['White']))
-    lucky_num = random.choice(LUCKY_NUMBERS.get(sign, [1]))
-    lucky_dir = random.choice(LUCKY_DIRECTIONS.get(sign, ['North']))
+def _build_response(sign, period, overview, extra, chart, req):
+    lucky_color = _dpick(LUCKY_COLORS.get(sign, ['White']), chart, req)
+    lucky_num = _dpick(LUCKY_NUMBERS.get(sign, [1]), chart, req)
+    lucky_dir = _dpick(LUCKY_DIRECTIONS.get(sign, ['North']), chart, req)
 
     dasha_lord = extra.get('dasha_lord', 'Jupiter')
     remedies = PLANETARY_REMEDIES.get(dasha_lord, PLANETARY_REMEDIES['Jupiter'])
-    remedy = random.choice(remedies)
+    remedy = _dpick(remedies, chart, req)
 
     return {
         'sign': sign,
@@ -662,16 +677,17 @@ def _period_label(period: str, req: HoroscopeRequest) -> str:
 
 def _build_full_response(req: HoroscopeRequest, chart: dict, overview_bank: dict,
                          extra_bank: dict, period: str) -> dict:
+    
     from ..main import SIGN_LORDS
     sign = _determine_sign(req, chart)
     period_lbl = _period_label(period, req)
     dasha_lord = _dasha_lord(chart['jd'])
 
-    overview_tmpl = _pick_template(overview_bank, sign)
-    career_tmpl = _pick_template(CAREER, sign)
-    love_tmpl = _pick_template(LOVE, sign)
-    finance_tmpl = _pick_template(FINANCE, sign)
-    health_tmpl = _pick_template(HEALTH, sign)
+    overview_tmpl = _pick_template(overview_bank, sign, chart, req)
+    career_tmpl = _pick_template(CAREER, sign, chart, req)
+    love_tmpl = _pick_template(LOVE, sign, chart, req)
+    finance_tmpl = _pick_template(FINANCE, sign, chart, req)
+    health_tmpl = _pick_template(HEALTH, sign, chart, req)
 
     extra = {
         'dasha_lord': dasha_lord,
@@ -698,7 +714,7 @@ def _build_full_response(req: HoroscopeRequest, chart: dict, overview_bank: dict
         },
     }
 
-    result = _build_response(sign, period_lbl, overview_tmpl, extra)
+    result = _build_response(sign, period_lbl, overview_tmpl, extra, chart, req)
     return {'status': 200, 'data': result}
 
 
@@ -737,10 +753,10 @@ def career_horoscope(req: HoroscopeRequest):
     sign = _determine_sign(req, chart)
     period_lbl = _period_label('monthly', req)
     dasha_lord = _dasha_lord(chart['jd'])
-    career_tmpl = _pick_template(CAREER, sign)
-    lucky_color = random.choice(LUCKY_COLORS.get(sign, ['White']))
-    lucky_num = random.choice(LUCKY_NUMBERS.get(sign, [1]))
-    lucky_dir = random.choice(LUCKY_DIRECTIONS.get(sign, ['North']))
+    career_tmpl = _pick_template(CAREER, sign, chart, req)
+    lucky_color = _dpick(LUCKY_COLORS.get(sign, ['White']), chart, req)
+    lucky_num = _dpick(LUCKY_NUMBERS.get(sign, [1]), chart, req)
+    lucky_dir = _dpick(LUCKY_DIRECTIONS.get(sign, ['North']), chart, req)
     remedies = PLANETARY_REMEDIES.get(dasha_lord, PLANETARY_REMEDIES['Jupiter'])
 
     tenth_house_planets = _get_house_planets(chart['houses'], 10)
@@ -769,7 +785,7 @@ def career_horoscope(req: HoroscopeRequest):
             'luckyColor': lucky_color,
             'luckyNumber': lucky_num,
             'luckyDirection': lucky_dir,
-            'remedy': random.choice(remedies),
+            'remedy': _dpick(remedies, chart, req),
         }
     }
 
@@ -781,10 +797,10 @@ def love_horoscope(req: HoroscopeRequest):
     sign = _determine_sign(req, chart)
     period_lbl = _period_label('monthly', req)
     dasha_lord = _dasha_lord(chart['jd'])
-    love_tmpl = _pick_template(LOVE, sign)
-    lucky_color = random.choice(LUCKY_COLORS.get(sign, ['White']))
-    lucky_num = random.choice(LUCKY_NUMBERS.get(sign, [1]))
-    lucky_dir = random.choice(LUCKY_DIRECTIONS.get(sign, ['North']))
+    love_tmpl = _pick_template(LOVE, sign, chart, req)
+    lucky_color = _dpick(LUCKY_COLORS.get(sign, ['White']), chart, req)
+    lucky_num = _dpick(LUCKY_NUMBERS.get(sign, [1]), chart, req)
+    lucky_dir = _dpick(LUCKY_DIRECTIONS.get(sign, ['North']), chart, req)
     remedies = PLANETARY_REMEDIES.get(dasha_lord, PLANETARY_REMEDIES['Jupiter'])
 
     seventh_house_planets = _get_house_planets(chart['houses'], 7)
@@ -812,7 +828,7 @@ def love_horoscope(req: HoroscopeRequest):
             'luckyColor': lucky_color,
             'luckyNumber': lucky_num,
             'luckyDirection': lucky_dir,
-            'remedy': random.choice(remedies),
+            'remedy': _dpick(remedies, chart, req),
         }
     }
 
@@ -824,10 +840,10 @@ def finance_horoscope(req: HoroscopeRequest):
     sign = _determine_sign(req, chart)
     period_lbl = _period_label('monthly', req)
     dasha_lord = _dasha_lord(chart['jd'])
-    finance_tmpl = _pick_template(FINANCE, sign)
-    lucky_color = random.choice(LUCKY_COLORS.get(sign, ['White']))
-    lucky_num = random.choice(LUCKY_NUMBERS.get(sign, [1]))
-    lucky_dir = random.choice(LUCKY_DIRECTIONS.get(sign, ['North']))
+    finance_tmpl = _pick_template(FINANCE, sign, chart, req)
+    lucky_color = _dpick(LUCKY_COLORS.get(sign, ['White']), chart, req)
+    lucky_num = _dpick(LUCKY_NUMBERS.get(sign, [1]), chart, req)
+    lucky_dir = _dpick(LUCKY_DIRECTIONS.get(sign, ['North']), chart, req)
     remedies = PLANETARY_REMEDIES.get(dasha_lord, PLANETARY_REMEDIES['Jupiter'])
 
     second_house_planets = _get_house_planets(chart['houses'], 2)
@@ -858,7 +874,7 @@ def finance_horoscope(req: HoroscopeRequest):
             'luckyColor': lucky_color,
             'luckyNumber': lucky_num,
             'luckyDirection': lucky_dir,
-            'remedy': random.choice(remedies),
+            'remedy': _dpick(remedies, chart, req),
         }
     }
 
@@ -869,10 +885,10 @@ def health_horoscope(req: HoroscopeRequest):
     sign = _determine_sign(req, chart)
     period_lbl = _period_label('monthly', req)
     dasha_lord = _dasha_lord(chart['jd'])
-    health_tmpl = _pick_template(HEALTH, sign)
-    lucky_color = random.choice(LUCKY_COLORS.get(sign, ['White']))
-    lucky_num = random.choice(LUCKY_NUMBERS.get(sign, [1]))
-    lucky_dir = random.choice(LUCKY_DIRECTIONS.get(sign, ['North']))
+    health_tmpl = _pick_template(HEALTH, sign, chart, req)
+    lucky_color = _dpick(LUCKY_COLORS.get(sign, ['White']), chart, req)
+    lucky_num = _dpick(LUCKY_NUMBERS.get(sign, [1]), chart, req)
+    lucky_dir = _dpick(LUCKY_DIRECTIONS.get(sign, ['North']), chart, req)
     remedies = PLANETARY_REMEDIES.get(dasha_lord, PLANETARY_REMEDIES['Jupiter'])
 
     first_house_planets = _get_house_planets(chart['houses'], 1)
@@ -903,6 +919,6 @@ def health_horoscope(req: HoroscopeRequest):
             'luckyColor': lucky_color,
             'luckyNumber': lucky_num,
             'luckyDirection': lucky_dir,
-            'remedy': random.choice(remedies),
+            'remedy': _dpick(remedies, chart, req),
         }
     }

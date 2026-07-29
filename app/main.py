@@ -1289,7 +1289,7 @@ def get_vedic_properties(sign: str, nakshatra: str, pada: int) -> Dict[str, str]
         'gan': props.get('gan', 'Unknown'),
         'nadi': props.get('nadi', 'Unknown'),
         'nameAlphabet': props.get('padas', ['?'])[max(1, min(4, pada)) - 1],
-        'yunja': 'Harmonious'  # Panchanga yoga name for this tithi-drishti conjunction
+        'yunja': 'Harmonious',  # Panchanga yoga name for this tithi-drishti conjunction
         'tatva': tatva,
         'paya': paya
     }
