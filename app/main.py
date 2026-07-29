@@ -53,7 +53,9 @@ app = FastAPI(
         {"name": "Panchang", "description": "Tithi, Nakshatra, Yoga, Karana, Muhurat calculations"},
         {"name": "Transit", "description": "Planetary transit analysis and predictions"},
         {"name": "Compatibility", "description": "Ashtakoot milan, gun milan, matching"},
-        {"name": "Dosha", "description": "Manglik, Kaal Sarp, Shani, Nadi, Bhakoot, Yogini doshas, Lal Kitab, KP Astrology"},
+        {"name": "Dosha", "description": "Manglik, Kaal Sarp, Shani, Nadi, Bhakoot, Yogini doshas"},
+        {"name": "KP Astrology", "description": "KP Astrology system: planet details, cuspal lords, ruling planets, horary"},
+        {"name": "Lal Kitab", "description": "Lal Kitab remedies and chart analysis"},
         {"name": "Yoga", "description": "Yoga detection and predictions"},
         {"name": "Calculator", "description": "Lagna, Moon sign, Sun sign, Shadbala, Ashtakavarga calculators"},
         {"name": "Muhurat", "description": "Auspicious timing for marriage, property, travel, etc."},
@@ -424,7 +426,7 @@ except Exception as e:
 # Yogini Dosha router
 try:
     from .routers.yogini_dosha import router as yogini_dosha_router
-    app.include_router(yogini_dosha_router, prefix="", tags=['Dosha'])
+    app.include_router(yogini_dosha_router, prefix="", tags=['Dosha','Yogini Dosha'])
 except Exception as e:
     import logging as _logging_yogini_dosha
     _logging_yogini_dosha.error(f"Failed to include YOGINI DOSHA router: {e}")
@@ -432,7 +434,7 @@ except Exception as e:
 # Lal Kitab router
 try:
     from .routers.lal_kitab import router as lal_kitab_router
-    app.include_router(lal_kitab_router, prefix="", tags=['Dosha'])
+    app.include_router(lal_kitab_router, prefix="", tags=['Lal Kitab'])
 except Exception as e:
     import logging as _logging_lal_kitab
     _logging_lal_kitab.error(f"Failed to include LAL KITAB router: {e}")
@@ -440,7 +442,7 @@ except Exception as e:
 # KP Astrology router
 try:
     from .routers.kp_astro import router as kp_astro_router
-    app.include_router(kp_astro_router, prefix="", tags=['Dosha'])
+    app.include_router(kp_astro_router, prefix="", tags=['KP Astrology'])
 except Exception as e:
     import logging as _logging_kp
     _logging_kp.error(f"Failed to include KP ASTRO router: {e}")
@@ -1287,7 +1289,7 @@ def get_vedic_properties(sign: str, nakshatra: str, pada: int) -> Dict[str, str]
         'gan': props.get('gan', 'Unknown'),
         'nadi': props.get('nadi', 'Unknown'),
         'nameAlphabet': props.get('padas', ['?'])[max(1, min(4, pada)) - 1],
-        'yunja': 'Harmonious', # Placeholder
+        'yunja': 'Harmonious'  # Panchanga yoga name for this tithi-drishti conjunction
         'tatva': tatva,
         'paya': paya
     }
