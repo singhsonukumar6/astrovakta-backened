@@ -36,7 +36,7 @@ if _sentry_dsn:
 
 
 from .routers.auth_router import router as auth_router
-from .middleware import APIKeyMiddleware, ResponseWrapMiddleware
+from .middleware import APIKeyMiddleware
 
 app = FastAPI(
     title="Vedic Astrology API",
@@ -93,7 +93,6 @@ app.add_middleware(
 )
 
 app.add_middleware(APIKeyMiddleware)
-app.add_middleware(ResponseWrapMiddleware)
 
 # ──────── Swagger UI: API Key Input ────────
 from fastapi.openapi.utils import get_openapi
