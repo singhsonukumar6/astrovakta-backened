@@ -1293,7 +1293,7 @@ def get_vedic_properties(sign: str, nakshatra: str, pada: int) -> Dict[str, str]
     }
 
 
-@app.post('/api/kundli')
+@app.post('/api/kundli', tags=['Birth Chart'])
 def generate_kundli(body: BirthDetails) -> Dict[str, Any]:
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     tropical = bool(body.tropical)
