@@ -73,6 +73,7 @@ class PGConnectionWrapper:
         if pool:
             self._conn = pool.getconn()
             self._conn.autocommit = False
+            self._conn.row_factory = _dict_row
             self._from_pool = True
         else:
             if self._conn is None or self._conn.closed:
