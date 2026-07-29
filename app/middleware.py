@@ -34,6 +34,10 @@ class ResponseWrapMiddleware(BaseHTTPMiddleware):
     """Wrap raw JSON responses in the standard {success, message, data} envelope."""
 
     async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if path in SKIP_PATHS:
+            return await call_next(request)
+
         response = await call_next(request)
 
         content_type = response.headers.get("content-type", "")
