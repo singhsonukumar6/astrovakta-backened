@@ -354,7 +354,7 @@ def init_db() -> None:
                     row = conn.execute(
                         "SELECT column_name FROM information_schema.columns "
                         "WHERE table_name = %s AND column_name = %s",
-                        (table, column),
+                        (t, c),
                     ).fetchone()
                     if not row:
                         conn.execute(f"ALTER TABLE {t} ADD COLUMN {c} {ct}")
