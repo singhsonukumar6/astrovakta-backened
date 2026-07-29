@@ -38,9 +38,7 @@ def _ensure_psycopg():
 
 class PGConnectionWrapper:
     """Mimics sqlite3.Connection: execute(), commit(), cursor().
-
-    Uses psycopg-pool connection pool for production workloads.
-    Falls back to simple connections if pool is unavailable.
+    Uses direct psycopg connections with dict_row row factory.
     """
 
     _pool = None
@@ -48,38 +46,12 @@ class PGConnectionWrapper:
     def __init__(self):
         _ensure_psycopg()
         self._conn = None
-
-    @classmethod
-    def _get_pool(cls):
-        if cls._pool is None:
-            try:
-                from psycopg_pool import ConnectionPool
-                cls._pool = ConnectionPool(
-                    DATABASE_URL,
-                    min_size=1,
-                    max_size=10,
-                    open=True,
-                    timeout=30,
-                    max_lifetime=300,
-                )
-                logger.info("PostgreSQL connection pool created (min=2, max=10)")
-            except Exception:
-                logger.warning("psycopg-pool not available, using direct connections")
-                cls._pool = False  # Sentinel
-        return cls._pool if cls._pool else None
+        self._active_cur = None
 
     def _get_conn(self):
-        pool = self._get_pool()
-        if pool:
-            self._conn = pool.getconn()
+        if self._conn is None or self._conn.closed:
+            self._conn = _psycopg.connect(DATABASE_URL, row_factory=_dict_row)
             self._conn.autocommit = False
-            self._conn.row_factory = _dict_row
-            self._from_pool = True
-        else:
-            if self._conn is None or self._conn.closed:
-                self._conn = _psycopg.connect(DATABASE_URL, row_factory=_dict_row)
-                self._conn.autocommit = False
-                self._from_pool = False
         return self._conn
 
     def execute(self, sql: str, params=None):
@@ -96,9 +68,8 @@ class PGConnectionWrapper:
             self._conn.commit()
 
     def close(self):
-        pool = self._get_pool()
-        if pool and getattr(self, '_from_pool', False) and self._conn and not self._conn.closed:
-            pool.putconn(self._conn)
+        if self._conn and not self._conn.closed:
+            self._conn.close()
             self._conn = None
 
     def cursor(self):
