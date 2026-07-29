@@ -39,24 +39,49 @@ def _ensure_psycopg():
 class PGConnectionWrapper:
     """Mimics sqlite3.Connection: execute(), commit(), cursor().
 
-    Uses psycopg directly (no pool) — opens a new connection per operation.
-    This is fine for low traffic. For high traffic, add psycopg-pool.
+    Uses psycopg-pool connection pool for production workloads.
+    Falls back to simple connections if pool is unavailable.
     """
+
+    _pool = None
 
     def __init__(self):
         _ensure_psycopg()
         self._conn = None
 
+    @classmethod
+    def _get_pool(cls):
+        if cls._pool is None:
+            try:
+                from psycopg_pool import ConnectionPool
+                cls._pool = ConnectionPool(
+                    DATABASE_URL,
+                    min_size=2,
+                    max_size=10,
+                    open=True,
+                )
+                logger.info("PostgreSQL connection pool created (min=2, max=10)")
+            except Exception:
+                logger.warning("psycopg-pool not available, using direct connections")
+                cls._pool = False  # Sentinel
+        return cls._pool if cls._pool else None
+
     def _get_conn(self):
-        if self._conn is None or self._conn.closed:
-            self._conn = _psycopg.connect(DATABASE_URL, row_factory=_dict_row)
+        pool = self._get_pool()
+        if pool:
+            self._conn = pool.getconn()
             self._conn.autocommit = False
+            self._from_pool = True
+        else:
+            if self._conn is None or self._conn.closed:
+                self._conn = _psycopg.connect(DATABASE_URL, row_factory=_dict_row)
+                self._conn.autocommit = False
+                self._from_pool = False
         return self._conn
 
     def execute(self, sql: str, params=None):
         conn = self._get_conn()
         cur = conn.cursor()
-        # Auto-convert ? placeholders to %s for psycopg
         if params is not None and "?" in sql:
             sql = sql.replace("?", "%s")
         cur.execute(sql, params)
@@ -67,6 +92,12 @@ class PGConnectionWrapper:
         if self._conn and not self._conn.closed:
             self._conn.commit()
 
+    def close(self):
+        pool = self._get_pool()
+        if pool and getattr(self, '_from_pool', False) and self._conn and not self._conn.closed:
+            pool.putconn(self._conn)
+            self._conn = None
+
     def cursor(self):
         return self
 
@@ -76,10 +107,9 @@ class PGConnectionWrapper:
 
     @row_factory.setter
     def row_factory(self, val):
-        pass  # psycopg always uses dict_row via connection config
+        pass
 
     def executescript(self, script: str):
-        """Execute multiple statements (DDL)."""
         conn = self._get_conn()
         with conn.cursor() as cur:
             cur.execute(script)

@@ -51,7 +51,7 @@ const T = '10:30'
 // ──── Endpoint Definitions ────
 export const endpointCategories = {
   'Charts & Kundli': [
-    { method: 'POST', path: '/api/kundli', label: 'Birth Chart (Kundli)', fields: birthFields() },
+    { method: 'POST', path: '/api/kundli', label: 'Birth Chart (Kundli)', fields: birthFields([{ key: 'tropical', label: 'Tropical Zodiac', type: 'select', options: ['false', 'true'], group: 'Zodiac' }]) },
     { method: 'POST', path: '/chart/svg', label: 'North Indian Diamond SVG', fields: birthFields([{ key: 'theme', label: 'Theme', type: 'select', options: ['dark', 'light'], group: 'Style' }]) },
     { method: 'POST', path: '/chart/grid-svg', label: 'Grid Chart SVG', fields: birthFields([{ key: 'theme', label: 'Theme', type: 'select', options: ['dark', 'light'], group: 'Style' }]) },
     { method: 'POST', path: '/chart/east-svg', label: 'East Indian SVG', fields: birthFields([{ key: 'theme', label: 'Theme', type: 'select', options: ['dark', 'light'], group: 'Style' }]) },
@@ -137,6 +137,7 @@ export const endpointCategories = {
     { method: 'POST', path: '/api/dosha/bhakoot-dosha', label: 'Bhakoot Dosha', fields: coupleBirthFields() },
     { method: 'POST', path: '/api/dosha/yoni-compatibility', label: 'Yoni Compatibility', fields: coupleBirthFields() },
     { method: 'POST', path: '/horoscope/dosha/dhaiya', label: 'Dhaiya & Sade Sati', fields: birthFields() },
+    { method: 'POST', path: '/yogini/dosha', label: 'Yogini Dosha', fields: birthFields() },
   ],
   Yoga: [
     { method: 'POST', path: '/horoscope/yoga/predictions', label: 'Yoga Predictions', fields: birthFields() },
@@ -277,5 +278,18 @@ export const endpointCategories = {
     { method: 'POST', path: '/lucky/number', label: 'Lucky Number', fields: [{ key: 'dateOfBirth', label: 'Date of Birth', type: 'date', group: 'Details' }] },
     { method: 'POST', path: '/lucky/day', label: 'Lucky Day', fields: [{ key: 'dateOfBirth', label: 'Date of Birth', type: 'date', group: 'Details' }] },
     { method: 'POST', path: '/lucky/metal', label: 'Lucky Metal', fields: [{ key: 'dateOfBirth', label: 'Date of Birth', type: 'date', group: 'Details' }] },
+  ],
+  'Lal Kitab': [
+    { method: 'POST', path: '/lal-kitab/house-significations', label: 'House Significations', fields: [] },
+    { method: 'POST', path: '/lal-kitab/planet-interpretations', label: 'Planet Interpretations', fields: [] },
+    { method: 'POST', path: '/lal-kitab/chart-analysis', label: 'Chart Analysis', fields: birthFields() },
+  ],
+  'KP Astrology': [
+    { method: 'POST', path: '/kp/planet-details', label: 'Planet Details', fields: birthFields() },
+    { method: 'POST', path: '/kp/cuspal-lords', label: 'Cuspal Lords', fields: birthFields() },
+    { method: 'POST', path: '/kp/bhav-chalit', label: 'Bhav Chalit', fields: birthFields() },
+    { method: 'POST', path: '/kp/ruling-planets', label: 'Ruling Planets', fields: birthFields() },
+    { method: 'POST', path: '/kp/horary', label: 'Horary (Prashna)', fields: [{ key: 'questionDate', label: 'Question Date', type: 'date', group: 'Question' }, { key: 'questionTime', label: 'Question Time', type: 'time', group: 'Question' }, { key: '_location', label: 'Location', type: 'location', group: 'Question' }, { key: 'question', label: 'Question', type: 'textarea', placeholder: 'Will I get a job this year?', group: 'Question' }] },
+    { method: 'POST', path: '/kp/star-lords', label: 'Star Lords', fields: birthFields() },
   ],
 }

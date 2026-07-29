@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Body
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, Literal, Dict, Any, List
@@ -19,9 +20,23 @@ from .utils import (
     panchang_at_jd, compute_panchang,
 )
 
+from .response import success, error
+
 from .database import init_db
+
+_sentry_dsn = os.getenv("SENTRY_DSN", "").strip()
+if _sentry_dsn:
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        traces_sample_rate=0.1,
+        send_default_pii=False,
+    )
+    logging.info("Sentry initialized")
+
+
 from .routers.auth_router import router as auth_router
-from .middleware import APIKeyMiddleware
+from .middleware import APIKeyMiddleware, ResponseWrapMiddleware
 
 app = FastAPI(
     title="Vedic Astrology API",
@@ -38,7 +53,7 @@ app = FastAPI(
         {"name": "Panchang", "description": "Tithi, Nakshatra, Yoga, Karana, Muhurat calculations"},
         {"name": "Transit", "description": "Planetary transit analysis and predictions"},
         {"name": "Compatibility", "description": "Ashtakoot milan, gun milan, matching"},
-        {"name": "Dosha", "description": "Manglik, Kaal Sarp, Shani, Nadi, Bhakoot doshas"},
+        {"name": "Dosha", "description": "Manglik, Kaal Sarp, Shani, Nadi, Bhakoot, Yogini doshas, Lal Kitab, KP Astrology"},
         {"name": "Yoga", "description": "Yoga detection and predictions"},
         {"name": "Calculator", "description": "Lagna, Moon sign, Sun sign, Shadbala, Ashtakavarga calculators"},
         {"name": "Muhurat", "description": "Auspicious timing for marriage, property, travel, etc."},
@@ -60,10 +75,12 @@ app = FastAPI(
         {"name": "Admin", "description": "Admin panel: user management, key management, stats, usage analytics"},
         {"name": "AI Providers", "description": "AI provider configuration: OpenAI, Anthropic, Groq, Together"},
         {"name": "Jobs", "description": "Background job submission and status tracking"},
+
     ],
 )
 
 app.add_middleware(APIKeyMiddleware)
+app.add_middleware(ResponseWrapMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -110,6 +127,32 @@ def custom_openapi():
 
 app.openapi = custom_openapi
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc: Exception):
+    import logging
+    logging.error(f"Unhandled exception on {request.url.path}: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"success": False, "message": "Internal server error", "data": None},
+    )
+
+
+@app.exception_handler(404)
+async def not_found_handler(request, exc):
+    return JSONResponse(
+        status_code=404,
+        content={"success": False, "message": "Endpoint not found", "data": None},
+    )
+
+
+@app.exception_handler(422)
+async def validation_handler(request, exc):
+    return JSONResponse(
+        status_code=422,
+        content={"success": False, "message": "Validation error", "data": exc.errors() if hasattr(exc, 'errors') else str(exc)},
+    )
+
+
 app.include_router(auth_router, prefix="/auth", tags=['Auth'])
 
 # Admin router
@@ -152,7 +195,7 @@ def on_startup():
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "version": "2.0.0", "service": "Vedic Astrology API"}
+    return success({"status": "ok", "version": "2.0.0", "service": "Vedic Astrology API"})
 
 # Routers
 try:
@@ -378,6 +421,30 @@ except Exception as e:
     import logging as _logging22
     _logging22.error(f"Failed to include DASHA EXTENDED router: {e}")
 
+# Yogini Dosha router
+try:
+    from .routers.yogini_dosha import router as yogini_dosha_router
+    app.include_router(yogini_dosha_router, prefix="", tags=['Dosha'])
+except Exception as e:
+    import logging as _logging_yogini_dosha
+    _logging_yogini_dosha.error(f"Failed to include YOGINI DOSHA router: {e}")
+
+# Lal Kitab router
+try:
+    from .routers.lal_kitab import router as lal_kitab_router
+    app.include_router(lal_kitab_router, prefix="", tags=['Dosha'])
+except Exception as e:
+    import logging as _logging_lal_kitab
+    _logging_lal_kitab.error(f"Failed to include LAL KITAB router: {e}")
+
+# KP Astrology router
+try:
+    from .routers.kp_astro import router as kp_astro_router
+    app.include_router(kp_astro_router, prefix="", tags=['Dosha'])
+except Exception as e:
+    import logging as _logging_kp
+    _logging_kp.error(f"Failed to include KP ASTRO router: {e}")
+
 # Numerology router
 try:
     from .routers.numerology import router as numerology_router
@@ -498,6 +565,8 @@ except Exception as e:
     import logging as _logging34
     _logging34.error(f"Failed to include LUCKY router: {e}")
 
+
+
 # Specialized Charts router (Navamsa, Hora, Sudarshana)
 try:
     from .routers.chart_specialized import router as chart_specialized_router
@@ -530,6 +599,7 @@ class BirthDetails(BaseModel):
     houseSystem: Optional[Literal['P','W']] = Field('W', example='W')
     nodeMode: Optional[Literal['mean','true']] = Field('mean', example='mean')
     debug: Optional[bool] = Field(False, example=False)
+    tropical: Optional[bool] = Field(False, example=False)
 
 
 def pd_years(years: float) -> timedelta:
@@ -803,13 +873,10 @@ def charts_divisional_extended(planets: list, ascendant: Dict[str, Any]) -> Dict
 
         return {'name': name, 'focus': focus, 'ascendant': asc, 'planets': plist}
 
-    # Build main vargas with full details
-    for d in [1,2,3,4,7,9,10,12]:
+    # Build all vargas dynamically with full details
+    varga_keys = [1, 2, 3, 4, 5, 6, 7, 9, 10, 12, 16, 20, 24, 27, 30, 40, 45, 60]
+    for d in varga_keys:
         charts[f'D{d}'] = build_chart(d)
-
-    # Placeholders for other vargas
-    for key in ['D16','D20','D24','D27','D30']:
-        charts[key] = {'name': VARGA_META[key]['name'], 'focus': VARGA_META[key]['focus'], 'ascendant': None, 'planets': [], 'note': 'Not implemented yet'}
 
     return charts
 
@@ -1229,14 +1296,15 @@ def get_vedic_properties(sign: str, nakshatra: str, pada: int) -> Dict[str, str]
 @app.post('/api/kundli')
 def generate_kundli(body: BirthDetails) -> Dict[str, Any]:
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
+    tropical = bool(body.tropical)
     ayan = ayanamsa_value(jd)
 
-    planets = calc_planets(jd, body.propertyProfile, body.nodeMode)
+    planets = calc_planets(jd, body.propertyProfile, body.nodeMode, tropical=tropical)
     for p in planets:
         p['houseStatus'] = planet_status(p['name'], p['sign'])
 
     hs_code = body.houseSystem or 'W'
-    house_data = calc_houses(jd, body.latitude, body.longitude, planets, hs_code)
+    house_data = calc_houses(jd, body.latitude, body.longitude, planets, hs_code, tropical=tropical)
 
     panch = compute_panchang(body.dateOfBirth, body.timeOfBirth, body.timezone, body.latitude, body.longitude)
 
@@ -1342,29 +1410,26 @@ def generate_kundli(body: BirthDetails) -> Dict[str, Any]:
             'houseStatus': p['houseStatus'],
         })
 
-    return {
-        'success': True,
-        'data': {
-            'basicDetails': basic,
-            'planets': clean_planets,
-            'houses': house_data['houses'],
-            'divisionalCharts': divisional,
-            'yogas': yogas,
-            'doshas': doshas,
-            'dasha': {
-                'system': 'Vimshottari',
-                'currentNow': current_now,
-                'schedule': dasha,
-            },
-            'kpDetails': kp,
-            'vedicProperties': {
-                'source': body.propertySource,
-                'sourceNakshatra': vedic_source_nk,
-                'values': vedic_props
-            },
-            'panchang': panch,
-        }
-    }
+    return success({
+        'basicDetails': basic,
+        'planets': clean_planets,
+        'houses': house_data['houses'],
+        'divisionalCharts': divisional,
+        'yogas': yogas,
+        'doshas': doshas,
+        'dasha': {
+            'system': 'Vimshottari',
+            'currentNow': current_now,
+            'schedule': dasha,
+        },
+        'kpDetails': kp,
+        'vedicProperties': {
+            'source': body.propertySource,
+            'sourceNakshatra': vedic_source_nk,
+            'values': vedic_props
+        },
+        'panchang': panch,
+    })
 
 # --------------------- New endpoint: /horoscope/planet-details ---------------------
 
@@ -1588,9 +1653,8 @@ def planet_details(body: BirthDetails):
     else:
         report = {}
 
-    return {
-        'status': 200,
+    return success({
         'response': result_indexed,
         'personal_characteristics': personal,
-        'planet_report': report
-    }
+        'planet_report': report,
+    })

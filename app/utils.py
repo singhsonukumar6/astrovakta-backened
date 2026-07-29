@@ -124,14 +124,17 @@ def is_combust(name: str, lon: float, sun_lon: float, retro: bool) -> bool:
     return dist < c
 
 
-def calc_planets(jd: float, profile: Optional[str], node_mode: str):
+def calc_planets(jd: float, profile: Optional[str], node_mode: str, tropical: bool = False):
     swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
+    flags = swe.FLG_SWIEPH | swe.FLG_SPEED
+    if not tropical:
+        flags |= swe.FLG_SIDEREAL
     planets = []
     sun_lon = None
     for pname, pid in PLANET_IDS.items():
         if pname in ['Rahu', 'Ketu']:
             pid = swe.TRUE_NODE if node_mode == 'true' else swe.MEAN_NODE
-        xx, rf = swe.calc_ut(jd, pid, swe.FLG_SIDEREAL | swe.FLG_SWIEPH | swe.FLG_SPEED)
+        xx, rf = swe.calc_ut(jd, pid, flags)
         lon, lat, dist = xx[0], xx[1], xx[2]
         lon_spd = xx[3]
         if pname == 'Ketu':
@@ -169,10 +172,11 @@ def calc_planets(jd: float, profile: Optional[str], node_mode: str):
     return planets
 
 
-def calc_houses(jd: float, lat: float, lon: float, planets: list, house_system: str):
+def calc_houses(jd: float, lat: float, lon: float, planets: list, house_system: str, tropical: bool = False):
     swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     hsys = (house_system or 'P').encode('ascii')
-    cusps, ascmc = swe.houses_ex(jd, lat, lon, hsys, swe.FLG_SIDEREAL)
+    hflags = 0 if tropical else swe.FLG_SIDEREAL
+    cusps, ascmc = swe.houses_ex(jd, lat, lon, hsys, hflags)
     asc_deg = ascmc[0]
     asc_sign = get_sign(asc_deg)
     asc_nk = get_nakshatra(asc_deg)

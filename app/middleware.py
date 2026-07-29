@@ -1,7 +1,10 @@
 import time
+import json
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
+
+from .response import error as _error_resp
 
 from .auth import validate_api_key, log_usage
 
@@ -22,6 +25,54 @@ SKIP_PATHS = {
     "/redoc",
 }
 
+_PASSTHROUGH_HEADERS = frozenset((
+    "content-length", "content-type", "content-encoding", "transfer-encoding",
+))
+
+
+class ResponseWrapMiddleware(BaseHTTPMiddleware):
+    """Wrap raw JSON responses in the standard {success, message, data} envelope."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+
+        content_type = response.headers.get("content-type", "")
+        if "application/json" not in content_type:
+            return response
+
+        body = b""
+        async for chunk in response.body_iterator:
+            body += chunk
+
+        custom_headers = {
+            k: v for k, v in response.headers.items()
+            if k.lower() not in _PASSTHROUGH_HEADERS
+        }
+
+        try:
+            data = json.loads(body)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return Response(content=body, status_code=response.status_code,
+                            media_type="application/json", headers=custom_headers)
+
+        if isinstance(data, dict) and "success" in data:
+            return Response(content=body, status_code=response.status_code,
+                            media_type="application/json", headers=custom_headers)
+
+        if response.status_code >= 400:
+            wrapped = {"success": False, "message": "Validation error" if response.status_code == 422 else "Request failed"}
+        else:
+            wrapped = {"success": True, "message": "Success"}
+        if data is not None:
+            wrapped["data"] = data
+
+        return Response(
+            content=json.dumps(wrapped).encode(),
+            status_code=response.status_code,
+            media_type="application/json",
+            headers=custom_headers,
+        )
+
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -37,37 +88,27 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
         api_key = request.headers.get("X-API-Key")
         if not api_key:
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Missing X-API-Key header"},
-            )
+            return _error_resp("Missing X-API-Key header", 401)
 
         key_info = validate_api_key(api_key)
         if not key_info:
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Invalid or revoked API key"},
-            )
+            return _error_resp("Invalid or revoked API key", 401)
 
-        # Attach key info so routers can access user_id
         request.state.api_key_info = key_info
 
         rate_limit = key_info["rate_limit"]
-        request_count = key_info["request_count"]
+        requests_today = key_info.get("requests_today", 0)
 
-        if request_count > rate_limit:
+        if requests_today >= rate_limit:
             log_usage(key_info["id"], path, 402)
-            return JSONResponse(
-                status_code=402,
-                content={
-                    "detail": "Rate limit exceeded",
-                    "tier": key_info["tier"],
-                    "rate_limit": rate_limit,
-                    "requests_today": request_count,
-                },
+            return _error_resp(
+                "Rate limit exceeded",
+                402,
+                {"tier": key_info["tier"], "rate_limit": rate_limit,
+                 "requests_today": requests_today, "reset": "Daily at midnight UTC"},
             )
 
-        remaining = max(0, rate_limit - request_count)
+        remaining = max(0, rate_limit - requests_today)
 
         start = time.time()
         response = await call_next(request)

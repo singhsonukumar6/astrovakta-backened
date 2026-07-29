@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from app.database import init_db, get_db
 from app.auth import (
-    hash_password, get_user_by_email, create_api_key, list_api_keys,
+    hash_password, get_user_by_email, get_user_by_id, create_api_key, list_api_keys,
 )
 
 
@@ -52,7 +52,7 @@ def create_admin():
             cur = db.execute(
                 "INSERT INTO users (email, name, password_hash, plan, is_admin) "
                 "VALUES (?, ?, ?, ?, 1)",
-                (admin_email, admin_name, hash_password(admin_password), "enterprise", 1),
+                (admin_email, admin_name, hash_password(admin_password), "enterprise"),
             )
             new_id = cur.lastrowid
         db.commit()

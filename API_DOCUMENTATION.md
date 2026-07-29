@@ -1,7 +1,7 @@
 # AstroVakta Vedic Astrology API — Developer Documentation
 
 > **Version 2.0** | **Base URL:** `http://localhost:5000` (or your deployed URL)  
-> **216+ endpoints** | **PDF Report Generation** | **AI-Powered Insights** | **North Indian Diamond Charts**
+> **226+ endpoints** | **PDF Report Generation** | **AI-Powered Insights** | **North Indian Diamond Charts**
 
 ---
 
@@ -134,6 +134,14 @@ Complete birth chart with planets, houses, nakshatras, yogas, and doshas.
 
 **Response:** Full kundli data including planet positions, house placements, nakshatra details, yoga detection, and dosha analysis.
 
+**Optional Parameters:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `tropical` | boolean | `false` | Use tropical zodiac (Western-style) instead of sidereal (Vedic). When `true`, planet positions and house cusps are computed without ayanamsa correction. |
+| `houseSystem` | string | `"W"` | House system code (e.g., `W` for Whole Sign, `P` for Placidus) |
+| `nodeMode` | string | `"mean"` | Lunar node mode (`mean` or `true`) |
+
 ### 4.2 Horoscope Endpoints
 
 | Endpoint | Description |
@@ -212,6 +220,7 @@ Additional endpoints: `/horoscope/panchang/rahu-kaal`, `/horoscope/panchang/chog
 | `POST /api/dosha/manglik-detailed` | Detailed Manglik analysis |
 | `POST /api/dosha/nadi-dosha` | Nadi dosha check |
 | `POST /api/dosha/bhakoot-dosha` | Bhakoot dosha check |
+| `POST /yogini/dosha` | Yogini dosha analysis (based on Moon nakshatra) |
 
 ### 4.8 Calculator Endpoints
 
@@ -257,6 +266,33 @@ POST /lucky/metal
 ```
 
 Returns lucky colors, numbers, day of week, and metal based on numerology life path.
+
+### 4.12 Lal Kitab
+
+Lal Kitab ("Red Book") is a unique system of Vedic astrology with its own principles for house significations, planet placements, and practical remedies (upayas).
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /lal-kitab/house-significations` | All 12 house significations, elements & remedies (no birth data) |
+| `POST /lal-kitab/planet-interpretations` | All 9 planets — nature, traits & remedies (no birth data) |
+| `POST /lal-kitab/chart-analysis` | Full chart analysis: per-planet & per-house with remedies (birth data) |
+
+**Chart analysis response** includes per-planet analysis (nature, house signification, positive/negative traits, retrograde/combust effects, remedies) and per-house analysis (signification, planets present, general remedies).
+
+### 4.13 KP Astrology (Krishnamurti Paddhati)
+
+KP is a predictive system using Placidus houses, stellar astrology (star lords and sub lords), and ruling planets for precise timing and horary.
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /kp/planet-details` | Planet positions with cuspal lord, star lord & sub lord |
+| `POST /kp/cuspal-lords` | Cuspal lords, star lords & sub lords for all 12 houses |
+| `POST /kp/bhav-chalit` | KP Bhav Chalit (equal house midpoints) |
+| `POST /kp/ruling-planets` | Ruling planets for electional/horary (ascendant lord, Moon, day lord) |
+| `POST /kp/horary` | Horary — answer a question from query time |
+| `POST /kp/star-lords` | Star lords & sub lords for all planets |
+
+**KP Horary** accepts `questionDate`, `questionTime`, `latitude`, `longitude`, `timezone`, and `question` (instead of birth data). The API determines the relevant house, significators, and whether the outcome is favorable.
 
 ---
 
@@ -480,7 +516,7 @@ Returns raw SVG (`Content-Type: image/svg+xml`) of the North Indian diamond char
 
 ### Divisional Charts (Vargas)
 
-The divisional chart endpoint supports all 60 vargas:
+The divisional chart endpoint supports all 18 divisional charts (D1–D60), now fully computed:
 
 ```bash
 # Navamsa (D9)
@@ -844,7 +880,7 @@ curl -X POST http://localhost:5000/horoscope/compat \
 - `POST /api/compat/gana` — Gana match
 - `POST /api/compat/tara` — Tara match
 
-### Dosha (11 endpoints)
+### Dosha (12 endpoints)
 - `POST /horoscope/dosha/compute` — Compute all doshas
 - `POST /horoscope/dosha/remedies` — Dosha remedies
 - `POST /horoscope/dosha/severity` — Severity assessment
@@ -856,6 +892,7 @@ curl -X POST http://localhost:5000/horoscope/compat \
 - `POST /api/dosha/nadi-dosha` — Nadi dosha
 - `POST /api/dosha/bhakoot-dosha` — Bhakoot dosha
 - `POST /api/dosha/yoni-compatibility` — Yoni compatibility
+- `POST /yogini/dosha` — Yogini dosha
 
 ### PDF Reports (6 endpoints)
 - `POST /reports/full-pdf` — Full customizable PDF
@@ -892,6 +929,21 @@ curl -X POST http://localhost:5000/horoscope/compat \
 - `POST /api/gemstone/weight` — Weight calculator
 - `POST /api/gemstone/metal` — Metal guide
 - `POST /api/gemstone/finger` — Finger guide
+
+> **Note:** All gemstone responses now include an `imageUrl` field (e.g., `/images/gemstones/ruby.webp`) pointing to a gemstone image asset.
+
+### Lal Kitab (3 endpoints)
+- `POST /lal-kitab/house-significations` — 12 house significations & remedies
+- `POST /lal-kitab/planet-interpretations` — Planet nature, traits & remedies
+- `POST /lal-kitab/chart-analysis` — Full chart analysis (planets & houses)
+
+### KP Astrology (6 endpoints)
+- `POST /kp/planet-details` — Planet details with star & sub lords
+- `POST /kp/cuspal-lords` — Cuspal lords, star lords & sub lords
+- `POST /kp/bhav-chalit` — KP Bhav Chalit
+- `POST /kp/ruling-planets` — Ruling planets for electional/horary
+- `POST /kp/horary` — KP horary (question-based)
+- `POST /kp/star-lords` — Star lords & sub lords for all planets
 
 ### Numerology (10 endpoints)
 - `POST /api/numerology/life-path` — Life path number
@@ -1019,4 +1071,4 @@ Common timezones for birth data:
 ---
 
 **AstroVakta** — Built with FastAPI, Swiss Ephemeris, ReportLab, and CairoSVG.  
-**216+ endpoints** | **North Indian Diamond Charts** | **D1-D60 Divisional Vargas** | **AI-Powered Insights**
+**226+ endpoints** | **North Indian Diamond Charts** | **D1-D60 Divisional Vargas** | **AI-Powered Insights**

@@ -100,13 +100,22 @@ def validate_api_key(key: str) -> Optional[dict]:
     if not row:
         return None
 
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today_row = db.execute(
+        "SELECT COUNT(*) AS cnt FROM usage_logs WHERE api_key_id = ? AND DATE(timestamp) = ?",
+        (row["id"], today),
+    ).fetchone()
+    requests_today = today_row["cnt"] if today_row else 0
+
     now = datetime.now(timezone.utc).isoformat()
     db.execute(
-        "UPDATE api_keys SET request_count = request_count + 1, last_used_at = ? WHERE id = ?",
+        "UPDATE api_keys SET last_used_at = ? WHERE id = ?",
         (now, row["id"]),
     )
     db.commit()
-    return dict(row)
+    info = dict(row)
+    info["requests_today"] = requests_today
+    return info
 
 
 def revoke_api_key(key_id: int, user_id: int) -> bool:

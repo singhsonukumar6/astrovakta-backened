@@ -33,6 +33,7 @@ GEMSTONE_DATA = {
     'Sun': {
         'name': 'Ruby',
         'hindiName': 'Manikya',
+        'imageUrl': '/images/gemstones/ruby.webp',
         'finger': 'Ring Finger',
         'metal': 'Gold',
         'day': 'Sunday',
@@ -59,6 +60,7 @@ GEMSTONE_DATA = {
     'Moon': {
         'name': 'Pearl',
         'hindiName': 'Moti',
+        'imageUrl': '/images/gemstones/pearl.webp',
         'finger': 'Little Finger',
         'metal': 'Silver',
         'day': 'Monday',
@@ -85,6 +87,7 @@ GEMSTONE_DATA = {
     'Mars': {
         'name': 'Red Coral',
         'hindiName': 'Moonga',
+        'imageUrl': '/images/gemstones/red-coral.webp',
         'finger': 'Ring Finger',
         'metal': 'Gold',
         'day': 'Tuesday',
@@ -111,6 +114,7 @@ GEMSTONE_DATA = {
     'Mercury': {
         'name': 'Emerald',
         'hindiName': 'Panna',
+        'imageUrl': '/images/gemstones/emerald.webp',
         'finger': 'Little Finger',
         'metal': 'Gold',
         'day': 'Wednesday',
@@ -137,6 +141,7 @@ GEMSTONE_DATA = {
     'Jupiter': {
         'name': 'Yellow Sapphire',
         'hindiName': 'Pukhraj',
+        'imageUrl': '/images/gemstones/yellow-sapphire.webp',
         'finger': 'Index Finger',
         'metal': 'Gold',
         'day': 'Thursday',
@@ -163,6 +168,7 @@ GEMSTONE_DATA = {
     'Venus': {
         'name': 'Diamond',
         'hindiName': 'Heera',
+        'imageUrl': '/images/gemstones/diamond.webp',
         'finger': 'Middle Finger',
         'metal': 'Silver / Platinum',
         'day': 'Friday',
@@ -189,6 +195,7 @@ GEMSTONE_DATA = {
     'Saturn': {
         'name': 'Blue Sapphire',
         'hindiName': 'Neelam',
+        'imageUrl': '/images/gemstones/blue-sapphire.webp',
         'finger': 'Middle Finger',
         'metal': 'Silver / Steel',
         'day': 'Saturday',
@@ -215,6 +222,7 @@ GEMSTONE_DATA = {
     'Rahu': {
         'name': 'Hessonite',
         'hindiName': 'Gomed',
+        'imageUrl': '/images/gemstones/hessonite.webp',
         'finger': 'Middle Finger',
         'metal': 'Silver / Steel',
         'day': 'Saturday',
@@ -241,6 +249,7 @@ GEMSTONE_DATA = {
     'Ketu': {
         'name': 'Cat\'s Eye',
         'hindiName': 'Lehsunia',
+        'imageUrl': '/images/gemstones/cats-eye.webp',
         'finger': 'Middle Finger',
         'metal': 'Silver',
         'day': 'Tuesday',
@@ -327,6 +336,7 @@ def _build_response(planet, gemstone_info, wearing_info=None):
         'gemstone': {
             'name': gemstone_info['name'],
             'hindiName': gemstone_info['hindiName'],
+            'imageUrl': gemstone_info.get('imageUrl', ''),
             'color': gemstone_info.get('color', ''),
             'origin': gemstone_info.get('origin', ''),
             'quality': gemstone_info.get('quality', ''),

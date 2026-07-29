@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronRight, ChevronDown, Copy, BookOpen, Search, Zap, Shield, FileText, Image, Brain, Calendar, Heart, Star, MapPin, Calculator, Gem, Home } from 'lucide-react'
+import { ChevronRight, ChevronDown, Copy, BookOpen, Search, Zap, Shield, FileText, Image, Brain, Calendar, Heart, Star, MapPin, Calculator, Gem, Home, Clock, Activity, Sun, Wrench } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const B = '{"dateOfBirth":"1990-05-15","timeOfBirth":"10:30","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata"}'
@@ -274,11 +274,34 @@ curl -X POST http://localhost:5000/reports/full-pdf \\
       { method: 'POST', path: '/chart/hora-svg', desc: 'Hora (D2) wealth chart SVG', body: '{"dateOfBirth":"1990-05-15","timeOfBirth":"10:30","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","theme":"dark"}' },
       { method: 'POST', path: '/chart/sudarshana-svg', desc: 'Sudarshana Chakra SVG', body: '{"dateOfBirth":"1990-05-15","timeOfBirth":"10:30","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","theme":"dark"}' },
       { method: 'POST', path: '/chart/divisional-svg?d=9', desc: 'Any divisional chart D1-D60 (append ?d=N)', body: '{"name":"D9","dateOfBirth":"1990-05-15","timeOfBirth":"10:30","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","theme":"light"}' },
+      { method: 'POST', path: '/horoscope/planet-details', desc: 'Detailed planet positions & attributes', body: B },
     ],
     sections: [
       {
+        title: 'Tropical Zodiac Support',
+        content: `The \`/api/kundli\` endpoint accepts an optional \`tropical\` parameter (default: \`false\`).
+
+| Value | Zodiac System |
+|-------|--------------|
+| \`false\` | Sidereal (default — Vedic/Lahiri ayanamsa) |
+| \`true\` | Tropical (Western-style, no ayanamsa correction) |
+
+\`\`\`json
+{
+  "dateOfBirth": "1990-05-15",
+  "timeOfBirth": "10:30",
+  "latitude": 28.6139,
+  "longitude": 77.209,
+  "timezone": "Asia/Kolkata",
+  "tropical": true
+}
+\`\`\`
+
+When \`tropical: true\`, both planet positions and house cusps are computed in the tropical zodiac.`,
+      },
+      {
         title: 'Divisional Charts (Vargas)',
-        content: `The \`/chart/divisional-svg\` endpoint supports all 60 divisional charts. Pass \`?d=N\` as query parameter.
+        content: `The \`/chart/divisional-svg\` endpoint supports all 18 divisional charts (D1–D60), now fully computed. Pass \`?d=N\` as query parameter.
 
 **Common vargas:**
 
@@ -379,6 +402,7 @@ ${COM.split('').map((c, i) => i < 500 ? c : '').join('')}
       { method: 'POST', path: '/api/dosha/nadi-dosha', desc: 'Nadi dosha', body: COM },
       { method: 'POST', path: '/api/dosha/bhakoot-dosha', desc: 'Bhakoot dosha', body: COM },
       { method: 'POST', path: '/api/dosha/yoni-compatibility', desc: 'Yoni compatibility', body: COM },
+      { method: 'POST', path: '/yogini/dosha', desc: 'Yogini dosha analysis', body: B },
     ],
   },
   {
@@ -390,6 +414,7 @@ ${COM.split('').map((c, i) => i < 500 ? c : '').join('')}
       { method: 'POST', path: '/horoscope/transit/by-planet', desc: 'Single planet transit', body: '{"dateOfBirth":"1990-05-15","timeOfBirth":"10:30","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","planet":"Jupiter"}' },
       { method: 'POST', path: '/horoscope/transit/monthly', desc: 'Monthly transit report', body: B },
       { method: 'POST', path: '/horoscope/transit/timing', desc: 'Transit timing for events', body: '{"dateOfBirth":"1990-05-15","timeOfBirth":"10:30","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","event":"marriage"}' },
+      { method: 'POST', path: '/api/transit/planet-transit', desc: 'Single planet transit detail', body: '{"dateOfBirth":"1990-05-15","timeOfBirth":"10:30","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","planetName":"Jupiter"}' },
       { method: 'POST', path: '/api/transit/retrograde', desc: 'Currently retrograde planets', body: B },
       { method: 'POST', path: '/api/transit/combust', desc: 'Currently combust planets', body: B },
       { method: 'POST', path: '/api/transit/exalted', desc: 'Exalted planets', body: B },
@@ -409,8 +434,20 @@ ${COM.split('').map((c, i) => i < 500 ? c : '').join('')}
       { method: 'POST', path: '/horoscope/panchang/moonrise', desc: 'Moonrise time', body: B },
       { method: 'POST', path: '/horoscope/panchang/moonset', desc: 'Moonset time', body: B },
       { method: 'POST', path: '/horoscope/panchang/panchaka', desc: 'Panchaka analysis', body: B },
+      { method: 'POST', path: '/horoscope/panchang/abhijit-muhurat', desc: 'Abhijit muhurat time', body: B },
+      { method: 'POST', path: '/horoscope/panchang/gulika-position', desc: 'Gulika position', body: B },
+      { method: 'POST', path: '/horoscope/panchang/roga-nidana', desc: 'Roga nidana analysis', body: B },
       { method: 'POST', path: '/api/calendar/hindu', desc: 'Hindu calendar for month', body: '{"year":2026,"month":7,"latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata"}' },
       { method: 'POST', path: '/api/calendar/panchang', desc: 'Calendar with panchang', body: '{"year":2026,"month":7,"latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata"}' },
+      { method: 'POST', path: '/api/calendar/festival', desc: 'Calendar with festivals', body: '{"year":2026}' },
+      { method: 'POST', path: '/api/calendar/muhurat', desc: 'Calendar with muhurat', body: '{"year":2026,"month":7,"latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata"}' },
+      { method: 'POST', path: '/calendar-api/hindu', desc: 'Calendar API - hindu calendar', body: '{"year":2026,"month":7,"latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata"}' },
+      { method: 'POST', path: '/calendar-api/panchang', desc: 'Calendar API - panchang', body: '{"year":2026,"month":7,"latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata"}' },
+      { method: 'POST', path: '/calendar-api/festival', desc: 'Calendar API - festivals', body: '{"year":2026}' },
+      { method: 'POST', path: '/calendar-api/muhurat', desc: 'Calendar API - muhurat', body: '{"year":2026,"month":7,"latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata"}' },
+      { method: 'POST', path: '/api/calendar/year', desc: 'Yearly calendar overview', body: '{"year":2026,"latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata"}' },
+      { method: 'POST', path: '/api/calendar/year/monthly-summary', desc: 'Monthly summary for a year', body: '{"year":2026,"month":7,"latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata"}' },
+      { method: 'POST', path: '/api/calendar/year/auspicious-dates', desc: 'Auspicious dates for the year', body: '{"year":2026,"latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","purpose":"marriage"}' },
     ],
   },
   {
@@ -459,6 +496,7 @@ ${COM.split('').map((c, i) => i < 500 ? c : '').join('')}
       { method: 'POST', path: '/api/numerology/name-number', desc: 'Name number', body: '{"name":"Rahul Sharma"}' },
       { method: 'POST', path: '/api/numerology/name-compatibility', desc: 'Name compatibility', body: '{"name1":"Rahul","name2":"Priya"}' },
       { method: 'POST', path: '/api/numerology/mobile', desc: 'Mobile number numerology', body: '{"mobileNumber":"9876543210"}' },
+      { method: 'POST', path: '/api/numerology/vehicle', desc: 'Vehicle number numerology', body: '{"vehicleNumber":"DL01AB1234"}' },
       { method: 'POST', path: '/api/numerology/business-name', desc: 'Business name analysis', body: '{"businessName":"Celestial Solutions","dateOfBirth":"1990-05-15"}' },
       { method: 'POST', path: '/api/numerology/baby-name', desc: 'Baby name suggestions', body: '{"dateOfBirth":"1990-05-15","gender":"male","parentName":"Sharma"}' },
     ],
@@ -510,10 +548,38 @@ Use this to get latitude, longitude, and timezone for birth data entry forms.`,
     endpoints: [
       { method: 'POST', path: '/api/gemstone/recommendation', desc: 'Gemstone recommendation', body: B },
       { method: 'POST', path: '/api/gemstone/by-planet', desc: 'Gemstone by planet', body: '{"planet":"Jupiter","bodyWeightKg":70}' },
+      { method: 'POST', path: '/api/gemstone/by-lagna', desc: 'Gemstone by lagna', body: B },
+      { method: 'POST', path: '/api/gemstone/by-dasha', desc: 'Gemstone by dasha period', body: B },
       { method: 'POST', path: '/api/gemstone/wearing', desc: 'Wearing guide', body: B },
       { method: 'POST', path: '/api/gemstone/weight', desc: 'Weight calculator', body: '{"dateOfBirth":"1990-05-15","timeOfBirth":"10:30","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","bodyWeightKg":70}' },
+      { method: 'POST', path: '/api/gemstone/metal', desc: 'Metal guide for gemstones', body: B },
+      { method: 'POST', path: '/api/gemstone/finger', desc: 'Finger guide for gemstones', body: B },
       { method: 'POST', path: '/api/rudraksha/recommendation', desc: 'Rudraksha recommendation', body: B },
+      { method: 'POST', path: '/api/rudraksha/mukhi-identification', desc: 'Mukhi identification', body: '{"description":"5 mukhi dark brown","visualFeatures":"5 lines visible"}' },
       { method: 'POST', path: '/api/rudraksha/wearing-method', desc: 'Wearing method', body: '{"mukhiCount":5,"gender":"male"}' },
+      { method: 'POST', path: '/api/rudraksha/mantra', desc: 'Rudraksha mantra', body: '{"mukhiCount":5}' },
+      { method: 'POST', path: '/api/rudraksha/benefits', desc: 'Rudraksha benefits', body: '{"mukhiCount":5}' },
+    ],
+    sections: [
+      {
+        title: 'Gemstone Images',
+        content: `All gemstone response objects now include an \`imageUrl\` field pointing to a gemstone image asset:
+
+\`\`\`json
+{
+  "gemstone": {
+    "name": "Ruby",
+    "hindiName": "Manikya",
+    "imageUrl": "/images/gemstones/ruby.webp",
+    "color": "Red / Pinkish Red",
+    "origin": "Burma, India, Sri Lanka",
+    "quality": "Transparent, deep red with fluorescence"
+  }
+}
+\`\`\`
+
+The \`imageUrl\` is a relative path — prepend your base URL or static asset prefix to use it in an \`<img>\` tag.`,
+      },
     ],
   },
   {
@@ -524,6 +590,9 @@ Use this to get latitude, longitude, and timezone for birth data entry forms.`,
       { method: 'POST', path: '/horoscope/muhurat/vehicle-purchase', desc: 'Vehicle purchase muhurat', body: '{"dateOfBirth":"1990-05-15","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata"}' },
       { method: 'POST', path: '/horoscope/muhurat/business-opening', desc: 'Business opening muhurat', body: '{"dateOfBirth":"1990-05-15","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata"}' },
       { method: 'POST', path: '/horoscope/muhurat/engagement', desc: 'Engagement muhurat', body: '{"dateOfBirth":"1990-05-15","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata"}' },
+      { method: 'POST', path: '/horoscope/muhurat/property-purchase', desc: 'Property purchase muhurat', body: '{"dateOfBirth":"1990-05-15","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata"}' },
+      { method: 'POST', path: '/horoscope/muhurat/naming-ceremony', desc: 'Naming ceremony muhurat', body: '{"dateOfBirth":"1990-05-15","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata"}' },
+      { method: 'POST', path: '/horoscope/muhurat/griha-pravesh', desc: 'Griha Pravesh muhurat', body: '{"dateOfBirth":"1990-05-15","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata"}' },
       { method: 'POST', path: '/horoscope/muhurat/cesarean', desc: 'Cesarean muhurat', body: B },
     ],
   },
@@ -535,6 +604,9 @@ Use this to get latitude, longitude, and timezone for birth data entry forms.`,
       { method: 'POST', path: '/api/festival/sankranti', desc: 'Sankranti dates', body: '{"year":2026}' },
       { method: 'POST', path: '/api/festival/diwali', desc: 'Diwali dates', body: '{"year":2026}' },
       { method: 'POST', path: '/api/festival/navratri', desc: 'Navratri dates', body: '{"year":2026}' },
+      { method: 'POST', path: '/api/festival/purnima', desc: 'Purnima (full moon) dates', body: '{"year":2026}' },
+      { method: 'POST', path: '/api/festival/amavasya', desc: 'Amavasya (new moon) dates', body: '{"year":2026}' },
+      { method: 'POST', path: '/api/festival/chaturthi', desc: 'Chaturthi dates (Ganesh Chaturthi)', body: '{"year":2026}' },
       { method: 'POST', path: '/api/festival/holi', desc: 'Holi dates', body: '{"year":2026}' },
     ],
   },
@@ -544,9 +616,16 @@ Use this to get latitude, longitude, and timezone for birth data entry forms.`,
       { method: 'POST', path: '/auth/register', desc: 'Register new account', body: '{"email":"user@example.com","name":"User","password":"password123"}', headers: true },
       { method: 'POST', path: '/auth/login', desc: 'Login with credentials', body: '{"email":"user@example.com","password":"password123"}', headers: true },
       { method: 'GET', path: '/auth/me', desc: 'Get current user profile', headers: true },
+      { method: 'PUT', path: '/auth/profile', desc: 'Update profile', body: '{"name":"New Name"}', headers: true },
+      { method: 'POST', path: '/auth/change-password', desc: 'Change password', body: '{"current_password":"old123","new_password":"new456"}', headers: true },
+      { method: 'GET', path: '/auth/verify-email', desc: 'Verify email via token (query: ?token=...)', headers: true },
+      { method: 'POST', path: '/auth/resend-verification', desc: 'Resend verification email', body: '{"email":"user@example.com"}' },
+      { method: 'POST', path: '/auth/forgot-password', desc: 'Forgot password request', body: '{"email":"user@example.com"}' },
+      { method: 'POST', path: '/auth/reset-password', desc: 'Reset password with token', body: '{"token":"...","new_password":"new456"}' },
       { method: 'POST', path: '/auth/keys', desc: 'Create API key', body: '{"name":"My App Key","tier":"free"}', headers: true },
       { method: 'GET', path: '/auth/keys', desc: 'List API keys', headers: true },
       { method: 'DELETE', path: '/auth/keys/{id}', desc: 'Revoke API key', headers: true },
+      { method: 'GET', path: '/auth/usage/{key_id}', desc: 'Get API key usage stats', headers: true },
     ],
     sections: [
       {
@@ -565,6 +644,155 @@ Use this to get latitude, longitude, and timezone for birth data entry forms.`,
 - \`GET /admin/usage/daily\` — Daily usage
 - \`GET /admin/usage/endpoints\` — Endpoint usage`,
       },
+    ],
+  },
+  {
+    id: 'yoga', label: 'Yoga (Planetary Combos)', icon: Sun,
+    endpoints: [
+      { method: 'POST', path: '/horoscope/yoga/predictions', desc: 'Yoga-based predictions', body: B },
+      { method: 'POST', path: '/horoscope/yoga/detailed', desc: 'Detailed yoga analysis', body: '{"dateOfBirth":"1990-05-15","timeOfBirth":"10:30","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","yogaName":"Gajakesari"}' },
+      { method: 'POST', path: '/horoscope/yoga/score', desc: 'Yoga strength score', body: B },
+    ],
+  },
+  {
+    id: 'bhava', label: 'Bhava Chalit', icon: Home,
+    endpoints: [
+      { method: 'POST', path: '/horoscope/bhava-chalit', desc: 'Bhava chalit chart', body: B },
+      { method: 'POST', path: '/horoscope/bhava-chalit/compare', desc: 'Compare bhava with rasi', body: B },
+      { method: 'POST', path: '/horoscope/bhava-chalit/cusps', desc: 'Bhava cusp positions', body: B },
+    ],
+  },
+  {
+    id: 'varshaphal', label: 'Varshaphal (Annual)', icon: Calendar,
+    endpoints: [
+      { method: 'POST', path: '/horoscope/varshaphal', desc: 'Annual solar return chart', body: '{"dateOfBirth":"1990-05-15","timeOfBirth":"10:30","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","year":2026}' },
+      { method: 'POST', path: '/horoscope/varshaphal/prediction', desc: 'Varshaphal predictions', body: '{"dateOfBirth":"1990-05-15","timeOfBirth":"10:30","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","year":2026}' },
+      { method: 'POST', path: '/horoscope/varshaphal/tajika-aspects', desc: 'Tajika aspects for the year', body: '{"dateOfBirth":"1990-05-15","timeOfBirth":"10:30","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","year":2026}' },
+    ],
+  },
+  {
+    id: 'prashna', label: 'Prashna (Horary)', icon: Star,
+    endpoints: [
+      { method: 'POST', path: '/api/prashna/chart', desc: 'Prashna chart for a question', body: '{"dateOfBirth":"1990-05-15","timeOfBirth":"10:30","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","question":"Will I get the job?"}' },
+      { method: 'POST', path: '/api/prashna/judgement', desc: 'Prashna judgement', body: '{"dateOfBirth":"1990-05-15","timeOfBirth":"10:30","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","question":"Will I get the job?"}' },
+    ],
+  },
+  {
+    id: 'pooja', label: 'Pooja & Temple', icon: Home,
+    endpoints: [
+      { method: 'POST', path: '/pooja/recommendation', desc: 'Pooja recommendations', body: B },
+      { method: 'POST', path: '/pooja/temple', desc: 'Temple suggestions', body: B },
+      { method: 'POST', path: '/pooja/sankalp', desc: 'Sankalp details', body: B },
+      { method: 'POST', path: '/pooja/booking', desc: 'Book a pooja', body: '{"dateOfBirth":"1990-05-15","timeOfBirth":"10:30","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","poojaName":"Mahamrityunjaya","name":"Rahul","phone":"9876543210"}' },
+      { method: 'POST', path: '/pooja/availability', desc: 'Pooja availability check', body: '{"date":"2026-07-15","poojaName":"Mahamrityunjaya"}' },
+    ],
+  },
+  {
+    id: 'utility', label: 'Utility', icon: Wrench,
+    endpoints: [
+      { method: 'POST', path: '/api/utility/ayanamsa', desc: 'Ayanamsa value for a date', body: '{"date":"2026-07-15","time":"12:00","timezone":"Asia/Kolkata"}' },
+      { method: 'POST', path: '/api/utility/ephemeris', desc: 'Ephemeris data for a date', body: '{"date":"2026-07-15","time":"12:00","timezone":"Asia/Kolkata"}' },
+      { method: 'POST', path: '/api/utility/planet-speed', desc: 'Planet speed data', body: '{"date":"2026-07-15","time":"12:00","timezone":"Asia/Kolkata"}' },
+      { method: 'POST', path: '/api/utility/lunar-phase', desc: 'Lunar phase for a date', body: '{"date":"2026-07-15","time":"12:00","timezone":"Asia/Kolkata"}' },
+      { method: 'POST', path: '/api/utility/eclipse', desc: 'Eclipse search', body: '{"date":"2026-07-15","time":"12:00","timezone":"Asia/Kolkata","rangeDays":30}' },
+      { method: 'POST', path: '/api/utility/sunrise-sunset', desc: 'Sunrise/sunset times', body: '{"date":"2026-07-15","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata"}' },
+      { method: 'POST', path: '/api/utility/julian-day', desc: 'Julian day number', body: '{"date":"2026-07-15","time":"12:00","timezone":"Asia/Kolkata"}' },
+      { method: 'POST', path: '/api/utility/rectify', desc: 'Birth time rectification', body: '{"dateOfBirth":"1990-05-15","timeOfBirth":"10:30","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","knownAscendant":"Leo"}' },
+      { method: 'POST', path: '/api/utility/ascendant-scan', desc: 'Ascendant scan for rectification', body: B },
+      { method: 'POST', path: '/api/utility/transit-verify', desc: 'Verify known events with transit', body: '{"dateOfBirth":"1990-05-15","timeOfBirth":"10:30","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","eventDate":"2020-06-01","eventType":"marriage"}' },
+    ],
+  },
+  {
+    id: 'admin', label: 'Admin', icon: Shield,
+    endpoints: [
+      { method: 'GET', path: '/admin/users', desc: 'List all users', headers: true },
+      { method: 'GET', path: '/admin/users/{user_id}', desc: 'Get user details', headers: true },
+      { method: 'PUT', path: '/admin/users/{user_id}/plan', desc: 'Update user plan', body: '{"plan":"pro"}', headers: true },
+      { method: 'PUT', path: '/admin/users/{user_id}/admin', desc: 'Toggle admin status', headers: true },
+      { method: 'DELETE', path: '/admin/users/{user_id}', desc: 'Delete user', headers: true },
+      { method: 'PUT', path: '/admin/users/{user_id}/reset-password', desc: 'Reset user password', body: '{"new_password":"new456"}', headers: true },
+      { method: 'POST', path: '/admin/users/{user_id}/keys', desc: 'Create API key for user', body: '{"name":"Key","tier":"free"}', headers: true },
+      { method: 'GET', path: '/admin/users/{user_id}/usage', desc: 'Get user usage stats', headers: true },
+      { method: 'GET', path: '/admin/keys', desc: 'List all API keys', headers: true },
+      { method: 'PUT', path: '/admin/keys/{key_id}/revoke', desc: 'Revoke an API key', headers: true },
+      { method: 'PUT', path: '/admin/keys/{key_id}/tier', desc: 'Update key tier', body: '{"tier":"pro"}', headers: true },
+      { method: 'GET', path: '/admin/stats', desc: 'Dashboard statistics', headers: true },
+      { method: 'GET', path: '/admin/usage/daily', desc: 'Daily usage statistics', headers: true },
+      { method: 'GET', path: '/admin/usage/endpoints', desc: 'Endpoint usage stats', headers: true },
+      { method: 'GET', path: '/admin/usage/by-user', desc: 'Usage grouped by user', headers: true },
+      { method: 'GET', path: '/admin/jobs', desc: 'List all background jobs', headers: true },
+    ],
+  },
+  {
+    id: 'ai-providers', label: 'AI Providers', icon: Brain,
+    endpoints: [
+      { method: 'GET', path: '/ai-providers/supported', desc: 'List supported AI providers' },
+      { method: 'POST', path: '/ai-providers', desc: 'Configure a new AI provider', body: '{"provider":"openai","apiKey":"sk-...","model":"gpt-4"}', headers: true },
+      { method: 'GET', path: '/ai-providers', desc: 'List configured providers', headers: true },
+      { method: 'PUT', path: '/ai-providers/{provider_id}', desc: 'Update provider config', body: '{"model":"gpt-4o"}', headers: true },
+      { method: 'DELETE', path: '/ai-providers/{provider_id}', desc: 'Delete provider config', headers: true },
+      { method: 'POST', path: '/ai-providers/test', desc: 'Test provider connection with config', body: '{"provider":"openai","apiKey":"sk-..."}', headers: true },
+      { method: 'POST', path: '/ai-providers/{provider_id}/test', desc: 'Test configured provider', headers: true },
+    ],
+  },
+  {
+    id: 'jobs', label: 'Background Jobs', icon: Clock,
+    endpoints: [
+      { method: 'POST', path: '/jobs/submit-pdf', desc: 'Submit async PDF generation job', body: B, headers: true },
+      { method: 'POST', path: '/jobs/submit-ai', desc: 'Submit async AI job', body: '{"dateOfBirth":"1990-05-15","timeOfBirth":"10:30","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","question":"Career analysis"}', headers: true },
+      { method: 'GET', path: '/jobs/{job_id}', desc: 'Get job status & result', headers: true },
+      { method: 'GET', path: '/jobs/{job_id}/download', desc: 'Download job result (PDF)', headers: true },
+      { method: 'GET', path: '/jobs', desc: 'List your jobs', headers: true },
+    ],
+  },
+  {
+    id: 'lal-kitab', label: 'Lal Kitab', icon: BookOpen,
+    endpoints: [
+      { method: 'POST', path: '/lal-kitab/house-significations', desc: 'Lal Kitab 12 house significations & remedies', body: '{}' },
+      { method: 'POST', path: '/lal-kitab/planet-interpretations', desc: 'Lal Kitab planet nature, traits & remedies', body: '{}' },
+      { method: 'POST', path: '/lal-kitab/chart-analysis', desc: 'Full Lal Kitab chart analysis (planets & houses)', body: B },
+    ],
+    sections: [
+      {
+        title: 'About Lal Kitab',
+        content: `Lal Kitab ("Red Book") is a unique system of Vedic astrology with its own set of principles for house significations, planet placements, and remedies. Unlike classical Parashari astrology, Lal Kitab treats each house and planet with specific karmic significance and offers practical, inexpensive remedies (upayas).
+
+**Endpoints:**
+- \`/lal-kitab/house-significations\` — Returns all 12 houses with their names, descriptions, elements, and general remedies. No birth data required.
+- \`/lal-kitab/planet-interpretations\` — Returns all 9 planets with their nature, positive/negative traits, and Lal Kitab remedies. No birth data required.
+- \`/lal-kitab/chart-analysis\` — Requires birth data. Returns per-planet analysis (nature, house signification, traits, retrograde/combust effects, remedies) and per-house analysis (signification, planets, remedies).`,
+      },
+    ],
+  },
+  {
+    id: 'kp', label: 'KP Astrology', icon: Star,
+    endpoints: [
+      { method: 'POST', path: '/kp/planet-details', desc: 'KP planet details with star lord & sub lord', body: B },
+      { method: 'POST', path: '/kp/cuspal-lords', desc: 'KP cuspal lords, star lords & sub lords', body: B },
+      { method: 'POST', path: '/kp/bhav-chalit', desc: 'KP Bhav Chalit (equal house)', body: B },
+      { method: 'POST', path: '/kp/ruling-planets', desc: 'KP ruling planets (electional/horary)', body: B },
+      { method: 'POST', path: '/kp/horary', desc: 'KP horary — answer a question', body: '{"questionDate":"2025-07-29","questionTime":"14:30","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","question":"Will I get a job this year?"}' },
+      { method: 'POST', path: '/kp/star-lords', desc: 'KP star lords & sub lords for all planets', body: B },
+    ],
+    sections: [
+      {
+        title: 'About KP Astrology',
+        content: `Krishnamurti Paddhati (KP) is a predictive astrology system developed by K.S. Krishnamurti. It uses the Placidus house system, stellar astrology (nakshatra-based star lords and sub lords), and ruling planets for precise event timing and horary predictions.
+
+**Key concepts:**
+- **Star Lord** — The nakshatra lord of a planet or cusp
+- **Sub Lord** — The sub-division lord within a nakshatra (proportional to Vimshottari dasha years)
+- **Ruling Planets** — Ascendant lord, Moon, Moon's star lord, Moon's sub lord, and day lord; used for electional and horary astrology
+- **Horary** — Provide a question, date, and time; the API determines the relevant house, significators, and whether the outcome is favorable
+
+The \`/kp/horary\` endpoint accepts \`questionDate\`, \`questionTime\`, \`latitude\`, \`longitude\`, \`timezone\`, and \`question\` instead of the standard birth data fields.`,
+      },
+    ],
+  },
+  {
+    id: 'health', label: 'Health', icon: Activity,
+    endpoints: [
+      { method: 'GET', path: '/health', desc: 'API health check' },
     ],
   },
 ]
