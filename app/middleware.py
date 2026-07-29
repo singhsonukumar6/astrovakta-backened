@@ -82,6 +82,9 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
 
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         if path in SKIP_PATHS or path.startswith("/auth"):
             response = await call_next(request)
             return response
