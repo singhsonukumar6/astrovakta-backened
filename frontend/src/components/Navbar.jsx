@@ -25,6 +25,7 @@ export default function Navbar() {
     { to: '/pricing', label: 'Pricing' },
     { to: '/docs', label: 'Docs' },
     { to: '/sandbox', label: 'Sandbox' },
+    { to: '/blogs', label: 'Blog' },
   ]
 
   return (
@@ -45,7 +46,7 @@ export default function Navbar() {
     >
       <div style={{ width: '100%', maxWidth: 1200, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Star size={28} color="#7c3aed" fill="#7c3aed" />
+          
           <div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 0 }}>
               <span style={{ fontSize: 22, fontWeight: 800, color: '#ffffff' }}>Astro</span>

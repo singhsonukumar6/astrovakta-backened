@@ -12,6 +12,12 @@ import VerifyEmail from './pages/VerifyEmail.jsx'
 import VerifyEmailPrompt from './pages/VerifyEmailPrompt.jsx'
 import ForgotPassword from './pages/ForgotPassword.jsx'
 import ResetPassword from './pages/ResetPassword.jsx'
+import About from './pages/About.jsx'
+import Contact from './pages/Contact.jsx'
+import Privacy from './pages/Privacy.jsx'
+import Terms from './pages/Terms.jsx'
+import Blogs from './pages/Blogs.jsx'
+import BlogPost from './pages/BlogPost.jsx'
 import Starfield from './components/Starfield.jsx'
 
 export default function App() {
@@ -32,6 +38,12 @@ export default function App() {
           <Route path="/verify-email-prompt" element={<VerifyEmailPrompt />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/blogs" element={<Blogs />} />
+          <Route path="/blogs/:slug" element={<BlogPost />} />
         </Routes>
       </main>
       <Footer />

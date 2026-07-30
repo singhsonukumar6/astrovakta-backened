@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, useInView, useScroll, useTransform, AnimatePresence } from 'framer-motion'
 import { SignedOut, SignUpButton } from '@clerk/clerk-react'
@@ -8,7 +8,8 @@ import {
   Terminal, Layers, BarChart3, Moon, Compass, Gem,
   ArrowRight, Play, Rocket, FileText, Bot, Lock, Gauge, Key,
   MessageCircle, DollarSign, IndianRupee, MonitorSmartphone, Palette, Server,
-  ShoppingCart, Users, CreditCard,
+  ShoppingCart, Users, CreditCard, Smartphone, Database, Cog, Cloud, Languages,
+  HelpCircle, Building2, GraduationCap, HeartHandshake, ExternalLink,
 } from 'lucide-react'
 
 function FadeIn({ children, delay = 0, direction = 'up', className = '', style = {} }) {
@@ -22,6 +23,113 @@ function FadeIn({ children, delay = 0, direction = 'up', className = '', style =
       animate={isInView ? { opacity: 1, y: 0, x: 0 } : {}}
       transition={{ duration: 0.65, delay, ease: [0.22, 1, 0.36, 1] }}>
       {children}
+    </motion.div>
+  )
+}
+
+const TERMINAL_LINES = [
+  { text: '# Get your birth chart in one request\n', color: '#64748b' },
+  { text: 'curl', color: '#a78bfa' },
+  { text: ' ', color: '' },
+  { text: '-X POST', color: '#22c55e' },
+  { text: ' ', color: '' },
+  { text: '"http://localhost:5000/chart/birth-chart"', color: '#fbbf24' },
+  { text: ' \\\n', color: '#64748b' },
+  { text: '  ', color: '' },
+  { text: '-H', color: '#a78bfa' },
+  { text: ' ', color: '' },
+  { text: '"X-API-Key: avk_live_xxx"', color: '#fbbf24' },
+  { text: ' \\\n', color: '#64748b' },
+  { text: '  ', color: '' },
+  { text: '-d', color: '#a78bfa' },
+  { text: ' ', color: '' },
+  { text: '{"dateOfBirth":"1990-05-15","timeOfBirth":"14:30","latitude":28.6139,"longitude":77.2090,"timezone":"Asia/Kolkata"}', color: '#fbbf24' },
+]
+
+function TypingTerminal() {
+  const [displayed, setDisplayed] = useState([])
+  const [charIndex, setCharIndex] = useState(0)
+  const cursorRef = useRef(true)
+  const [showCursor, setShowCursor] = useState(true)
+
+  const flatChars = TERMINAL_LINES.flatMap(line => [...line.text])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCharIndex(prev => {
+        if (prev >= flatChars.length) {
+          cursorRef.current = true
+          return prev
+        }
+        cursorRef.current = true
+        return prev + 1
+      })
+    }, 30)
+
+    const cursorBlink = setInterval(() => {
+      setShowCursor(c => !c)
+    }, 530)
+
+    return () => {
+      clearInterval(interval)
+      clearInterval(cursorBlink)
+    }
+  }, [flatChars.length])
+
+  useEffect(() => {
+    if (charIndex >= flatChars.length) {
+      const timeout = setTimeout(() => {
+        setCharIndex(0)
+        setDisplayed([])
+      }, 3500)
+      return () => clearTimeout(timeout)
+    }
+  }, [charIndex, flatChars.length])
+
+  let pos = 0
+  let built = []
+  for (const line of TERMINAL_LINES) {
+    const remaining = charIndex - pos
+    const take = Math.min(Math.max(0, remaining), line.text.length)
+
+    if (take > 0) {
+      if (built.length > 0 && built[built.length - 1].color === line.color) {
+        built[built.length - 1].text += line.text.slice(0, take)
+      } else {
+        built.push({ text: line.text.slice(0, take), color: line.color })
+      }
+    }
+
+    pos += line.text.length
+    if (charIndex < pos) break
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, delay: 0.9 }}
+      style={{
+        marginTop: 56, background: '#0a0a1f', border: '1px solid rgba(124,58,237,0.2)',
+        borderRadius: 16, overflow: 'hidden', maxWidth: 680, margin: '56px auto 0',
+      }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: '1px solid rgba(124,58,237,0.12)' }}>
+        <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#ef4444' }} />
+        <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#eab308' }} />
+        <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#22c55e' }} />
+        <span style={{ marginLeft: 10, fontSize: 12, color: '#475569' }}>birth-chart.sh</span>
+      </div>
+      <pre style={{ padding: '20px 24px', fontSize: 13, lineHeight: 1.9, fontFamily: 'var(--font-mono)', color: '#e2e8f0', overflow: 'auto', textAlign: 'left', minHeight: 90 }}>
+        <code>
+          {built.map((seg, i) => (
+            <span key={i} style={{ color: seg.color || undefined }}>{seg.text}</span>
+          ))}
+          <span style={{
+            display: 'inline-block', width: 8, height: 18, background: '#22c55e',
+            verticalAlign: 'text-bottom',
+            animation: 'blink-cursor 1s step-end infinite',
+            opacity: showCursor ? 1 : 0,
+          }} />
+        </code>
+      </pre>
     </motion.div>
   )
 }
@@ -196,26 +304,7 @@ export default function Landing() {
             No credit card required · 100 API calls per month free
           </motion.p>
 
-          {/* code peek */}
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.9 }}
-            style={{
-              marginTop: 56, background: '#0a0a1f', border: '1px solid rgba(124,58,237,0.2)',
-              borderRadius: 16, overflow: 'hidden', maxWidth: 680, margin: '56px auto 0',
-            }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: '1px solid rgba(124,58,237,0.12)' }}>
-              <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#ef4444' }} />
-              <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#eab308' }} />
-              <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#22c55e' }} />
-              <span style={{ marginLeft: 10, fontSize: 12, color: '#475569' }}>birth-chart.sh</span>
-            </div>
-            <pre style={{ padding: '20px 24px', fontSize: 13, lineHeight: 1.9, fontFamily: 'var(--font-mono)', color: '#e2e8f0', overflow: 'auto', textAlign: 'left' }}>
-              <code>{`# Get your birth chart in one request
-`}<span style={{color:'#a78bfa'}}>curl</span>{` `}<span style={{color:'#22c55e'}}>-X POST</span>{` `}<span style={{color:'#fbbf24'}}>"http://localhost:5000/chart/birth-chart"</span>{` \\
-  `}<span style={{color:'#a78bfa'}}>-H</span>{` `}<span style={{color:'#fbbf24'}}>"X-API-Key: avk_live_xxx"</span>{` \\
-  `}<span style={{color:'#a78bfa'}}>-d</span>{` `}<span style={{color:'#fbbf24'}}>{'{"dateOfBirth":"1990-05-15","timeOfBirth":"14:30","latitude":28.6139,"longitude":77.2090,"timezone":"Asia/Kolkata"}'}</span>{``}</code>
-            </pre>
-          </motion.div>
+          <TypingTerminal />
         </motion.div>
       </section>
 
@@ -345,22 +434,22 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ═══════════ CUSTOM ASTROLOGER WEBSITE ═══════════ */}
+      {/* ═══════════ CUSTOM BRANDED WEBAPPS & MOBILE APPS ═══════════ */}
       <section className="section" id="custom-websites">
         <FadeIn>
           <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>Custom Development</p>
-          <h2 className="section-title">We Build Your <span className="gradient-text">Astrologer Website</span></h2>
-          <p className="section-subtitle">Want a fully custom astrology website for your brand? We handle everything from design to deployment.</p>
+          <h2 className="section-title">Your Branded <span className="gradient-text">Webapp & Mobile App</span></h2>
+          <p className="section-subtitle">We design, develop & deploy fully branded astrology web and mobile apps — powered by AstroVakta's complete API stack.</p>
         </FadeIn>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, marginBottom: 48 }}>
           {[
-            { icon: MonitorSmartphone, title: 'Responsive Design', desc: 'Beautiful, mobile-first websites optimized for all devices. Stunning UI/UX tailored to your brand.' },
-            { icon: Palette, title: 'White-Label Branding', desc: 'Your logo, your colors, your domain. Fully branded astrology platform under your name.' },
-            { icon: Server, title: 'API Integration', desc: 'We integrate the full AstroVakta API stack — birth charts, horoscopes, compatibility, and more.' },
-            { icon: ShoppingCart, title: 'Payment Gateway', desc: 'Integrated Stripe/Razorpay for consultation bookings, report sales, and subscription plans.' },
-            { icon: Users, title: 'User Dashboard', desc: 'Client management, booking calendar, report history. Everything your customers need.' },
-            { icon: CreditCard, title: 'Monetization Ready', desc: 'Sell PDF reports, consultation slots, and premium content. We set up the revenue pipeline.' },
+            { icon: MonitorSmartphone, title: 'Responsive Web App', desc: 'Beautiful, mobile-first web applications optimized for all screen sizes. Stunning UI/UX tailored to your brand identity.' },
+            { icon: Smartphone, title: 'Native Mobile Apps', desc: 'iOS & Android apps built with React Native or Flutter. Push notifications, offline charts, and full API integration.' },
+            { icon: Palette, title: 'White-Label Branding', desc: 'Your logo, colors, domain & app store listing. 100% branded astrology platform under your name.' },
+            { icon: Server, title: 'Full API Integration', desc: 'All 180+ AstroVakta endpoints — birth charts, horoscopes, compatibility, doshas, AI, PDF reports.' },
+            { icon: ShoppingCart, title: 'Payment Gateway', desc: 'Integrated Stripe / Razorpay for consultation bookings, report sales, and subscription plans.' },
+            { icon: Users, title: 'Client Portal & Dashboard', desc: 'Client management, booking calendar, report history, and analytics dashboard for your customers.' },
           ].map((f, i) => (
             <FadeIn key={f.title} delay={i * 0.06}>
               <motion.div whileHover={{ y: -4 }} className="card-glow"
@@ -382,10 +471,10 @@ export default function Landing() {
           ))}
         </div>
 
-        {/* Custom Website Pricing */}
+        {/* Custom Webapp & Mobile App Pricing */}
         <FadeIn>
           <h3 style={{ textAlign: 'center', fontSize: 24, fontWeight: 700, marginBottom: 32 }}>
-            Custom Website <span className="gradient-text">Packages</span>
+            Custom Branded Webapps & Mobile Apps <span className="gradient-text">Packages</span>
           </h3>
         </FadeIn>
 
@@ -424,20 +513,20 @@ export default function Landing() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, maxWidth: 960, margin: '0 auto' }}>
           {[
             {
-              name: 'Starter Site', color: '#64748b',
-              usd: 499, inr: 24999,
-              features: ['5 Pages (Home, About, Services, Contact, Blog)', 'Mobile Responsive Design', 'Basic Astrology API Integration', 'Contact Form', 'WhatsApp Button', '1 Month Support'],
+              name: 'Starter', color: '#64748b',
+              usd: 36, inr: 2999,
+              features: ['5-Page Custom Web App', 'Mobile Responsive Design', 'Basic API Integration (Birth Charts, Horoscopes)', 'Contact Form + WhatsApp Chat', '1 Month Maintenance Support', 'Branded with Your Logo'],
             },
             {
               name: 'Professional', color: '#7c3aed',
-              usd: 1499, inr: 79999,
-              features: ['10 Pages with Custom Design', 'Full API Integration (Charts, Horoscopes, AI)', 'Payment Gateway (Stripe/Razorpay)', 'User Login & Dashboard', 'Report Generation System', '3 Months Support', 'SEO Optimization'],
+              usd: 72, inr: 5999,
+              features: ['10-Page Custom Web App', 'iOS + Android App (PWA)', 'Full API Integration (All 180+ Endpoints)', 'Payment Gateway (Stripe / Razorpay)', 'Client Login & Dashboard', 'PDF Report System', 'SEO Optimization', '3 Months Support'],
               highlight: true,
             },
             {
               name: 'Enterprise', color: '#eab308',
-              usd: 4999, inr: 249999,
-              features: ['Unlimited Pages', 'Custom Brand Identity', 'Full API Stack + Custom Endpoints', 'Multi-Payment Gateway', 'Advanced User Portal', 'Admin Dashboard', 'White-Label Mobile App (PWA)', '12 Months Premium Support', 'Priority Updates'],
+              usd: 120, inr: 9999,
+              features: ['Unlimited Pages Custom Web App', 'Native iOS & Android Apps', 'Full API Stack + Custom Endpoints', 'Multi-Payment Gateway', 'Advanced Admin Dashboard', 'Client Management Portal', 'Push Notifications System', '12 Months Premium Support', 'Priority Feature Updates'],
             },
           ].map((p, i) => (
             <FadeIn key={p.name} delay={i * 0.1}>
@@ -461,7 +550,7 @@ export default function Landing() {
                   <span style={{ fontSize: 40, fontWeight: 900 }}>
                     {currency === 'usd' ? `$${p.usd.toLocaleString()}` : `₹${p.inr.toLocaleString()}`}
                   </span>
-                  <span style={{ color: '#64748b', fontSize: 14 }}>one-time</span>
+                  <span style={{ color: '#64748b', fontSize: 14 }}>/month</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28, flex: 1 }}>
                   {p.features.map((f) => (
@@ -472,7 +561,7 @@ export default function Landing() {
                   ))}
                 </div>
                 <a
-                  href="https://wa.me/916239402519?text=Hi%20AstroVakta%2C%20I%20am%20interested%20in%20the%20custom%20website%20package"
+                  href="https://wa.me/916239402519?text=Hi%20AstroVakta%2C%20I%20am%20interested%20in%20the%20custom%20webapp%20or%20mobile%20app%20package"
                   target="_blank" rel="noopener noreferrer"
                 >
                   <button style={{
@@ -567,7 +656,7 @@ export default function Landing() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, maxWidth: 960, margin: '0 auto' }}>
+        <div className="scrollable-row" style={{ maxWidth: 1100, margin: '0 auto' }}>
           {[
             {
               name: 'Free', usdPrice: 0, inrPrice: 0,
@@ -609,6 +698,7 @@ export default function Landing() {
                 borderRadius: 'var(--radius-lg)', padding: 32, height: '100%',
                 position: 'relative', overflow: 'hidden',
                 boxShadow: p.highlight ? '0 0 60px rgba(124,58,237,0.12)' : 'none',
+                minHeight: 440,
               }}>
                 {p.highlight && (
                   <div style={{
@@ -831,6 +921,115 @@ export default function Landing() {
             </table>
           </div>
         </FadeIn>
+      </section>
+
+      {/* ═══════════ TECH STACK ═══════════ */}
+      <section className="section">
+        <FadeIn>
+          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>Tech Stack</p>
+          <h2 className="section-title">Built on <span className="gradient-text">Proven Tech</span></h2>
+          <p className="section-subtitle">Enterprise-grade infrastructure powering every API call.</p>
+        </FadeIn>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 20, maxWidth: 1000, margin: '0 auto' }}>
+          {[
+            { icon: Code, name: 'FastAPI', desc: 'High-performance Python framework', color: '#10b981' },
+            { icon: Database, name: 'Swiss Ephemeris', desc: 'NASA-grade sidereal calculations', color: '#7c3aed' },
+            { icon: Cog, name: 'Redis + Celery', desc: 'Background job processing', color: '#ef4444' },
+            { icon: Cloud, name: 'PostgreSQL', desc: 'Reliable data persistence', color: '#3b82f6' },
+            { icon: Lock, name: 'AES-256', desc: 'API key encryption at rest', color: '#f59e0b' },
+            { icon: Bot, name: 'Multi-AI', desc: 'OpenAI / Claude / Groq / Together', color: '#ec4899' },
+            { icon: FileText, name: 'ReportLab', desc: '22-section branded PDF reports', color: '#8b5cf6' },
+            { icon: Globe, name: 'CairoSVG', desc: 'Vector chart rendering', color: '#06b6d4' },
+          ].map((stack, i) => (
+            <FadeIn key={stack.name} delay={i * 0.06}>
+              <div style={{
+                background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-lg)', padding: 24, textAlign: 'center',
+              }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 12,
+                  background: `${stack.color}18`, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px',
+                }}>
+                  <stack.icon size={22} color={stack.color} />
+                </div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{stack.name}</h3>
+                <p style={{ color: '#94a3b8', fontSize: 12, lineHeight: 1.5 }}>{stack.desc}</p>
+              </div>
+            </FadeIn>
+          ))}
+        </div>
+      </section>
+
+      {/* ═══════════ BUILT FOR ═══════════ */}
+      <section className="section" style={{ background: 'var(--bg-secondary)' }}>
+        <FadeIn>
+          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>Use Cases</p>
+          <h2 className="section-title">Built for <span className="gradient-text">Every Project</span></h2>
+          <p className="section-subtitle">From indie developers to enterprise platforms, AstroVakta fits your needs.</p>
+        </FadeIn>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 24, maxWidth: 1100, margin: '0 auto' }}>
+          {[
+            { icon: Smartphone, title: 'Astrology Apps', desc: 'Build consumer-facing astrology apps with real-time birth charts, daily horoscopes, and AI-powered readings.', color: '#7c3aed' },
+            { icon: HeartHandshake, title: 'Matrimony Platforms', desc: 'Integrate kundali matching, guna milan, and dosha detection directly into your matrimonial website.', color: '#ec4899' },
+            { icon: Brain, title: 'Wellness & Mental Health', desc: 'Offer personalized gemstone recommendations, rudraksha advice, and spiritual guidance based on Vedic charts.', color: '#10b981' },
+            { icon: GraduationCap, title: 'Research & Academia', desc: 'Access raw astrological data for research papers, statistical analysis, and educational platforms.', color: '#3b82f6' },
+            { icon: Building2, title: 'SaaS Platforms', desc: 'White-label our API into your SaaS product. Resell astrology services under your own brand with custom pricing.', color: '#f59e0b' },
+          ].map((useCase, i) => (
+            <FadeIn key={useCase.title} delay={i * 0.08}>
+              <motion.div whileHover={{ y: -4 }} className="card-glow" style={{
+                background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-lg)', padding: 28, height: '100%',
+              }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: 14,
+                  background: `${useCase.color}18`, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+                }}>
+                  <useCase.icon size={24} color={useCase.color} />
+                </div>
+                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{useCase.title}</h3>
+                <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.7 }}>{useCase.desc}</p>
+              </motion.div>
+            </FadeIn>
+          ))}
+        </div>
+      </section>
+
+      {/* ═══════════ FAQ ═══════════ */}
+      <section className="section">
+        <FadeIn>
+          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>FAQ</p>
+          <h2 className="section-title">Frequently <span className="gradient-text">Asked Questions</span></h2>
+        </FadeIn>
+
+        <div style={{ maxWidth: 800, margin: '48px auto 0' }}>
+          {[
+            { q: 'How accurate are the charts and predictions?', a: 'AstroVakta uses the Swiss Ephemeris (pyswisseph) which is the NASA JPL-based calculation engine used by professional astrologers worldwide. Our sidereal calculations include Lahiri ayanamsha with sub-arcsecond precision for all planetary positions, nakshatras, and divisional charts.' },
+            { q: 'What is the rate limit on the free tier?', a: 'The free tier includes 500 API calls per month with no credit card required. You get full access to all 180+ endpoints. Rate limiting is applied per API key, and you can monitor your usage from the dashboard at any time.' },
+            { q: 'Can I use my own AI provider keys?', a: 'Yes! AstroVakta supports BYO (Bring Your Own) API keys for OpenAI, Anthropic Claude, Groq, and Together AI. You can configure multiple providers and switch between them seamlessly. Your keys are encrypted with AES-256 and never logged.' },
+            { q: 'Is my data private and secure?', a: 'Absolutely. All API keys are AES-256 encrypted at rest. We do not store or log birth chart data unless you explicitly request report generation. For enterprise customers, we offer on-premise deployment for complete data sovereignty.' },
+            { q: 'Can I self-host AstroVakta?', a: 'Yes, enterprise customers can self-host the entire AstroVakta stack on their own infrastructure. We provide deployment guides for Docker, Kubernetes, and bare-metal setups. Self-hosted instances include all features and endpoints.' },
+            { q: 'Do you offer custom mobile app development?', a: 'Yes! Our custom development package includes branded web apps and native mobile apps for iOS and Android. We build with React Native or Flutter, integrate the full API stack, and handle app store submissions. Check the Custom Development section above for pricing.' },
+          ].map((faq, i) => (
+            <FadeIn key={i} delay={i * 0.08}>
+              <div style={{
+                background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-lg)', padding: '24px 28px', marginBottom: 16,
+              }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  <HelpCircle size={20} color="#7c3aed" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{faq.q}</h3>
+                    <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.7 }}>{faq.a}</p>
+                  </div>
+                </div>
+              </div>
+            </FadeIn>
+          ))}
+        </div>
       </section>
 
       {/* ═══════════ FINAL CTA ═══════════ */}

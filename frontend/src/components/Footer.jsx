@@ -51,9 +51,9 @@ export default function Footer() {
               Company
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <span style={{ color: '#64748b', fontSize: 14 }}>About</span>
-              <span style={{ color: '#64748b', fontSize: 14 }}>Blog</span>
-              <span style={{ color: '#64748b', fontSize: 14 }}>Contact</span>
+              <Link to="/about" style={{ color: '#64748b', fontSize: 14 }}>About</Link>
+              <Link to="/blogs" style={{ color: '#64748b', fontSize: 14 }}>Blog</Link>
+              <Link to="/contact" style={{ color: '#64748b', fontSize: 14 }}>Contact</Link>
             </div>
           </div>
           <div>
@@ -61,8 +61,8 @@ export default function Footer() {
               Legal
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <span style={{ color: '#64748b', fontSize: 14 }}>Privacy</span>
-              <span style={{ color: '#64748b', fontSize: 14 }}>Terms</span>
+              <Link to="/privacy" style={{ color: '#64748b', fontSize: 14 }}>Privacy</Link>
+              <Link to="/terms" style={{ color: '#64748b', fontSize: 14 }}>Terms</Link>
             </div>
           </div>
         </div>
