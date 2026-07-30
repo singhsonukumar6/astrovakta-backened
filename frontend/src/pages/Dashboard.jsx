@@ -863,8 +863,8 @@ export default function Dashboard() {
   }, [user])
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated && !clerkSyncing) navigate('/')
-  }, [authLoading, isAuthenticated, clerkSyncing, navigate])
+    if (!authLoading && !clerkSignedIn) navigate('/')
+  }, [authLoading, clerkSignedIn, navigate])
 
   useEffect(() => {
     if (isAuthenticated && user && !user.email_verified) {
@@ -890,7 +890,7 @@ export default function Dashboard() {
     setLocalUser(updated)
   }
 
-  if (authLoading || clerkSyncing) {
+  if (authLoading || clerkSyncing || (clerkSignedIn && !isAuthenticated)) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 72, flexDirection: 'column', gap: 16 }}>
         <div className="gradient-text" style={{ fontSize: 18, fontWeight: 600 }}>Syncing your account...</div>
@@ -899,7 +899,7 @@ export default function Dashboard() {
     )
   }
 
-  if (!isAuthenticated) {
+  if (!clerkSignedIn) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 72, flexDirection: 'column', gap: 20 }}>
         <Shield size={48} color="#64748b" />
