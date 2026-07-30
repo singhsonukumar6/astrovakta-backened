@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Check, Zap, Star, Crown, ArrowRight, DollarSign, IndianRupee, MessageCircle } from 'lucide-react'
-import { ClerkSignedOut, SignUpOrRegister } from '../components/AuthButton.jsx'
+import { SignedOut, SignUpButton } from '@clerk/clerk-react'
 
 const tiers = [
   {
@@ -213,8 +213,8 @@ export default function Pricing() {
                   </button>
                 </a>
               ) : tier.name === 'Free' ? (
-                <ClerkSignedOut>
-                  <SignUpOrRegister mode="modal">
+                <SignedOut>
+                  <SignUpButton mode="modal">
                     <button
                       className={tier.popular ? 'btn-primary' : 'btn-secondary'}
                       style={{ width: '100%', justifyContent: 'center' }}
@@ -222,8 +222,8 @@ export default function Pricing() {
                       {tier.cta}
                       <ArrowRight size={16} />
                     </button>
-                  </SignUpOrRegister>
-                </ClerkSignedOut>
+                  </SignUpButton>
+                </SignedOut>
               ) : (
                 <button
                   onClick={() => navigate('/register')}

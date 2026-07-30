@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, useInView, useScroll, useTransform, AnimatePresence } from 'framer-motion'
-import { SignUpOrRegister, ClerkSignedOut } from '../components/AuthButton.jsx'
+import { SignedOut, SignUpButton } from '@clerk/clerk-react'
 import {
   Sparkles, BookOpen, Heart, Sun, Shield, Brain, Code, Zap, Globe,
   Clock, Cpu, TrendingUp, Star, Check, X as XIcon, ChevronRight,
@@ -171,13 +171,13 @@ export default function Landing() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.7 }}
             style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <ClerkSignedOut>
-              <SignUpOrRegister mode="modal">
+            <SignedOut>
+              <SignUpButton mode="modal">
                 <button className="btn-primary" style={{ padding: '16px 40px', fontSize: 16 }}>
                   <Rocket size={18} /> Try for Free
                 </button>
-              </SignUpOrRegister>
-            </ClerkSignedOut>
+              </SignUpButton>
+            </SignedOut>
             <Link to="/docs">
               <button className="btn-secondary" style={{ padding: '16px 40px', fontSize: 16 }}>
                 <BookOpen size={18} /> API Docs
@@ -641,8 +641,8 @@ export default function Landing() {
                     </button>
                   </a>
                 ) : p.name === 'Free' ? (
-                  <ClerkSignedOut>
-                    <SignUpOrRegister mode="modal">
+                  <SignedOut>
+                    <SignUpButton mode="modal">
                       <button style={{
                         width: '100%', padding: '12px 0', borderRadius: 12,
                         border: p.highlight ? 'none' : '1px solid var(--border-color)',
@@ -653,8 +653,8 @@ export default function Landing() {
                       }}>
                         {p.cta} <ArrowRight size={16} />
                       </button>
-                    </SignUpOrRegister>
-                  </ClerkSignedOut>
+                    </SignUpButton>
+                  </SignedOut>
                 ) : (
                   <Link to="/register">
                     <button style={{
@@ -845,13 +845,13 @@ export default function Landing() {
             No credit card required. 500 free API calls per month. Full access to all endpoints.
           </p>
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <ClerkSignedOut>
-              <SignUpOrRegister mode="modal">
+            <SignedOut>
+              <SignUpButton mode="modal">
                 <button className="btn-primary" style={{ padding: '18px 48px', fontSize: 18 }}>
                   Get Your API Key <Sparkles size={20} />
                 </button>
-              </SignUpOrRegister>
-            </ClerkSignedOut>
+              </SignUpButton>
+            </SignedOut>
             <Link to="/sandbox">
               <button className="btn-secondary" style={{ padding: '18px 48px', fontSize: 18 }}>
                 <Play size={18} /> Try the Sandbox

@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Star, Menu, X, LogIn, LayoutDashboard } from 'lucide-react'
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@clerk/clerk-react'
 import { useAuth } from '../lib/auth.jsx'
-import { ClerkSignedIn, ClerkSignedOut, ClerkUserButton, SignInOrLogin, SignUpOrRegister } from './AuthButton.jsx'
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
@@ -33,15 +33,8 @@ export default function Navbar() {
       animate={{ y: 0 }}
       transition={{ type: 'spring', stiffness: 100, damping: 20 }}
       style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 100,
-        padding: '0 24px',
-        height: 72,
-        display: 'flex',
-        alignItems: 'center',
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+        padding: '0 24px', height: 72, display: 'flex', alignItems: 'center',
         justifyContent: 'center',
         background: scrolled ? 'rgba(10,10,26,0.85)' : 'transparent',
         backdropFilter: scrolled ? 'blur(20px)' : 'none',
@@ -50,192 +43,85 @@ export default function Navbar() {
         transition: 'all 0.3s ease',
       }}
     >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: 1200,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
+      <div style={{ width: '100%', maxWidth: 1200, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Star size={28} color="#7c3aed" fill="#7c3aed" />
           <div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 0 }}>
-              <span style={{ fontSize: 22, fontWeight: 800, color: '#ffffff' }}>
-                Astro
-              </span>
-              <span style={{ fontSize: 22, fontWeight: 800, color: '#eab308' }}>
-                Vakta
-              </span>
+              <span style={{ fontSize: 22, fontWeight: 800, color: '#ffffff' }}>Astro</span>
+              <span style={{ fontSize: 22, fontWeight: 800, color: '#eab308' }}>Vakta</span>
             </div>
-            <span style={{ fontSize: 10, color: '#64748b', fontWeight: 500, display: 'block', marginTop: -2 }}>
-              for developers
-            </span>
+            <span style={{ fontSize: 10, color: '#64748b', fontWeight: 500, display: 'block', marginTop: -2 }}>for developers</span>
           </div>
         </Link>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 32 }} className="nav-desktop">
           {links.map((l) => (
-            <Link
-              key={l.to}
-              to={l.to}
+            <Link key={l.to} to={l.to}
               style={{
                 color: location.pathname === l.to ? '#a78bfa' : '#94a3b8',
-                fontWeight: 500,
-                fontSize: 15,
-                transition: 'color 0.2s',
-                position: 'relative',
+                fontWeight: 500, fontSize: 15, transition: 'color 0.2s',
               }}
               onMouseEnter={(e) => (e.target.style.color = '#e2e8f0')}
-              onMouseLeave={(e) =>
-                (e.target.style.color = location.pathname === l.to ? '#a78bfa' : '#94a3b8')
-              }
-            >
-              {l.label}
-            </Link>
+              onMouseLeave={(e) => (e.target.style.color = location.pathname === l.to ? '#a78bfa' : '#94a3b8')}
+            >{l.label}</Link>
           ))}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }} className="nav-desktop">
-          <ClerkSignedIn>
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="btn-primary"
-              style={{ padding: '10px 20px', fontSize: 14 }}
-            >
-              <LayoutDashboard size={16} />
-              Dashboard
+          <SignedIn>
+            <button onClick={() => navigate('/dashboard')} className="btn-primary" style={{ padding: '10px 20px', fontSize: 14 }}>
+              <LayoutDashboard size={16} /> Dashboard
             </button>
-            <ClerkUserButton
-              appearance={{
-                elements: {
-                  avatarBox: { width: 36, height: 36 },
-                },
-              }}
-            />
-          </ClerkSignedIn>
-          <ClerkSignedOut>
-            {isAuthenticated ? (
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="btn-primary"
-                style={{ padding: '10px 20px', fontSize: 14 }}
-              >
-                <LayoutDashboard size={16} />
-                Dashboard
+            <UserButton appearance={{ elements: { avatarBox: { width: 36, height: 36 } } }} />
+          </SignedIn>
+          <SignedOut>
+            <SignInButton mode="modal">
+              <button className="btn-secondary" style={{ padding: '10px 20px', fontSize: 14 }}>Log In</button>
+            </SignInButton>
+            <SignUpButton mode="modal">
+              <button className="btn-primary" style={{ padding: '10px 20px', fontSize: 14 }}>
+                <LogIn size={16} /> Sign Up
               </button>
-            ) : (
-              <>
-                <SignInOrLogin mode="modal">
-                  <button
-                    className="btn-secondary"
-                    style={{ padding: '10px 20px', fontSize: 14 }}
-                  >
-                    Log In
-                  </button>
-                </SignInOrLogin>
-                <SignUpOrRegister mode="modal">
-                  <button
-                    className="btn-primary"
-                    style={{ padding: '10px 20px', fontSize: 14 }}
-                  >
-                    <LogIn size={16} />
-                    Sign Up
-                  </button>
-                </SignUpOrRegister>
-              </>
-            )}
-          </ClerkSignedOut>
+            </SignUpButton>
+          </SignedOut>
         </div>
 
-        <button
-          className="nav-mobile-btn"
-          onClick={() => setMobileOpen(!mobileOpen)}
-          style={{
-            display: 'none',
-            background: 'none',
-            border: 'none',
-            color: '#e2e8f0',
-          }}
-        >
+        <button className="nav-mobile-btn" onClick={() => setMobileOpen(!mobileOpen)}
+          style={{ display: 'none', background: 'none', border: 'none', color: '#e2e8f0' }}>
           {mobileOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
       <AnimatePresence>
         {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
             style={{
-              position: 'absolute',
-              top: 72,
-              left: 0,
-              right: 0,
-              background: 'rgba(10,10,26,0.95)',
-              backdropFilter: 'blur(20px)',
+              position: 'absolute', top: 72, left: 0, right: 0,
+              background: 'rgba(10,10,26,0.95)', backdropFilter: 'blur(20px)',
               borderBottom: '1px solid rgba(124,58,237,0.2)',
-              padding: '16px 24px 24px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 12,
-            }}
-          >
+              padding: '16px 24px 24px', display: 'flex', flexDirection: 'column', gap: 12,
+            }}>
             {links.map((l) => (
-              <Link
-                key={l.to}
-                to={l.to}
-                style={{
-                  color: location.pathname === l.to ? '#a78bfa' : '#94a3b8',
-                  fontWeight: 500,
-                  fontSize: 16,
-                  padding: '8px 0',
-                }}
-              >
-                {l.label}
-              </Link>
+              <Link key={l.to} to={l.to} style={{
+                color: location.pathname === l.to ? '#a78bfa' : '#94a3b8',
+                fontWeight: 500, fontSize: 16, padding: '8px 0',
+              }}>{l.label}</Link>
             ))}
             <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-              <ClerkSignedIn>
-                <button
-                  onClick={() => navigate('/dashboard')}
-                  className="btn-primary"
-                  style={{ flex: 1, justifyContent: 'center' }}
-                >
+              <SignedIn>
+                <button onClick={() => navigate('/dashboard')} className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
                   Dashboard
                 </button>
-              </ClerkSignedIn>
-              <ClerkSignedOut>
-                {isAuthenticated ? (
-                  <button
-                    onClick={() => navigate('/dashboard')}
-                    className="btn-primary"
-                    style={{ flex: 1, justifyContent: 'center' }}
-                  >
-                    Dashboard
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => navigate('/login')}
-                      className="btn-secondary"
-                      style={{ flex: 1, justifyContent: 'center' }}
-                    >
-                      Log In
-                    </button>
-                    <button
-                      onClick={() => navigate('/register')}
-                      className="btn-primary"
-                      style={{ flex: 1, justifyContent: 'center' }}
-                    >
-                      Sign Up
-                    </button>
-                  </>
-                )}
-              </ClerkSignedOut>
+              </SignedIn>
+              <SignedOut>
+                <SignInButton mode="modal">
+                  <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>Log In</button>
+                </SignInButton>
+                <SignUpButton mode="modal">
+                  <button className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>Sign Up</button>
+                </SignUpButton>
+              </SignedOut>
             </div>
           </motion.div>
         )}
