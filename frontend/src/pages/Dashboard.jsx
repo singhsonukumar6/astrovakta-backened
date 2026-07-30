@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SignedOut, SignInButton } from '@clerk/clerk-react'
 import {
@@ -857,6 +857,7 @@ export default function Dashboard() {
   const [localUser, setLocalUser] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
 
   useEffect(() => {
     setLocalUser(user)
@@ -865,6 +866,10 @@ export default function Dashboard() {
   useEffect(() => {
     if (!authLoading && !clerkSignedIn) navigate('/')
   }, [authLoading, clerkSignedIn, navigate])
+
+  useEffect(() => {
+    setActiveTab('overview')
+  }, [location.key])
 
   useEffect(() => {
     if (isAuthenticated && user && !user.email_verified && !clerkSignedIn) {
