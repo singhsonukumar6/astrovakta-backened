@@ -124,16 +124,15 @@ def kp_cuspal_lords(body: BirthRequest):
     for h in house_list:
         hnum = h['number']
         sign = h['sign']
-        mid_point = (h.get('degree', 0) + 15) % 360
+        cusp_degree = h.get('degree', 0)
         cuspal_lord = _kp_cuspal_lord(sign)
-        star_lord = _get_star_lord(mid_point)
-        sub_lord = _kp_sub_lord_for(mid_point)
+        star_lord = _get_star_lord(cusp_degree)
+        sub_lord = _kp_sub_lord_for(cusp_degree)
         cusp_details.append({
             'cusp': hnum,
             'sign': sign,
             'signLord': h.get('signLord', ''),
-            'degree': round(h.get('degree', 0), 4),
-            'midPoint': round(mid_point, 4),
+            'cuspDegree': round(cusp_degree, 4),
             'cuspalLord': cuspal_lord,
             'starLord': star_lord,
             'subLord': sub_lord,
@@ -156,15 +155,23 @@ def kp_bhav_chalit(body: BirthRequest):
     houses = calc_houses(jd, body.latitude, body.longitude, planets, body.houseSystem or 'P')
 
     house_list = houses.get('houses', [])
+    cusp_degrees = [h.get('degree', 0) for h in house_list]
     bhav_chalit = []
-    for h in house_list:
+    for i, h in enumerate(house_list):
         hnum = h['number']
-        mid = (h.get('degree', 0) + 15) % 360
+        start_deg = h.get('degree', 0)
+        next_deg = cusp_degrees[(i + 1) % 12]
+        if next_deg < start_deg:
+            next_deg += 360
+        mid = (start_deg + next_deg) / 2 % 360
         bhav_chalit.append({
             'bhava': hnum,
+            'cuspDegree': round(start_deg, 4),
             'startSign': h['sign'],
             'midPoint': round(mid, 4),
             'midPointSign': ZODIAC_SIGNS[int(mid // 30) % 12],
+            'starLord': _get_star_lord(mid),
+            'subLord': _kp_sub_lord_for(mid),
             'planets': h.get('planets', []),
         })
 
@@ -176,80 +183,136 @@ def kp_bhav_chalit(body: BirthRequest):
 
 @router.post('/kp/ruling-planets')
 def kp_ruling_planets(body: BirthRequest):
-    from ..main import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, NAKSHATRAS
+    from ..main import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, NAKSHATRAS, SIGN_LORDS
+    from ..utils import planet_status
     from datetime import datetime
     import pytz
 
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     planets = calc_planets(jd, None, body.nodeMode or 'mean')
     houses = calc_houses(jd, body.latitude, body.longitude, planets, body.houseSystem or 'P')
+    pmap = {p['name']: p for p in planets}
 
     house_list = houses.get('houses', [])
     asc_sign = houses.get('ascendant', {}).get('sign', 'Aries')
     asc_degree = houses.get('ascendant', {}).get('degree', 0)
+    asc_lord = SIGN_LORDS.get(asc_sign, '')
+    asc_star_lord = _get_star_lord(asc_degree)
+    asc_sub_lord = _kp_sub_lord_for(asc_degree)
 
-    moon = next((p for p in planets if p['name'] == 'Moon'), None)
-    asc_lord = None
-    for h in house_list:
-        if h['number'] == 1:
-            asc_lord = h.get('signLord', '')
+    moon = pmap.get('Moon')
+    moon_sign_lord = SIGN_LORDS.get(moon['sign'], '') if moon else ''
+    moon_star_lord = _get_star_lord(moon['longitude']) if moon else ''
+    moon_sub_lord = _kp_sub_lord_for(moon['longitude']) if moon else ''
+
+    tz = pytz.timezone(body.timezone)
+    dt_local = tz.localize(datetime.strptime(f"{body.dateOfBirth} {body.timeOfBirth}", "%Y-%m-%d %H:%M"))
+    day_lord_map = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn']
+    day_lord = day_lord_map[(dt_local.weekday() + 1) % 7]
+
+    def _has_lord(lord_name):
+        return any(rp['planet'] == lord_name for rp in ruling_planets)
+
+    def _planet_details(pname):
+        p = pmap.get(pname)
+        if p:
+            return {
+                'planet': pname,
+                'sign': p['sign'],
+                'house': p['house'],
+                'longitude': round(p['longitude'], 4),
+                'degree': round(p['degree'], 4),
+                'isRetrograde': p.get('isRetrograde', False),
+                'isCombust': p.get('isCombust', False),
+                'starLord': _get_star_lord(p['longitude']),
+                'subLord': _kp_sub_lord_for(p['longitude']),
+                'houseStatus': planet_status(pname, p['sign']),
+            }
+        return {
+            'planet': pname,
+            'sign': '',
+            'house': 0,
+            'longitude': 0,
+            'degree': 0,
+            'isRetrograde': False,
+            'isCombust': False,
+            'starLord': '',
+            'subLord': '',
+            'houseStatus': '',
+        }
 
     ruling_planets = []
-    if asc_lord:
-        ruling_planets.append({
-            'planet': asc_lord,
-            'role': 'Ascendant Lord (Lagna Lord)',
-            'house': 1,
-            'sign': asc_sign,
-        })
+
+    ruling_planets.append({
+        **_planet_details(asc_lord),
+        'role': 'Lagna Lord',
+        'source': f'Ascendant sign {asc_sign}',
+    })
+    ruling_planets.append({
+        **_planet_details(asc_star_lord),
+        'role': 'Lagna Star Lord',
+        'source': f'Ascendant nakshatra star lord',
+    })
+    ruling_planets.append({
+        **_planet_details(asc_sub_lord),
+        'role': 'Lagna Sub Lord',
+        'source': f'Ascendant KP sub lord',
+    })
 
     if moon:
-        moon_star = _get_star_lord(moon['longitude'])
-        moon_sub = _kp_sub_lord_for(moon['longitude'])
         ruling_planets.append({
-            'planet': 'Moon',
-            'role': 'Moon - Mind',
-            'house': moon.get('house', 0),
-            'sign': moon.get('sign', ''),
-            'starLord': moon_star,
-            'subLord': moon_sub,
+            **_planet_details(moon_sign_lord),
+            'role': 'Moon Sign Lord',
+            'source': f'Moon in sign {moon["sign"]}',
         })
-        if moon_star not in [rp['planet'] for rp in ruling_planets]:
-            ruling_planets.append({
-                'planet': moon_star,
-                'role': 'Moon\'s Star Lord',
-                'house': 0,
-                'sign': '',
-            })
-        moon_sub_lord = moon_sub
-        if moon_sub_lord not in [rp['planet'] for rp in ruling_planets]:
-            ruling_planets.append({
-                'planet': moon_sub_lord,
-                'role': 'Moon\'s Sub Lord',
-                'house': 0,
-                'sign': '',
-            })
+        ruling_planets.append({
+            **_planet_details(moon_star_lord),
+            'role': 'Moon Star Lord',
+            'source': f'Moon nakshatra star lord',
+        })
+        ruling_planets.append({
+            **_planet_details(moon_sub_lord),
+            'role': 'Moon Sub Lord',
+            'source': f'Moon KP sub lord',
+        })
 
-    day_lord_map = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn']
-    try:
-        tz = pytz.timezone(body.timezone)
-        dt_local = tz.localize(datetime.strptime(f"{body.dateOfBirth} {body.timeOfBirth}", "%Y-%m-%d %H:%M"))
-        weekday_idx = dt_local.weekday()
-        day_lord = day_lord_map[(weekday_idx + 1) % 7]
-        if day_lord not in [rp['planet'] for rp in ruling_planets]:
-            ruling_planets.append({
-                'planet': day_lord,
-                'role': 'Day Lord (Weekday Lord)',
-                'house': 0,
-                'sign': '',
-            })
-    except Exception:
-        pass
+    if not _has_lord(day_lord):
+        ruling_planets.append({
+            **_planet_details(day_lord),
+            'role': 'Day Lord',
+            'source': f'Weekday {dt_local.strftime("%A")}',
+        })
+
+    deduped = []
+    seen = set()
+    for rp in ruling_planets:
+        key = (rp['planet'], rp['role'])
+        if key not in seen:
+            seen.add(key)
+            deduped.append(rp)
 
     return success({
         'system': 'KP Astrology',
-        'rulingPlanets': ruling_planets,
-        'note': 'Ruling planets are used in KP for electional and horary astrology.',
+        'ascendant': {
+            'sign': asc_sign,
+            'degree': round(asc_degree, 4),
+            'lord': asc_lord,
+            'starLord': asc_star_lord,
+            'subLord': asc_sub_lord,
+        },
+        'moon': {
+            'sign': moon['sign'] if moon else '',
+            'longitude': round(moon['longitude'], 4) if moon else 0,
+            'signLord': moon_sign_lord,
+            'starLord': moon_star_lord,
+            'subLord': moon_sub_lord,
+        } if moon else None,
+        'day': {
+            'weekday': dt_local.strftime('%A'),
+            'lord': day_lord,
+        },
+        'rulingPlanets': deduped,
+        'note': 'The 6+1 classical KP ruling planets: Lagna Lord, Lagna Star Lord, Lagna Sub Lord, Moon Sign Lord, Moon Star Lord, Moon Sub Lord, and Day Lord. Used for KP electional (muhurat) and horary (prashna) astrology.',
     })
 
 
