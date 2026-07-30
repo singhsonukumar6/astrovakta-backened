@@ -187,9 +187,11 @@ class APIKeyMiddleware:
         remaining = max(0, monthly_limit - requests_this_month)
 
         start = time.time()
+        response_status = [200]
 
         async def _send(message):
             if message["type"] == "http.response.start":
+                response_status[0] = message["status"]
                 message["headers"] = [
                     (k, v) for k, v in message.get("headers", [])
                     if k.decode().lower() != "x-ratelimit-limit"
@@ -205,4 +207,4 @@ class APIKeyMiddleware:
         await self.app(scope, request.receive, _send)
 
         elapsed = time.time() - start
-        log_usage(key_info["id"], path, 200)
+        log_usage(key_info["id"], path, response_status[0])
