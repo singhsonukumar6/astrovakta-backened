@@ -1,6 +1,5 @@
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from typing import Optional
 
 router = APIRouter()
 
@@ -235,16 +234,6 @@ class VehicleRequest(BaseModel):
     vehicleNumber: str = Field(..., example="MH12AB1234")
 
 
-class BusinessNameRequest(BaseModel):
-    businessName: str = Field(..., example="Celestial Solutions")
-
-
-class BabyNameRequest(BaseModel):
-    dateOfBirth: str = Field(..., example="2024-03-15")
-    gender: str = Field(..., example="male")
-    parentName: Optional[str] = Field(None, example="Rahul Sharma")
-
-
 @router.post('/numerology/life-path')
 def life_path_number(body: LifePathRequest):
     parts = body.dateOfBirth.replace('-', '').replace('/', '').replace('.', '')
@@ -374,112 +363,4 @@ def vehicle_number(body: VehicleRequest):
     }
 
 
-@router.post('/numerology/business-name')
-def business_name_number(body: BusinessNameRequest):
-    name = body.businessName.upper().strip()
-    total = sum(letter_to_number(ch) for ch in name if ch.isalpha())
-    name_number = reduce_to_single(total)
 
-    vowels_sum = sum(letter_to_number(ch) for ch in name if ch in VOWELS)
-    consonants_sum = total - vowels_sum
-    destiny = reduce_to_single(total)
-
-    compatibility_score = 100 - abs(name_number - destiny) * 11
-    if compatibility_score < 0:
-        compatibility_score = 0
-
-    name_interp = get_interpretation(name_number)
-    destiny_interp = get_interpretation(destiny)
-
-    if compatibility_score >= 80:
-        compat_label = "Excellent"
-    elif compatibility_score >= 60:
-        compat_label = "Good"
-    elif compatibility_score >= 40:
-        compat_label = "Average"
-    else:
-        compat_label = "Challenging"
-
-    description = (
-        f"Business Name '{body.businessName}' analysis: "
-        f"Name Number = {name_number}, Destiny Number = {destiny}. "
-        f"Vowel sum = {vowels_sum}, Consonant sum = {consonants_sum}. "
-        f"Name-Destiny Compatibility = {compatibility_score}% ({compat_label}). "
-        f"The business energy leans toward {name_interp['overall'].lower()}"
-    )
-
-    return {
-        "status": 200,
-        "name_number": name_number,
-        "destiny_number": destiny,
-        "compatibility_score": compatibility_score,
-        "compatibility_label": compat_label,
-        "name_interpretation": name_interp,
-        "destiny_interpretation": destiny_interp,
-        "description": description
-    }
-
-
-@router.post('/numerology/baby-name')
-def baby_name(body: BabyNameRequest):
-    parts = body.dateOfBirth.replace('-', '').replace('/', '').replace('.', '')
-    digits = [int(d) for d in parts if d.isdigit()]
-
-    year = digits[0] * 1000 + digits[1] * 100 + digits[2] * 10 + digits[3]
-    month = digits[4] * 10 + digits[5]
-    day = digits[6] * 10 + digits[7]
-
-    year_sum = sum(int(d) for d in str(year))
-    month_sum = sum(int(d) for d in str(month))
-    day_sum = sum(int(d) for d in str(day))
-
-    total = year_sum + month_sum + day_sum
-    life_path = reduce_to_single(total)
-
-    starting_letter = get_starting_letter(day)
-
-    gender = body.gender.lower().strip()
-    if gender not in ("male", "female", "m", "f"):
-        gender = "male"
-    if gender in ("m",):
-        gender = "male"
-    if gender in ("f",):
-        gender = "female"
-
-    suggested_names = BABY_NAME_SUGGESTIONS.get(life_path, BABY_NAME_SUGGESTIONS[9])
-    names_list = suggested_names.get(gender, suggested_names["male"])
-
-    nakshatra_index = ((day - 1) % 27) + 1
-    nakshatra_info = NATSHATRA_LETTERS.get(nakshatra_index, NATSHATRA_LETTERS[1])
-
-    interp = get_interpretation(life_path)
-
-    description = (
-        f"Baby Name Recommendations for a {gender} child born on {body.dateOfBirth}: "
-        f"Life Path Number = {life_path}. "
-        f"Birth Nakshatra = {nakshatra_info['nakshatra']}, "
-        f"Recommended starting letter = '{starting_letter}'. "
-        f"Names starting with '{starting_letter}' carry the energy of "
-        f"{nakshatra_info['nakshatra']} nakshatra. "
-        f"{interp['overall']}"
-    )
-
-    result = {
-        "status": 200,
-        "life_path_number": life_path,
-        "starting_letter": starting_letter,
-        "birth_nakshatra": nakshatra_info["nakshatra"],
-        "nakshatra_letters": nakshatra_info["letters"],
-        "suggested_names": names_list,
-        "interpretation": interp,
-        "description": description
-    }
-
-    if body.parentName:
-        parent_upper = body.parentName.upper().strip()
-        parent_total = sum(letter_to_number(ch) for ch in parent_upper if ch.isalpha())
-        parent_number = reduce_to_single(parent_total)
-        result["parent_number"] = parent_number
-        result["parent_name_analysis"] = get_interpretation(parent_number)
-
-    return result

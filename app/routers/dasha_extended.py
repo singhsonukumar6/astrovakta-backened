@@ -18,7 +18,7 @@ class BirthRequest(BaseModel):
 
 
 # ---- YOGINI DASHA ----
-# 36-year cycle. Sequence of yoginis with their ruling planet and duration:
+# Classical 8 Yoginis, 36-year cycle. Each yogini ruled by a planet:
 YOGINI_SEQUENCE = [
     ('Mangala', 'Moon', 1),
     ('Pingala', 'Sun', 2),
@@ -26,16 +26,8 @@ YOGINI_SEQUENCE = [
     ('Bhramari', 'Mars', 4),
     ('Bhadrika', 'Mercury', 5),
     ('Ulka', 'Saturn', 6),
-    ('Sankata', 'Ketu', 7),
-    ('Chhaya', 'Rahu', 1),
-    ('Bhadro', 'Jupiter', 2),
-    ('Mukunda', 'Saturn', 3),
-    ('Neel', 'Mercury', 4),
-    ('Dhanshta', 'Mars', 5),
-    ('Kaalratri', 'Sun', 6),
-    ('Shubha', 'Moon', 7),
-    ('Siddha', 'Venus', 1),
-    ('Sankata', 'Ketu', 2),
+    ('Siddha', 'Venus', 7),
+    ('Sankata', 'Rahu', 8),
 ]
 
 
@@ -58,7 +50,7 @@ def _compute_yogini_dasha(body):
     nk_idx = int(moon_lon // 13.333333) % 27
     nakshatra_name = NAKSHATRAS[nk_idx][0]
 
-    yogini_for_nakshatra = nk_idx % 16
+    yogini_for_nakshatra = nk_idx % 8
     start_yogini_idx = yogini_for_nakshatra
 
     pos_in_nk = (moon_lon % 13.333333) / 13.333333
@@ -75,9 +67,9 @@ def _compute_yogini_dasha(body):
     mahadashas = []
     cursor = birth_dt
 
-    for cycle in range(4):
-        for offset in range(16):
-            yogini_idx = (start_yogini_idx + cycle * 16 + offset) % 16
+    for cycle in range(5):
+        for offset in range(8):
+            yogini_idx = (start_yogini_idx + cycle * 8 + offset) % 8
             yogini_name, ruling_planet, duration_years = YOGINI_SEQUENCE[yogini_idx]
 
             if cycle == 0 and offset == 0:
@@ -118,21 +110,14 @@ def _compute_yogini_dasha(body):
 
 
 YOGINI_DESCRIPTIONS = {
-    'Mangala': {'nature': 'Aggressive, action-oriented', 'effects': 'Courage, property gains, but also conflicts'},
-    'Pingala': {'nature': 'Passionate, authoritative', 'effects': 'Government favor, recognition, ego clashes'},
-    'Dhanya': {'nature': 'Prosperous, abundant', 'effects': 'Wealth, agriculture, material comfort'},
-    'Bhramari': {'nature': 'Industrious, disciplined', 'effects': 'Hard work yields results, but delays possible'},
-    'Bhadrika': {'nature': 'Noble, communicative', 'effects': 'Education, communication success, business gains'},
-    'Ulka': {'nature': 'Mysterious, transformative', 'effects': 'Sudden changes, hidden wealth, research success'},
-    'Sankata': {'nature': 'Challenging, karmic', 'effects': 'Obstacles, spiritual growth through hardship'},
-    'Chhaya': {'nature': 'Shadow, intuitive', 'effects': 'Psychic abilities, foreign connections, illusions'},
-    'Bhadro': {'nature': 'Noble, protective', 'effects': 'Protection, spiritual progress, ethical gains'},
-    'Mukunda': {'nature': 'Liberating, spiritual', 'effects': 'Moksha tendencies, detachment, inner peace'},
-    'Neel': {'nature': 'Deep, transformative', 'effects': 'Hidden knowledge, occult, deep analysis'},
-    'Dhanshta': {'nature': 'Prosperous, musical', 'effects': 'Wealth through arts, music, property'},
-    'Kaalratri': {'nature': 'Dark, karmic', 'effects': 'Major transformations, fears overcome, power'},
-    'Shubha': {'nature': 'Auspicious, beneficial', 'effects': 'Good fortune, marriage, family happiness'},
-    'Siddha': {'nature': 'Accomplished, mystical', 'effects': 'Spiritual powers, healing, success in occult'},
+    'Mangala': {'nature': 'Courageous, action-oriented', 'effects': 'Energy, leadership, conflicts resolved through courage'},
+    'Pingala': {'nature': 'Authoritative, radiant', 'effects': 'Authority, recognition, government favor, ego expansion'},
+    'Dhanya': {'nature': 'Prosperous, abundant', 'effects': 'Wealth, material comfort, property gains, generosity'},
+    'Bhramari': {'nature': 'Industrious, hard-working', 'effects': 'Consistent effort, discipline, gradual success through labor'},
+    'Bhadrika': {'nature': 'Intelligent, communicative', 'effects': 'Learning, business success, social influence, wisdom'},
+    'Ulka': {'nature': 'Transformative, mysterious', 'effects': 'Sudden changes, upheavals, hidden gains, research success'},
+    'Siddha': {'nature': 'Accomplished, refined', 'effects': 'Artistic success, relationships bloom, spiritual elevation'},
+    'Sankata': {'nature': 'Challenging, karmic', 'effects': 'Obstacles, hardships, spiritual growth through challenges'},
 }
 
 

@@ -18,29 +18,47 @@ class BirthRequest(BaseModel):
 
 
 YOGINI_NAKSHATRA_MAP = [
-    (0, 'Mangala'), (1, 'Mangala'), (2, 'Mangala'),
-    (3, 'Pingala'), (4, 'Pingala'), (5, 'Pingala'),
-    (6, 'Dhanya'), (7, 'Dhanya'), (8, 'Dhanya'),
-    (9, 'Bhramari'), (10, 'Bhramari'), (11, 'Bhramari'),
-    (12, 'Bhadrika'), (13, 'Bhadrika'), (14, 'Bhadrika'),
-    (15, 'Ulka'), (16, 'Ulka'), (17, 'Ulka'),
-    (18, 'Siddha'), (19, 'Siddha'), (20, 'Siddha'),
-    (21, 'Sankata'), (22, 'Sankata'), (23, 'Sankata'),
-    (24, 'Mangala'), (25, 'Pingala'), (26, 'Dhanya'),
+    (0, 'Mangala'),
+    (1, 'Pingala'),
+    (2, 'Dhanya'),
+    (3, 'Bhramari'),
+    (4, 'Bhadrika'),
+    (5, 'Ulka'),
+    (6, 'Siddha'),
+    (7, 'Sankata'),
+    (8, 'Mangala'),
+    (9, 'Pingala'),
+    (10, 'Dhanya'),
+    (11, 'Bhramari'),
+    (12, 'Bhadrika'),
+    (13, 'Ulka'),
+    (14, 'Siddha'),
+    (15, 'Sankata'),
+    (16, 'Mangala'),
+    (17, 'Pingala'),
+    (18, 'Dhanya'),
+    (19, 'Bhramari'),
+    (20, 'Bhadrika'),
+    (21, 'Ulka'),
+    (22, 'Siddha'),
+    (23, 'Sankata'),
+    (24, 'Mangala'),
+    (25, 'Pingala'),
+    (26, 'Dhanya'),
 ]
 
 YOGINI_DOSHA_RULES = {
     'Mangala': {
         'name': 'Mangala Yogini',
-        'nature': 'Aggressive, fiery',
-        'effects': 'Can cause obstacles in marriage, temperament issues, property disputes',
+        'nature': 'Courageous, action-oriented',
+        'effects': 'Energy and leadership qualities prominent. Can cause conflicts if afflicted.',
         'doshaType': 'Moderate',
         'remedies': ['Chant Mangala Yogini mantra', 'Offer red flowers on Tuesdays', 'Fast on Tuesdays']
     },
     'Pingala': {
         'name': 'Pingala Yogini',
-        'nature': 'Passionate, authoritative',
-        'effects': 'May cause dominance issues in relationships, power struggles',
+        'nature': 'Authoritative, radiant',
+        'effects': 'Recognition and authority indicated. May cause ego issues in relationships.',
         'doshaType': 'Moderate',
         'remedies': ['Chant Pingala Yogini mantra', 'Donate yellow items on Thursdays', 'Worship Lord Vishnu']
     },
@@ -53,36 +71,36 @@ YOGINI_DOSHA_RULES = {
     },
     'Bhramari': {
         'name': 'Bhramari Yogini',
-        'nature': 'Industrious, disciplined',
-        'effects': 'May cause delays in marriage, but good for career growth',
+        'nature': 'Industrious, hard-working',
+        'effects': 'May cause delays in marriage, but good for career through sustained effort.',
         'doshaType': 'Mild',
         'remedies': ['Chant Bhramari Yogini mantra', 'Worship Goddess Durga', 'Donate white items on Mondays']
     },
     'Bhadrika': {
         'name': 'Bhadrika Yogini',
-        'nature': 'Noble, communicative',
-        'effects': 'Benefic for communication and education. Slight delays in marriage.',
+        'nature': 'Intelligent, communicative',
+        'effects': 'Benefic for communication and education. Slight delays in marriage possible.',
         'doshaType': 'Mild',
         'remedies': ['Chant Bhadrika Yogini mantra', 'Donate green items on Wednesdays']
     },
     'Ulka': {
         'name': 'Ulka Yogini',
-        'nature': 'Mysterious, transformative',
-        'effects': 'Can cause sudden changes in relationships, hidden enemies',
+        'nature': 'Transformative, mysterious',
+        'effects': 'Can cause sudden changes in relationships, hidden enemies.',
         'doshaType': 'Moderate',
         'remedies': ['Chant Ulka Yogini mantra', 'Perform Rahu-Ketu shanti', 'Worship Lord Shiva']
     },
     'Siddha': {
         'name': 'Siddha Yogini',
-        'nature': 'Accomplished, mystical',
-        'effects': 'Benefic - brings spiritual growth, success in occult sciences',
+        'nature': 'Accomplished, refined',
+        'effects': 'Benefic - brings artistic success, spiritual growth, relationship fulfillment.',
         'doshaType': 'Benefic',
         'remedies': []
     },
     'Sankata': {
         'name': 'Sankata Yogini',
         'nature': 'Challenging, karmic',
-        'effects': 'Can cause major obstacles, delays in marriage, financial challenges',
+        'effects': 'Can cause major obstacles, delays in marriage, financial challenges.',
         'doshaType': 'Severe',
         'remedies': ['Chant Sankata Yogini mantra', 'Perform Navagraha Shanti', 'Visit temples on Saturdays', 'Chant Hanuman Chalisa']
     },

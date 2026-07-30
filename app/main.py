@@ -547,7 +547,7 @@ except Exception as e:
 # Cesarean Muhurat router
 try:
     from .routers.muhurat_extra import router as muhurat_extra_router
-    app.include_router(muhurat_extra_router, prefix="")
+    app.include_router(muhurat_extra_router, prefix="", tags=['Muhurat'])
 except Exception as e:
     import logging as _logging32
     _logging32.error(f"Failed to include MUHURAT EXTRA router: {e}")
@@ -555,7 +555,7 @@ except Exception as e:
 # Dhaiya Dosha router
 try:
     from .routers.dosha_extra import router as dosha_extra_router
-    app.include_router(dosha_extra_router, prefix="")
+    app.include_router(dosha_extra_router, prefix="", tags=['Dosha'])
 except Exception as e:
     import logging as _logging33
     _logging33.error(f"Failed to include DOSHA EXTRA router: {e}")
