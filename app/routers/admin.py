@@ -12,7 +12,7 @@ from ..auth import (
     admin_update_key_tier, admin_get_usage_daily, admin_get_usage_endpoints,
     get_all_jobs, admin_reset_password, admin_create_key_for_user,
     admin_get_user_keys, admin_get_user_usage, admin_get_all_usage_daily,
-    admin_get_all_usage_by_user, create_api_key,
+    admin_get_all_usage_by_user, create_api_key, admin_set_monthly_limit,
 )
 from .auth_router import get_current_user
 
@@ -46,7 +46,7 @@ def admin_get_user(user_id: int, admin: dict = Depends(require_admin)):
     user_data.pop("password_hash", None)
     keys = admin_get_user_keys(user_id)
     usage = admin_get_user_usage(user_id)
-    return {**user_data, "keys": keys, "usage": usage}
+    return {**user_data, "keys": keys, "usage": usage, "monthly_limit": user.get("monthly_limit", 500)}
 
 
 class PlanBody(BaseModel):
@@ -59,6 +59,18 @@ def admin_change_plan(user_id: int, body: PlanBody, admin: dict = Depends(requir
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return {"detail": f"Plan changed to {body.plan}", "user": {k: v for k, v in user.items() if k != "password_hash"}}
+
+
+class MonthlyLimitBody(BaseModel):
+    monthly_limit: int = Field(..., ge=0)
+
+
+@router.put("/users/{user_id}/monthly-limit")
+def admin_set_monthly_limit_endpoint(user_id: int, body: MonthlyLimitBody, admin: dict = Depends(require_admin)):
+    user = admin_set_monthly_limit(user_id, body.monthly_limit)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"detail": f"Monthly limit set to {body.monthly_limit}", "user": {k: v for k, v in user.items() if k != "password_hash"}}
 
 
 class AdminBody(BaseModel):

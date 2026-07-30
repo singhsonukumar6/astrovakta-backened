@@ -24,16 +24,9 @@ export default function Footer() {
         <div style={{ maxWidth: 300 }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <Star size={22} color="#7c3aed" fill="#7c3aed" />
-            <span
-              style={{
-                fontSize: 18,
-                fontWeight: 700,
-                background: 'linear-gradient(135deg, #7c3aed, #ec4899)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
-              AstroVakta
+            <span>
+              <span style={{ fontSize: 18, fontWeight: 700, color: '#ffffff' }}>Astro</span>
+              <span style={{ fontSize: 18, fontWeight: 700, color: '#eab308' }}>Vakta</span>
             </span>
           </Link>
           <p style={{ color: '#64748b', fontSize: 14, lineHeight: 1.7 }}>

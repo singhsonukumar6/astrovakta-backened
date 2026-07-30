@@ -33,10 +33,10 @@ PLANET_ABBR = {
 }
 
 PLANET_COLORS = {
-    'Sun': '#FFD700', 'Moon': '#C0C0C0', 'Mars': '#FF0000', 'Mercury': '#008000',
-    'Jupiter': '#0000FF', 'Venus': '#FF1493', 'Saturn': '#000000', 
-    'Rahu': '#708090', 'Ketu': '#A52A2A',
-    'Uranus': '#00CED1', 'Neptune': '#4169E1', 'Pluto': '#8B008B'
+    'Sun': '#B8860B', 'Moon': '#4682B4', 'Mars': '#B22222', 'Mercury': '#006400',
+    'Jupiter': '#8B4513', 'Venus': '#C71585', 'Saturn': '#1a1a1a', 
+    'Rahu': '#4a0080', 'Ketu': '#8B4513',
+    'Uranus': '#008B8B', 'Neptune': '#4169E1', 'Pluto': '#800080'
 }
 
 # House polygon coordinates (scaled to 400x300 base, will be scaled to requested size)
@@ -106,6 +106,12 @@ def render_svg(width: int, height: int, asc: dict, planets: list, theme: str = '
     scale_x = width / 400
     scale_y = height / 300
     
+    # Full background rect to ensure borders are fully visible
+    dwg.add(svgwrite.shapes.Rect(
+        insert=(0, 0), size=(width, height),
+        fill='none', stroke='none'
+    ))
+
     # Add gradient (transparent by default)
     def _add_gradient(dwg, color1, opacity1, color2, opacity2):
         g = svgwrite.gradients.LinearGradient(start=(0, 0), end=(0, 1), id="grad")
@@ -130,10 +136,10 @@ def render_svg(width: int, height: int, asc: dict, planets: list, theme: str = '
     # North Indian style: house numbers are zodiac signs starting from ascendant
     house_sign_nums = [((asc_idx + i) % 12) + 1 for i in range(12)]
     
-    # Draw house polygons
+    # Draw house polygons with increased stroke for visibility
     for house_num in range(1, 13):
         points = [scale_point(p, scale_x, scale_y) for p in HOUSE_POLYGONS[house_num]]
-        polygon = svgwrite.shapes.Polygon(points, fill="url(#grad)", stroke='#8B4513', stroke_width=1.5)
+        polygon = svgwrite.shapes.Polygon(points, fill="url(#grad)", stroke='#8B4513', stroke_width=2)
         dwg.add(polygon)
     
     # Add house sign numbers
@@ -155,8 +161,8 @@ def render_svg(width: int, height: int, asc: dict, planets: list, theme: str = '
             by_house[h].append(p)
     
     # Add planets to houses
-    radius = 20 * min(scale_x, scale_y)
-    line_step = 18 * min(scale_x, scale_y)
+    radius = 18 * min(scale_x, scale_y)
+    line_step = 14 * min(scale_x, scale_y)
     for house_num in range(1, 13):
         center = scale_point(HOUSE_CENTERS[house_num], scale_x, scale_y)
         house_planets = by_house[house_num]
@@ -164,66 +170,47 @@ def render_svg(width: int, height: int, asc: dict, planets: list, theme: str = '
         if not house_planets:
             continue
 
-        # For divisional or stacked mode, place planets in a vertical column with degree on the side
-        if (stack_mode == 'vertical' or len(house_planets) >= max(2, stack_threshold)) and len(house_planets) >= 2:
-            n = len(house_planets)
-            start_y = center[1] - ((n - 1) * line_step) / 2.0
-            for j, planet in enumerate(house_planets):
-                y = start_y + j * line_step
-                planet_name = planet['name']
-                abbr = PLANET_ABBR.get(planet_name, planet_name[:2])
-                color = PLANET_COLORS.get(planet_name, '#000000')
-                # Retrograde indicator (use the registered symbol "®")
-                if show_retrograde and planet.get('isRetrograde'):
-                    abbr_label = f"{abbr}®"
-                else:
-                    abbr_label = abbr
-                if show_degrees:
-                    deg = f"{planet['degree']:.1f}°"
-                    # Abbreviation left of center, degree to the right
-                    x_abbr = center[0] - 14 * scale_x
-                    x_deg = center[0] + 12 * scale_x
-                    dwg.add(dwg.text(abbr_label, insert=(x_abbr, y), font_size='14px', fill=color, font_weight='bold', text_anchor='end'))
-                    dwg.add(dwg.text(deg, insert=(x_deg, y), font_size='12px', fill=color, text_anchor='start'))
-                else:
-                    # Center the abbreviation when degrees are hidden
-                    dwg.add(dwg.text(abbr_label, insert=(center[0], y), font_size='14px', fill=color, font_weight='bold', text_anchor='middle'))
-        else:
-            # Arrange planets in circular pattern if multiple; degree below
-            for j, planet in enumerate(house_planets):
-                if len(house_planets) == 1:
-                    x, y = center
-                else:
-                    angle = 2 * math.pi * j / len(house_planets)
-                    x = center[0] + radius * math.cos(angle)
-                    y = center[1] + radius * math.sin(angle)
-                
-                planet_name = planet['name']
-                abbr = PLANET_ABBR.get(planet_name, planet_name[:2])
-                color = PLANET_COLORS.get(planet_name, '#000000')
-                # Retrograde indicator (use the registered symbol "®")
-                if show_retrograde and planet.get('isRetrograde'):
-                    abbr_label = f"{abbr}®"
-                else:
-                    abbr_label = abbr
-                
-                # Add planet abbreviation (larger text)
-                text = dwg.text(abbr_label, insert=(x, y), font_size='14px', fill=color, font_weight='bold', text_anchor='middle')
-                dwg.add(text)
-                
-                # Add degree below (slightly larger) if enabled
-                if show_degrees:
-                    deg = f"{planet['degree']:.1f}°"
-                    text_deg = dwg.text(deg, insert=(x, y + 14 * scale_y), font_size='12px', fill=color, text_anchor='middle')
-                    dwg.add(text_deg)
+        n = len(house_planets)
+        # Use vertical stacking for 2+ planets, scaled font for 4+
+        font_size = 13
+        if n >= 5:
+            line_step = 11 * min(scale_x, scale_y)
+            font_size = 8
+        elif n >= 4:
+            line_step = 12 * min(scale_x, scale_y)
+            font_size = 9
+        elif n >= 3:
+            line_step = 14 * min(scale_x, scale_y)
+            font_size = 10
+        elif n >= 2:
+            line_step = 16 * min(scale_x, scale_y)
+            font_size = 11
+
+        deg_font_size = max(7, font_size - 2)
+
+        start_y = center[1] - ((n - 1) * line_step) / 2.0
+        for j, planet in enumerate(house_planets):
+            y = start_y + j * line_step
+            planet_name = planet['name']
+            abbr = PLANET_ABBR.get(planet_name, planet_name[:2])
+            color = PLANET_COLORS.get(planet_name, '#000000')
+            if show_retrograde and planet.get('isRetrograde'):
+                abbr_label = f"{abbr}®"
+            else:
+                abbr_label = abbr
+            if show_degrees:
+                deg = f"{planet['degree']:.1f}°"
+                inline_label = f"{abbr_label} {deg}"
+                dwg.add(dwg.text(inline_label, insert=(center[0], y), font_size=f'{deg_font_size}px', fill=color, font_weight='bold', text_anchor='middle'))
+            else:
+                dwg.add(dwg.text(abbr_label, insert=(center[0], y), font_size=f'{font_size}px', fill=color, font_weight='bold', text_anchor='middle'))
     
-    # Add ascendant marker (use local degree within sign to match grid behavior)
+    # Add ascendant marker (small, only visible on standard charts)
     asc_deg_global = asc.get('degree', 0)
     asc_deg_local = (asc_deg_global % 30) if isinstance(asc_deg_global, (int, float)) else 0
-    asc_text = f"Asc: {asc_deg_local:.2f}°"
-    asc_pos = scale_point((200, 20), scale_x, scale_y)
-    text = dwg.text(asc_text, insert=asc_pos, font_size='16px', fill='#8B008B', font_weight='bold', text_anchor='middle')
-    dwg.add(text)
+    asc_text = f"Asc {asc_deg_local:.1f}°"
+    asc_pos = scale_point((200, 18), scale_x, scale_y)
+    dwg.add(dwg.text(asc_text, insert=asc_pos, font_size='9px', fill='#666', font_weight='normal', text_anchor='middle'))
     
     # Convert to string
     output = StringIO()
@@ -368,3 +355,68 @@ def divisional_chart_svg(req: DivisionalChartRequest):
     }
 
 # (Template-based endpoint removed per instruction to keep a single /chart/svg endpoint.)
+
+
+def render_ashtakavarga_svg(width: int, height: int, bindu_data: dict, planet_name: str = 'SAV', theme: str = 'light') -> str:
+    """Render a single Ashtakavarga chart in North Indian diamond style.
+    Simple transparent background, black text points, no house numbers.
+    bindu_data: dict of {house_num: bindu_count}."""
+    dwg = svgwrite.Drawing(size=(width, height), profile='full')
+    dwg.attribs['viewBox'] = f'0 0 {width} {height}'
+    dwg.attribs['xmlns'] = 'http://www.w3.org/2000/svg'
+
+    scale_x = width / 400
+    scale_y = height / 300
+
+    # Title
+    dwg.add(dwg.text(
+        planet_name,
+        insert=(width / 2, 20),
+        font_size='16px', font_weight='bold',
+        fill='#333', text_anchor='middle'
+    ))
+
+    def sp(point):
+        return (point[0] * scale_x, 30 + point[1] * (height - 60) / 270)
+
+    # Draw house polygons - transparent fill, thin grey stroke
+    for h_num in range(1, 13):
+        pts_poly = [sp(p) for p in HOUSE_POLYGONS[h_num]]
+        polygon = svgwrite.shapes.Polygon(
+            pts_poly,
+            fill='none',
+            stroke='#999', stroke_width=0.8
+        )
+        dwg.add(polygon)
+
+    # Bindu counts only at house centers (no house numbers)
+    for h_num in range(1, 13):
+        center = sp(HOUSE_CENTERS[h_num])
+        pts = bindu_data.get(h_num, 0)
+        dwg.add(dwg.text(
+            str(pts),
+            insert=(center[0], center[1] + 2),
+            font_size='16px', font_weight='bold',
+            fill='#000', text_anchor='middle'
+        ))
+
+    output = StringIO()
+    dwg.write(output)
+    return output.getvalue()
+
+
+def render_all_ashtakavarga_svgs(width: int, height: int, ashtakavarga_data: dict, theme: str = 'light') -> list:
+    """Render all 8 Ashtakavarga charts as individual SVG strings."""
+    planets_order = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn']
+    svgs = []
+    for pname in planets_order:
+        contrib = ashtakavarga_data.get('planetContributions', {}).get(pname, {})
+        pts = {h: contrib.get(h, 0) for h in range(1, 13)}
+        svg = render_ashtakavarga_svg(width, height, pts, planet_name=pname, theme=theme)
+        svgs.append({'planet': pname, 'svg': svg})
+
+    sav = ashtakavarga_data.get('sarvashtakavarga', {})
+    sav_pts = {int(h): sav.get('housePoints', {}).get(str(h), 0) for h in range(1, 13)}
+    svg = render_ashtakavarga_svg(width, height, sav_pts, planet_name='SAV', theme=theme)
+    svgs.append({'planet': 'SAV', 'svg': svg})
+    return svgs

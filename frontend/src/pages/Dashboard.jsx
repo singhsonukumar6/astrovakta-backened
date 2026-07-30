@@ -27,15 +27,18 @@ import {
   Sparkles,
   Settings,
   Mail,
+  ScrollText,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth.jsx'
+import KundaliReport from './KundaliReport.jsx'
 import {
   getKeys, createKey, revokeKey,
   listProviders, createProvider, deleteProvider, testProvider,
   getMyJobs, submitPdfJob,
   updateProfile, changePassword,
   resendVerification,
+  getUsageStats,
 } from '../lib/api.js'
 
 const tabs = [
@@ -43,6 +46,7 @@ const tabs = [
   { id: 'keys', label: 'API Keys', icon: Key },
   { id: 'ai', label: 'AI Providers', icon: Bot },
   { id: 'reports', label: 'Reports', icon: FileText },
+  { id: 'kundali', label: 'Kundali Report', icon: ScrollText },
   { id: 'usage', label: 'Usage', icon: BarChart3 },
   { id: 'profile', label: 'Profile', icon: User },
 ]
@@ -66,7 +70,6 @@ function Overview({ user, keys }) {
   const [resending, setResending] = useState(false)
   const totalKeys = keys?.length || 0
   const activeKeys = keys?.filter((k) => k.is_active).length || 0
-  const totalReqs = keys?.reduce((s, k) => s + (k.request_count || 0), 0) || 0
 
   const handleResendVerification = async () => {
     setResending(true)
@@ -116,7 +119,7 @@ function Overview({ user, keys }) {
         {[
           { label: 'API Keys', value: totalKeys, icon: Key, color: '#7c3aed' },
           { label: 'Active Keys', value: activeKeys, icon: Activity, color: '#22c55e' },
-          { label: 'Total Requests', value: totalReqs, icon: TrendingUp, color: '#3b82f6' },
+          { label: 'Monthly Limit', value: (user?.monthly_limit ?? 0).toLocaleString(), icon: TrendingUp, color: '#3b82f6' },
           { label: 'Current Plan', value: user?.plan || 'Free', icon: Zap, color: '#f59e0b' },
         ].map((s) => (
           <div key={s.label} className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 24 }}>
@@ -600,52 +603,91 @@ function ReportsTab() {
 
 // ──────────── USAGE TAB ────────────
 function UsagePanel({ keys }) {
-  const totalReqs = keys?.reduce((s, k) => s + (k.request_count || 0), 0) || 0
+  const [usage, setUsage] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const user = useAuth()?.user
 
-  const bars = Array.from({ length: 7 }, (_, i) => ({
-    label: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i],
-    value: Math.floor(Math.random() * 500 + 50),
-  }))
-  const max = Math.max(...bars.map((b) => b.value))
+  useEffect(() => {
+    const firstKey = keys?.find((k) => k.is_active)
+    if (firstKey) {
+      getUsageStats(firstKey.id).then((data) => {
+        setUsage(data)
+      }).catch(() => {}).finally(() => setLoading(false))
+    } else {
+      setLoading(false)
+    }
+  }, [keys])
+
+  if (loading) return <div style={{ color: '#64748b', padding: 40, textAlign: 'center' }}>Loading usage...</div>
+
+  const monthlyLimit = usage?.monthly_limit || user?.monthly_limit || 0
+  const used = usage?.requests_this_month || 0
+  const pct = monthlyLimit > 0 ? Math.min(100, (used / monthlyLimit) * 100) : 0
 
   return (
     <div>
       <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Usage</h2>
-      <p style={{ color: '#94a3b8', marginBottom: 32 }}>Track your API usage and limits.</p>
+      <p style={{ color: '#94a3b8', marginBottom: 32 }}>Track your monthly API usage and limits.</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
         <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 24 }}>
-          <h3 style={{ fontSize: 14, color: '#94a3b8', marginBottom: 16 }}>This Week</h3>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'end', height: 160 }}>
-            {bars.map((b) => (
-              <div key={b.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 11, color: '#64748b' }}>{b.value}</span>
-                <div style={{ width: '100%', height: `${(b.value / max) * 120}px`, background: 'var(--gradient-primary)', borderRadius: 6, minHeight: 8 }} />
-                <span style={{ fontSize: 12, color: '#94a3b8' }}>{b.label}</span>
-              </div>
-            ))}
+          <h3 style={{ fontSize: 14, color: '#94a3b8', marginBottom: 16 }}>This Month</h3>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 13, color: '#cbd5e1' }}>{used.toLocaleString()} / {monthlyLimit.toLocaleString()} calls</span>
+              <span style={{ fontSize: 13, color: '#94a3b8' }}>{pct.toFixed(0)}%</span>
+            </div>
+            <div style={{ height: 8, background: 'rgba(124,58,237,0.1)', borderRadius: 4 }}>
+              <div style={{
+                height: '100%', width: `${pct}%`,
+                background: pct > 90 ? 'linear-gradient(to right, #ef4444, #f97316)' : 'var(--gradient-primary)',
+                borderRadius: 4, transition: 'width 0.3s ease',
+              }} />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 16 }}>
+            <div style={{ padding: 12, background: 'rgba(59,130,246,0.08)', borderRadius: 8 }}>
+              <div style={{ fontSize: 11, color: '#64748b' }}>Today</div>
+              <div style={{ fontSize: 20, fontWeight: 700 }}>{usage?.requests_today || 0}</div>
+            </div>
+            <div style={{ padding: 12, background: 'rgba(239,68,68,0.08)', borderRadius: 8 }}>
+              <div style={{ fontSize: 11, color: '#64748b' }}>Errors (all time)</div>
+              <div style={{ fontSize: 20, fontWeight: 700 }}>{usage?.errors_total || 0}</div>
+            </div>
+            <div style={{ padding: 12, background: 'rgba(34,197,94,0.08)', borderRadius: 8 }}>
+              <div style={{ fontSize: 11, color: '#64748b' }}>Total Requests</div>
+              <div style={{ fontSize: 20, fontWeight: 700 }}>{usage?.requests_total || 0}</div>
+            </div>
+            <div style={{ padding: 12, background: 'rgba(124,58,237,0.08)', borderRadius: 8 }}>
+              <div style={{ fontSize: 11, color: '#64748b' }}>Remaining</div>
+              <div style={{ fontSize: 20, fontWeight: 700 }}>{Math.max(0, monthlyLimit - used)}</div>
+            </div>
           </div>
         </div>
 
         <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 24 }}>
           <h3 style={{ fontSize: 14, color: '#94a3b8', marginBottom: 16 }}>Top Endpoints</h3>
-          {[
-            { name: '/chart/birth-chart', pct: 35 },
-            { name: '/horoscope/daily', pct: 25 },
-            { name: '/panchang', pct: 20 },
-            { name: '/ai/interpretation', pct: 15 },
-            { name: '/compatibility', pct: 5 },
-          ].map((ep) => (
-            <div key={ep.name} style={{ marginBottom: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ fontSize: 13, fontFamily: 'var(--font-mono)', color: '#cbd5e1' }}>{ep.name}</span>
-                <span style={{ fontSize: 13, color: '#94a3b8' }}>{ep.pct}%</span>
-              </div>
-              <div style={{ height: 6, background: 'rgba(124,58,237,0.1)', borderRadius: 3 }}>
-                <div style={{ height: '100%', width: `${ep.pct}%`, background: 'var(--gradient-primary)', borderRadius: 3 }} />
-              </div>
-            </div>
-          ))}
+          {!usage?.top_endpoints?.length ? (
+            <p style={{ color: '#475569', textAlign: 'center', padding: 40 }}>No data yet</p>
+          ) : (
+            usage.top_endpoints.slice(0, 8).map((ep) => {
+              const maxHits = usage.top_endpoints[0]?.hits || 1
+              const epPct = (ep.hits / maxHits) * 100
+              return (
+                <div key={ep.endpoint} style={{ marginBottom: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: '#cbd5e1', maxWidth: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {ep.endpoint}
+                    </span>
+                    <span style={{ fontSize: 12, color: '#94a3b8' }}>{ep.hits}</span>
+                  </div>
+                  <div style={{ height: 5, background: 'rgba(124,58,237,0.1)', borderRadius: 3 }}>
+                    <div style={{ height: '100%', width: `${epPct}%`, background: 'var(--gradient-primary)', borderRadius: 3 }} />
+                  </div>
+                </div>
+              )
+            })
+          )}
         </div>
       </div>
     </div>
@@ -930,6 +972,7 @@ export default function Dashboard() {
             {activeTab === 'keys' && <APIKeys keys={keys} onRefresh={refreshKeys} />}
             {activeTab === 'ai' && <AIProvidersTab />}
             {activeTab === 'reports' && <ReportsTab />}
+            {activeTab === 'kundali' && <KundaliReport />}
             {activeTab === 'usage' && <UsagePanel keys={keys} />}
             {activeTab === 'profile' && <Profile user={displayUser} onUserUpdate={handleUserUpdate} />}
           </motion.div>

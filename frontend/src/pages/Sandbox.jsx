@@ -158,8 +158,33 @@ function DynamicForm({ fields, values, onChange, apiKey }) {
                 )
               }
 
-              // Hidden fields (auto-filled by location)
-              if (field.type === 'hidden') return null
+              // File upload fields (convert to base64)
+              if (field.type === 'file') {
+                return (
+                  <div key={field.key}>
+                    <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>{field.label}</label>
+                    <input
+                      type="file"
+                      accept={field.accept || 'image/*'}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        const reader = new FileReader()
+                        reader.onload = () => {
+                          updateVal(field.key, reader.result)
+                        }
+                        reader.readAsDataURL(file)
+                      }}
+                      style={{ fontSize: 12, color: '#cbd5e1', width: '100%' }}
+                    />
+                    {values[field.key] && (
+                      <img src={values[field.key]} alt="preview" style={{ maxWidth: 80, maxHeight: 40, marginTop: 4, borderRadius: 4, border: '1px solid #334155' }} />
+                    )}
+                  </div>
+                )
+              }
+
+              // Hosted file upload fields (convert to base64)
 
               // Text/number/date/time inputs
               const val = values[field.key] ?? ''

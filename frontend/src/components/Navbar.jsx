@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Star, Menu, X, LogIn, LayoutDashboard } from 'lucide-react'
 import { useAuth } from '../lib/auth.jsx'
+import { ClerkSignedIn, ClerkSignedOut, ClerkUserButton, SignInOrLogin, SignUpOrRegister } from './AuthButton.jsx'
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
@@ -22,7 +23,6 @@ export default function Navbar() {
   const links = [
     { to: '/', label: 'Home' },
     { to: '/pricing', label: 'Pricing' },
-    { to: '/kundali-report', label: 'Kundali Report' },
     { to: '/docs', label: 'Docs' },
     { to: '/sandbox', label: 'Sandbox' },
   ]
@@ -61,20 +61,21 @@ export default function Navbar() {
       >
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Star size={28} color="#7c3aed" fill="#7c3aed" />
-          <span
-            style={{
-              fontSize: 22,
-              fontWeight: 800,
-              background: 'linear-gradient(135deg, #7c3aed, #ec4899)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
-            AstroVakta
-          </span>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 0 }}>
+              <span style={{ fontSize: 22, fontWeight: 800, color: '#ffffff' }}>
+                Astro
+              </span>
+              <span style={{ fontSize: 22, fontWeight: 800, color: '#eab308' }}>
+                Vakta
+              </span>
+            </div>
+            <span style={{ fontSize: 10, color: '#64748b', fontWeight: 500, display: 'block', marginTop: -2 }}>
+              for developers
+            </span>
+          </div>
         </Link>
 
-        {/* Desktop links */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 32 }} className="nav-desktop">
           {links.map((l) => (
             <Link
@@ -98,7 +99,7 @@ export default function Navbar() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }} className="nav-desktop">
-          {isAuthenticated ? (
+          <ClerkSignedIn>
             <button
               onClick={() => navigate('/dashboard')}
               className="btn-primary"
@@ -107,28 +108,48 @@ export default function Navbar() {
               <LayoutDashboard size={16} />
               Dashboard
             </button>
-          ) : (
-            <>
+            <ClerkUserButton
+              appearance={{
+                elements: {
+                  avatarBox: { width: 36, height: 36 },
+                },
+              }}
+            />
+          </ClerkSignedIn>
+          <ClerkSignedOut>
+            {isAuthenticated ? (
               <button
-                onClick={() => navigate('/login')}
-                className="btn-secondary"
-                style={{ padding: '10px 20px', fontSize: 14 }}
-              >
-                Log In
-              </button>
-              <button
-                onClick={() => navigate('/register')}
+                onClick={() => navigate('/dashboard')}
                 className="btn-primary"
                 style={{ padding: '10px 20px', fontSize: 14 }}
               >
-                <LogIn size={16} />
-                Sign Up
+                <LayoutDashboard size={16} />
+                Dashboard
               </button>
-            </>
-          )}
+            ) : (
+              <>
+                <SignInOrLogin mode="modal">
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: '10px 20px', fontSize: 14 }}
+                  >
+                    Log In
+                  </button>
+                </SignInOrLogin>
+                <SignUpOrRegister mode="modal">
+                  <button
+                    className="btn-primary"
+                    style={{ padding: '10px 20px', fontSize: 14 }}
+                  >
+                    <LogIn size={16} />
+                    Sign Up
+                  </button>
+                </SignUpOrRegister>
+              </>
+            )}
+          </ClerkSignedOut>
         </div>
 
-        {/* Mobile hamburger */}
         <button
           className="nav-mobile-btn"
           onClick={() => setMobileOpen(!mobileOpen)}
@@ -143,7 +164,6 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Mobile menu */}
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
@@ -179,7 +199,7 @@ export default function Navbar() {
               </Link>
             ))}
             <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-              {isAuthenticated ? (
+              <ClerkSignedIn>
                 <button
                   onClick={() => navigate('/dashboard')}
                   className="btn-primary"
@@ -187,24 +207,35 @@ export default function Navbar() {
                 >
                   Dashboard
                 </button>
-              ) : (
-                <>
+              </ClerkSignedIn>
+              <ClerkSignedOut>
+                {isAuthenticated ? (
                   <button
-                    onClick={() => navigate('/login')}
-                    className="btn-secondary"
-                    style={{ flex: 1, justifyContent: 'center' }}
-                  >
-                    Log In
-                  </button>
-                  <button
-                    onClick={() => navigate('/register')}
+                    onClick={() => navigate('/dashboard')}
                     className="btn-primary"
                     style={{ flex: 1, justifyContent: 'center' }}
                   >
-                    Sign Up
+                    Dashboard
                   </button>
-                </>
-              )}
+                ) : (
+                  <>
+                    <button
+                      onClick={() => navigate('/login')}
+                      className="btn-secondary"
+                      style={{ flex: 1, justifyContent: 'center' }}
+                    >
+                      Log In
+                    </button>
+                    <button
+                      onClick={() => navigate('/register')}
+                      className="btn-primary"
+                      style={{ flex: 1, justifyContent: 'center' }}
+                    >
+                      Sign Up
+                    </button>
+                  </>
+                )}
+              </ClerkSignedOut>
             </div>
           </motion.div>
         )}

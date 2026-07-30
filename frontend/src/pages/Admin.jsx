@@ -53,6 +53,7 @@ import {
   adminGetUsageDaily,
   adminGetUsageByUser,
   adminGetUsageEndpoints,
+  adminSetMonthlyLimit,
   getKeys,
 } from '../lib/api.js'
 import api from '../lib/api.js'
@@ -179,6 +180,14 @@ function UsersTab({ refreshTrigger }) {
     } catch { toast.error('Failed to update plan') }
   }
 
+  const handleSetMonthlyLimit = async (userId, limit) => {
+    try {
+      await adminSetMonthlyLimit(userId, parseInt(limit) || 0)
+      toast.success('Monthly limit updated')
+      load(page, search)
+    } catch { toast.error('Failed to update monthly limit') }
+  }
+
   const handleToggleAdmin = async (userId) => {
     try {
       await adminToggleAdmin(userId)
@@ -302,6 +311,38 @@ function UsersTab({ refreshTrigger }) {
                   <option value="enterprise">Enterprise</option>
                 </select>
                 <span style={{ color: '#64748b', fontSize: 12 }}>{u.active_keys ?? 0} keys | {u.total_requests ?? 0} reqs</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#94a3b8', fontSize: 12 }}>
+                  Limit:
+                  <input
+                    type="number"
+                    min="0"
+                    defaultValue={u.monthly_limit ?? 500}
+                    onBlur={(e) => {
+                      const newVal = parseInt(e.target.value)
+                      if (newVal !== (u.monthly_limit ?? 500) && newVal >= 0) {
+                        handleSetMonthlyLimit(u.id, newVal)
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const newVal = parseInt(e.target.value)
+                        if (newVal !== (u.monthly_limit ?? 500) && newVal >= 0) {
+                          handleSetMonthlyLimit(u.id, newVal)
+                        }
+                      }
+                    }}
+                    style={{
+                      background: 'rgba(10,10,26,0.6)',
+                      border: '1px solid rgba(124,58,237,0.2)',
+                      borderRadius: 6,
+                      color: '#e2e8f0',
+                      padding: '4px 8px',
+                      fontSize: 12,
+                      width: 80,
+                      textAlign: 'center',
+                    }}
+                  />/mo
+                </span>
               </div>
             </div>
 

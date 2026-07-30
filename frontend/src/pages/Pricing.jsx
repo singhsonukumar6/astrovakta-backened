@@ -1,46 +1,51 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Check, Zap, Star, Crown, ArrowRight } from 'lucide-react'
+import { Check, Zap, Star, Crown, ArrowRight, DollarSign, IndianRupee, MessageCircle } from 'lucide-react'
+import { ClerkSignedOut, SignUpOrRegister } from '../components/AuthButton.jsx'
 
 const tiers = [
   {
     name: 'Free',
-    price: '$0',
-    period: '/month',
+    usdPrice: 0,
+    inrPrice: 0,
     desc: 'Perfect for trying out the API',
     icon: Zap,
-    features: ['100 requests/day', 'All 166+ endpoints', 'Community support', 'Standard rate limits'],
-    cta: 'Get Started',
+    color: '#64748b',
+    features: ['500 calls/month', 'All 180+ endpoints', 'Community support'],
+    cta: 'Get Started Free',
     popular: false,
   },
   {
     name: 'Starter',
-    price: '$29',
-    period: '/month',
+    usdPrice: 29,
+    inrPrice: 1499,
     desc: 'For indie developers & small apps',
     icon: Star,
-    features: ['1,000 requests/day', 'All 166+ endpoints', 'Email support', '99.5% SLA', 'Usage analytics'],
+    color: '#3b82f6',
+    features: ['5,000 calls/month', 'All 180+ endpoints', 'Email support', 'Usage analytics'],
     cta: 'Start Free Trial',
     popular: false,
   },
   {
     name: 'Pro',
-    price: '$99',
-    period: '/month',
+    usdPrice: 99,
+    inrPrice: 4999,
     desc: 'For growing businesses',
     icon: Crown,
-    features: ['10,000 requests/day', 'All 166+ endpoints', 'Priority support', '99.9% SLA', 'Webhooks', 'Custom rate limits'],
+    color: '#7c3aed',
+    features: ['50,000 calls/month', 'All 180+ endpoints', 'Priority support', '99.9% SLA', '10 API keys', 'Custom rate limits'],
     cta: 'Start Free Trial',
     popular: true,
   },
   {
     name: 'Enterprise',
-    price: 'Custom',
-    period: '',
+    usdPrice: null,
+    inrPrice: null,
     desc: 'For large-scale deployments',
     icon: Star,
-    features: ['Unlimited requests', 'All 166+ endpoints', 'Dedicated support', '99.99% SLA', 'Custom endpoints', 'On-premise option', 'SLA contract'],
+    color: '#f59e0b',
+    features: ['Unlimited calls', 'All 180+ endpoints', 'Dedicated support', '99.99% SLA', 'Custom endpoints', 'On-premise option', 'SLA contract'],
     cta: 'Contact Sales',
     popular: false,
   },
@@ -48,14 +53,15 @@ const tiers = [
 
 const faqs = [
   { q: 'What counts as a request?', a: 'Each API call to any endpoint counts as one request, regardless of the response size.' },
-  { q: 'Can I change plans anytime?', a: 'Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately.' },
-  { q: 'Is there a free trial for paid plans?', a: 'Yes! Both Starter and Pro plans come with a 14-day free trial.' },
-  { q: 'What happens if I exceed my limit?', a: 'You\'ll receive a 429 status code. Upgrade your plan or wait for the daily reset.' },
+  { q: 'Can I change plans anytime?', a: 'Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately. Contact us via WhatsApp for plan changes.' },
+  { q: 'Is there a free trial for paid plans?', a: 'Yes! Both Starter and Pro plans come with a 14-day free trial. No credit card required to start.' },
+  { q: 'What happens if I exceed my limit?', a: 'You\'ll receive a 429 status code. Upgrade your plan or wait for the monthly reset. Contact admin to increase your limit.' },
   { q: 'Do you offer refunds?', a: 'We offer a full refund within 7 days of purchase if you\'re not satisfied.' },
 ]
 
 export default function Pricing() {
   const [openFaq, setOpenFaq] = useState(null)
+  const [currency, setCurrency] = useState('usd')
   const navigate = useNavigate()
 
   return (
@@ -70,12 +76,44 @@ export default function Pricing() {
             Simple, Transparent <span className="gradient-text">Pricing</span>
           </h1>
           <p className="section-subtitle">
-            Start free, scale as you grow. No hidden fees, no surprises.
+            Start free, scale as you grow. No hidden fees, no surprises. No credit card required.
           </p>
         </motion.div>
       </section>
 
       <section className="section" style={{ paddingTop: 0 }}>
+        {/* Currency Toggle */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 40 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center',
+            background: 'var(--bg-card)', borderRadius: 12,
+            border: '1px solid var(--border-color)', padding: 4,
+          }}>
+            <button
+              onClick={() => setCurrency('inr')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '10px 20px', borderRadius: 10,
+                border: 'none', background: currency === 'inr' ? 'var(--gradient-primary)' : 'transparent',
+                color: currency === 'inr' ? '#fff' : '#94a3b8',
+                fontWeight: 600, fontSize: 14, cursor: 'pointer',
+              }}>
+              <IndianRupee size={16} /> INR
+            </button>
+            <button
+              onClick={() => setCurrency('usd')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '10px 20px', borderRadius: 10,
+                border: 'none', background: currency === 'usd' ? 'var(--gradient-primary)' : 'transparent',
+                color: currency === 'usd' ? '#fff' : '#94a3b8',
+                fontWeight: 600, fontSize: 14, cursor: 'pointer',
+              }}>
+              <DollarSign size={16} /> USD
+            </button>
+          </div>
+        </div>
+
         <div
           style={{
             display: 'grid',
@@ -129,23 +167,27 @@ export default function Pricing() {
                   width: 44,
                   height: 44,
                   borderRadius: 12,
-                  background: 'rgba(124,58,237,0.15)',
+                  background: `${tier.color}20`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginBottom: 16,
                 }}
               >
-                <tier.icon size={22} color="#a78bfa" />
+                <tier.icon size={22} color={tier.color} />
               </div>
 
               <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>{tier.name}</h3>
               <p style={{ color: '#64748b', fontSize: 14, marginBottom: 16 }}>{tier.desc}</p>
 
               <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 24 }}>
-                <span style={{ fontSize: 40, fontWeight: 900 }}>{tier.price}</span>
-                {tier.period && (
-                  <span style={{ color: '#64748b', fontSize: 15, marginLeft: 4 }}>{tier.period}</span>
+                <span style={{ fontSize: 40, fontWeight: 900 }}>
+                  {tier.usdPrice !== null
+                    ? (currency === 'usd' ? `$${tier.usdPrice}` : `₹${tier.inrPrice.toLocaleString()}`)
+                    : 'Custom'}
+                </span>
+                {tier.usdPrice !== null && (
+                  <span style={{ color: '#64748b', fontSize: 15, marginLeft: 4 }}>/month</span>
                 )}
               </div>
 
@@ -158,14 +200,40 @@ export default function Pricing() {
                 ))}
               </div>
 
-              <button
-                onClick={() => navigate('/register')}
-                className={tier.popular ? 'btn-primary' : 'btn-secondary'}
-                style={{ width: '100%', justifyContent: 'center' }}
-              >
-                {tier.cta}
-                <ArrowRight size={16} />
-              </button>
+              {tier.cta === 'Contact Sales' ? (
+                <a
+                  href="https://wa.me/916239402519?text=Hi%20AstroVakta%2C%20I%20am%20interested%20in%20the%20Enterprise%20plan"
+                  target="_blank" rel="noopener noreferrer"
+                >
+                  <button
+                    className="btn-secondary"
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    <MessageCircle size={16} /> {tier.cta}
+                  </button>
+                </a>
+              ) : tier.name === 'Free' ? (
+                <ClerkSignedOut>
+                  <SignUpOrRegister mode="modal">
+                    <button
+                      className={tier.popular ? 'btn-primary' : 'btn-secondary'}
+                      style={{ width: '100%', justifyContent: 'center' }}
+                    >
+                      {tier.cta}
+                      <ArrowRight size={16} />
+                    </button>
+                  </SignUpOrRegister>
+                </ClerkSignedOut>
+              ) : (
+                <button
+                  onClick={() => navigate('/register')}
+                  className={tier.popular ? 'btn-primary' : 'btn-secondary'}
+                  style={{ width: '100%', justifyContent: 'center' }}
+                >
+                  {tier.cta}
+                  <ArrowRight size={16} />
+                </button>
+              )}
             </motion.div>
           ))}
         </div>

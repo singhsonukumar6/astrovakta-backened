@@ -206,6 +206,14 @@ except Exception as e:
     import logging as _logging
     _logging.error(f"Failed to include chart SVG router: {e}")
 
+# Chart API router
+try:
+    from .routers.chart_api import router as chart_api_router
+    app.include_router(chart_api_router, prefix="", tags=['Charts'])
+except Exception as e:
+    import logging as _logging_chart_api
+    _logging_chart_api.error(f"Failed to include CHART API router: {e}")
+
 # Grid-style chart router (South-Indian-like example grid)
 try:
     from .routers.chart_grid import router as chart_grid_router
@@ -1245,6 +1253,139 @@ def detect_doshas(planets: list) -> list:
         ketu_house = ketu.get('house', 0)
         if rahu_house in [1, 4, 7, 10] or ketu_house in [1, 4, 7, 10]:
             res.append({'name': 'Rahu-Ketu Kendra Dosha', 'description': 'Nodes in kendra houses - unconventional life path, spiritual transformation needed', 'present': True, 'severity': 'Medium', 'remedies': ['Rahu/Ketu Puja', 'Nag Panchami', 'Vishnu worship']})
+
+    return res
+
+
+# ──────────────── ASHTAKVARGA COMPUTATION ────────────────
+ASHTAKVARGA_BINDUS = {
+    'Sun':     [1,0,0,0,1,0,1,1,1,0,1,1],
+    'Moon':    [1,0,1,0,0,0,1,1,1,0,0,1],
+    'Mars':    [0,1,0,1,0,0,1,1,1,0,0,1],
+    'Mercury': [1,0,1,1,0,1,1,1,0,0,1,0],
+    'Jupiter': [1,1,0,0,1,1,1,0,1,1,0,0],
+    'Venus':   [1,0,1,0,1,0,1,1,0,1,0,0],
+    'Saturn':  [0,1,0,0,1,1,0,0,0,1,1,1],
+}
+BENEFIC_ASHTAKVARGA = ['Jupiter', 'Venus', 'Mercury', 'Moon']
+
+def compute_ashtakavarga(planets: list) -> dict:
+    """Compute Sarvashtakavarga (SAV) - total benefic points per house."""
+    pmap = {p['name']: p for p in planets}
+    house_points = {i: 0 for i in range(1, 13)}
+    planet_contributions = {}
+    for pname in ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn']:
+        if pname not in pmap:
+            continue
+        bindus = ASHTAKVARGA_BINDUS.get(pname, [0]*12)
+        p = pmap[pname]
+        # Determine ASPECT SIGN: For Ashtakavarga, each planet's "aspect pattern" is applied
+        # based on the planet's sign position + fixed bindu pattern shifted by house
+        base_house = p.get('house', 1) or 1
+        contrib = {}
+        for i in range(12):
+            house_num = ((base_house - 1 + i) % 12) + 1
+            points = bindus[i]
+            if points:
+                house_points[house_num] = house_points.get(house_num, 0) + points
+                contrib[house_num] = contrib.get(house_num, 0) + points
+        planet_contributions[pname] = contrib
+
+    sav_avg = sum(house_points.values()) / 12.0 if house_points else 0
+    strongest_houses = sorted(house_points.items(), key=lambda x: -x[1])[:3]
+    weakest_houses = sorted(house_points.items(), key=lambda x: x[1])[:3]
+
+    return {
+        'sarvashtakavarga': {
+            'housePoints': {str(k): v for k, v in sorted(house_points.items())},
+            'average': round(sav_avg, 2),
+            'maxPoints': max(house_points.values()) if house_points else 0,
+            'minPoints': min(house_points.values()) if house_points else 0,
+            'strongestHouses': [{'house': h, 'points': p} for h, p in strongest_houses],
+            'weakestHouses': [{'house': h, 'points': p} for h, p in weakest_houses],
+        },
+        'planetContributions': planet_contributions,
+    }
+
+
+# ──────────────── GANDMOOL DOSHA & PUNARPHOO DOSHA ────────────────
+GANDANTA_NAKSHATRAS = {
+    'Ashwini': (0, 0), 'Ashlesha': (0, 1), 'Magha': (1, 0),
+    'Jyeshtha': (1, 1), 'Mula': (2, 0), 'Revati': (2, 1),
+}
+GANDANTA = {
+    'Ashwini': 'Ashwini Gandanta (0°-3°20\') - Ketu/Nakshatra Sandhi',
+    'Ashlesha': 'Ashlesha Gandanta (26°40\'-30°) - Mercury/Nakshatra Sandhi',
+    'Magha': 'Magha Gandanta (0°-3°20\') - Ketu/Nakshatra Sandhi',
+    'Jyeshtha': 'Jyeshtha Gandanta (26°40\'-30°) - Mercury/Nakshatra Sandhi',
+    'Mula': 'Mula Gandanta (0°-3°20\') - Ketu/Nakshatra Sandhi',
+    'Revati': 'Revati Gandanta (26°40\'-30°) - Mercury/Nakshatra Sandhi',
+}
+
+def detect_gandmool_dosha(planets: list) -> list:
+    """Detect Gandmool Dosha (birth in gandanta nakshatra junction) and Punarphoo Dosha."""
+    res = []
+    pmap = {p['name']: p for p in planets}
+
+    # --- Gandmool Dosha ---
+    moon = pmap.get('Moon', {})
+    moon_nak = moon.get('nakshatra', '')
+    moon_deg = moon.get('degree', 0)
+    gandmool_present = False
+    gandmool_details = []
+    for pname, p in pmap.items():
+        nak = p.get('nakshatra', '')
+        deg = p.get('degree', 0)
+        if nak in GANDANTA_NAKSHATRAS:
+            _, zone = GANDANTA_NAKSHATRAS[nak]
+            if zone == 0 and deg <= 3.333:  # Start of nakshatra
+                gandmool_present = True
+                gandmool_details.append(f"{pname} in {nak} at {deg:.2f}° (Gandanta start)")
+            elif zone == 1 and deg >= 26.667:  # End of nakshatra
+                gandmool_present = True
+                gandmool_details.append(f"{pname} in {nak} at {deg:.2f}° (Gandanta end)")
+
+    if gandmool_present:
+        res.append({
+            'name': 'Gandmool Dosha',
+            'description': f"Planets at Nakshatra junctions: {'; '.join(gandmool_details)}. Causes initial challenges in life that fade with age.",
+            'present': True,
+            'severity': 'High',
+            'doshaType': 'Nakshatra Sandhi',
+            'remedies': ['Gandmool Shanti Puja', 'Namakaran Sanskar', 'Nakshatra Shanti Homa', 'Chant Maha Mrityunjaya Mantra 108 times'],
+        })
+    else:
+        res.append({
+            'name': 'Gandmool Dosha',
+            'description': 'No planets at Nakshatra junction points (Gandanta)',
+            'present': False,
+            'severity': 'None',
+            'remedies': [],
+        })
+
+    # --- Punarphoo Dosha ---
+    sat = pmap.get('Saturn')
+    moon_p = pmap.get('Moon')
+    if sat and moon_p:
+        sat_house = sat.get('house', 0)
+        moon_house = moon_p.get('house', 0)
+        diff = (sat_house - moon_house) % 12
+        punarphoo = diff in [0, 1, 11]
+        res.append({
+            'name': 'Punarphoo Dosha',
+            'description': f"Saturn-Moon relation (house diff {diff}): {'Active - delays in marriage, emotional struggles, repeated patterns' if punarphoo else 'Not active'}",
+            'present': punarphoo,
+            'severity': 'High' if punarphoo and diff == 0 else ('Medium' if punarphoo else 'None'),
+            'remedies': ['Shani Puja', 'Worship Lord Hanuman', 'Recite Shani Stotra', 'Monday fasting for 11 weeks'] if punarphoo else [],
+        })
+    else:
+        res.append({
+            'name': 'Punarphoo Dosha',
+            'description': 'Not applicable',
+            'present': False,
+            'severity': 'None',
+            'remedies': [],
+        })
 
     return res
 

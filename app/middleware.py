@@ -103,19 +103,21 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
         request.state.api_key_info = key_info
 
-        rate_limit = key_info["rate_limit"]
-        requests_today = key_info.get("requests_today", 0)
+        monthly_limit = key_info.get("monthly_limit", 0)
+        requests_this_month = key_info.get("requests_this_month", 0)
 
-        if requests_today >= rate_limit:
+        if monthly_limit and requests_this_month >= monthly_limit:
             log_usage(key_info["id"], path, 402)
             return _error_resp(
-                "Rate limit exceeded",
+                "Monthly API call limit exceeded",
                 402,
-                {"tier": key_info["tier"], "rate_limit": rate_limit,
-                 "requests_today": requests_today, "reset": "Daily at midnight UTC"},
+                {"monthly_limit": monthly_limit,
+                 "requests_this_month": requests_this_month,
+                 "reset": "First day of next month UTC",
+                 "message": "Contact admin to increase your monthly API call limit"},
             )
 
-        remaining = max(0, rate_limit - requests_today)
+        remaining = max(0, monthly_limit - requests_this_month)
 
         start = time.time()
         response = await call_next(request)
@@ -123,9 +125,8 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
         log_usage(key_info["id"], path, response.status_code)
 
-        response.headers["X-RateLimit-Limit"] = str(rate_limit)
+        response.headers["X-RateLimit-Limit"] = str(monthly_limit)
         response.headers["X-RateLimit-Remaining"] = str(remaining)
-        response.headers["X-RateLimit-Tier"] = key_info["tier"]
-        response.headers["X-Response-Time"] = f"{elapsed:.3f}s"
+        response.headers["X-RateLimit-Reset"] = "First day of next month UTC"
 
         return response

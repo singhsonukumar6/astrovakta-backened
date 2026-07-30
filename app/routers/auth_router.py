@@ -24,6 +24,7 @@ from ..auth import (
     verify_email_token,
     create_password_reset_token,
     reset_password_with_token,
+    sync_clerk_user,
     TIER_LIMITS,
 )
 
@@ -70,6 +71,12 @@ class ForgotPasswordBody(BaseModel):
 class ResetPasswordBody(BaseModel):
     token: str
     new_password: str = Field(..., min_length=6, max_length=128)
+
+
+class ClerkSyncBody(BaseModel):
+    clerk_id: str
+    email: str
+    name: str = ""
 
 
 def create_access_token(user_id: int) -> str:
@@ -149,6 +156,7 @@ def me(user: dict = Depends(get_current_user)):
         "is_admin": bool(user.get("is_admin")),
         "email_verified": bool(user.get("email_verified")),
         "avatar_url": user.get("avatar_url"),
+        "monthly_limit": user.get("monthly_limit", 500),
         "created_at": user["created_at"],
     }
 
@@ -165,7 +173,7 @@ def create_key(body: CreateKeyBody, user: dict = Depends(get_current_user)):
         "key": key_info["key"],
         "name": key_info["name"],
         "tier": key_info["tier"],
-        "rate_limit": key_info["rate_limit"],
+        "monthly_limit": user.get("monthly_limit", 500),
         "created_at": key_info["created_at"],
     }
 
@@ -180,8 +188,6 @@ def list_keys(user: dict = Depends(get_current_user)):
             "name": k["name"],
             "tier": k["tier"],
             "is_active": k["is_active"],
-            "rate_limit": k["rate_limit"],
-            "request_count": k["request_count"],
             "last_used_at": k["last_used_at"],
             "created_at": k["created_at"],
             "revoked_at": k["revoked_at"],
@@ -286,3 +292,12 @@ def reset_password(body: ResetPasswordBody):
     if not ok:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset token")
     return {"detail": "Password reset successfully"}
+
+
+@router.post("/clerk-sync")
+def clerk_sync(body: ClerkSyncBody):
+    user = sync_clerk_user(body.clerk_id, body.email, body.name)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to sync user")
+    token = create_access_token(user["id"])
+    return _user_response(user, token)

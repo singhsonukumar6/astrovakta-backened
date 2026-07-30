@@ -59,6 +59,9 @@ export const createKey = (name, tier) =>
 export const revokeKey = (keyId) =>
   api.delete(`/auth/keys/${keyId}`).then((r) => r.data)
 
+export const getUsageStats = (keyId) =>
+  api.get(`/auth/usage/${keyId}`).then((r) => r.data)
+
 // ──── ADMIN ────
 export const adminGetUsers = (page = 1, search = '') =>
   api.get('/admin/users', { params: { page, search } }).then((r) => r.data)
@@ -68,6 +71,9 @@ export const adminGetUser = (userId) =>
 
 export const adminUpdatePlan = (userId, plan) =>
   api.put(`/admin/users/${userId}/plan`, { plan }).then((r) => r.data)
+
+export const adminSetMonthlyLimit = (userId, monthlyLimit) =>
+  api.put(`/admin/users/${userId}/monthly-limit`, { monthly_limit: monthlyLimit }).then((r) => r.data)
 
 export const adminToggleAdmin = (userId) =>
   api.put(`/admin/users/${userId}/admin`).then((r) => r.data)

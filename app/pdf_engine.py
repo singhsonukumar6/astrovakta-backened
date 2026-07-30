@@ -42,15 +42,15 @@ WATER_COLOR    = colors.HexColor('#00838f')   # Cyan
 
 # Planet colors
 PLANET_COLORS = {
-    'Sun':     colors.HexColor('#ff8f00'),
-    'Moon':    colors.HexColor('#e0e0e0'),
-    'Mars':    colors.HexColor('#d32f2f'),
-    'Mercury': colors.HexColor('#2e7d32'),
-    'Jupiter': colors.HexColor('#f9a825'),
-    'Venus':   colors.HexColor('#ec407a'),
-    'Saturn':  colors.HexColor('#37474f'),
-    'Rahu':    colors.HexColor('#4a148c'),
-    'Ketu':    colors.HexColor('#795548'),
+    'Sun':     colors.HexColor('#B8860B'),
+    'Moon':    colors.HexColor('#4682B4'),
+    'Mars':    colors.HexColor('#B22222'),
+    'Mercury': colors.HexColor('#006400'),
+    'Jupiter': colors.HexColor('#8B4513'),
+    'Venus':   colors.HexColor('#C71585'),
+    'Saturn':  colors.HexColor('#1a1a1a'),
+    'Rahu':    colors.HexColor('#4a0080'),
+    'Ketu':    colors.HexColor('#8B4513'),
 }
 
 # Sign colors (element-based)
@@ -367,113 +367,243 @@ def section_divider():
                       spaceBefore=8, spaceAfter=8)
 
 
+# ──────────────────────────── MODERN STYLING HELPERS ────────────────────────────
+
+def make_modern_table(headers, rows, col_widths=None, available_width=470):
+    """Modern table with colored header and clean styling. Accepts flowables in cells.
+    If col_widths is a list, it's used as-is. If None, columns are evenly distributed."""
+    if col_widths is None:
+        n = len(headers)
+        col_widths = [available_width / n] * n
+    else:
+        # Scale provided widths proportionally to fit available_width
+        total_given = sum(col_widths)
+        if total_given > 0:
+            col_widths = [w * available_width / total_given for w in col_widths]
+
+    styles = get_styles()
+    header_cells = [Paragraph(f'<b>{h}</b>', styles['TableHeader']) for h in headers]
+    data = [header_cells]
+    from reportlab.platypus import Flowable
+    for row in rows:
+        processed = []
+        for c in row:
+            if isinstance(c, (Paragraph, Flowable)):
+                processed.append(c)
+            else:
+                processed.append(Paragraph(str(c), styles['TableCell']))
+        data.append(processed)
+
+    t = Table(data, colWidths=col_widths, repeatRows=1)
+    style_cmds = [
+        ('BACKGROUND', (0, 0), (-1, 0), PRIMARY),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e0e0e0')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, LIGHT_BG]),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#cccccc')),
+        ('LINEBELOW', (0, 0), (-1, 0), 1.5, SECONDARY),
+    ]
+    t.setStyle(TableStyle(style_cmds))
+    return t
+
+
+def make_section_box(content_flowables, title=None, border_color=None, bg_color=None):
+    """Wrap content in a styled box with optional title header."""
+    if border_color is None:
+        border_color = colors.HexColor('#cccccc')
+    if bg_color is None:
+        bg_color = colors.white
+
+    styles = get_styles()
+    inner = []
+    if title:
+        inner.append(Paragraph(
+            f'<font color="{PRIMARY.hexval()}"><b>{title}</b></font>',
+            ParagraphStyle('box_title', parent=styles['SubSection'],
+                           textColor=PRIMARY, fontSize=11, spaceAfter=4)
+        ))
+        inner.append(HRFlowable(width="100%", thickness=0.5, color=SECONDARY, spaceBefore=2, spaceAfter=4))
+    inner.extend(content_flowables)
+
+    box_table = Table([[inner]], colWidths=[470])
+    box_table.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 1, border_color),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+        ('BACKGROUND', (0, 0), (-1, -1), bg_color),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+    return box_table
+
+
+def make_chart_container(svg_flowable, title=None, page_break_before=True):
+    """Wrap a chart in a styled container with light yellow background and double border."""
+    styles = get_styles()
+    inner = []
+    if title:
+        inner.append(Paragraph(
+            f'<font color="{PRIMARY.hexval()}"><b>{title}</b></font>',
+            ParagraphStyle('chart_title', parent=styles['SubSection'],
+                           textColor=PRIMARY, fontSize=12, spaceAfter=6)
+        ))
+
+    inner.append(svg_flowable)
+
+    YELLOW_BG = colors.HexColor('#FFFFF0')
+    RED_BORDER = colors.HexColor('#B22222')
+    YELLOW_BORDER = colors.HexColor('#FFD700')
+
+    chart_box = Table([[inner]], colWidths=[440])
+    chart_box.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), YELLOW_BG),
+        ('BOX', (0, 0), (-1, -1), 2, RED_BORDER),
+        ('BOX', (0, 0), (-1, -1), 6, YELLOW_BORDER),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+    ]))
+    result = [Spacer(1, 8)]
+    if page_break_before:
+        result.append(PageBreak())
+    result.append(chart_box)
+    result.append(Spacer(1, 12))
+    return result
+
+
+def make_page_break_if_needed():
+    """Return a page break flowable for when sections should start on a new page."""
+    return PageBreak()
+
+
 # ──────────────────────────── PAGE TEMPLATES ────────────────────────────
+
+def _load_image(image_source: str):
+    """Load an image from a local file path, URL, or base64 data URI.
+    Returns a ReportLab Image object or None if loading fails."""
+    if not image_source:
+        return None
+    try:
+        if os.path.exists(image_source):
+            return Image(image_source)
+        if image_source.startswith('data:'):
+            import base64, io
+            _, encoded = image_source.split(',', 1)
+            img_data = base64.b64decode(encoded)
+            buf = io.BytesIO(img_data)
+            return None, buf  # return raw buffer for ImageReader
+        if image_source.startswith('http://') or image_source.startswith('https://'):
+            import urllib.request, io
+            img_data = urllib.request.urlopen(image_source, timeout=10).read()
+            buf = io.BytesIO(img_data)
+            return None, buf
+        return None
+    except Exception as e:
+        logger.warning(f"Image load failed for {image_source[:50]}...: {e}")
+        return None
+
+def _add_image_to_elements(elements, image_source, width, height, hAlign='CENTER'):
+    """Load and add an image to the elements list. Handles file/URL/base64."""
+    if not image_source:
+        return
+    try:
+        result = _load_image(image_source)
+        if result is None:
+            return
+        if isinstance(result, tuple):
+            _, buf = result
+            img = Image(buf, width=width, height=height)
+        else:
+            img = result
+        img.hAlign = hAlign
+        elements.append(img)
+        return True
+    except Exception as e:
+        logger.warning(f"Image draw failed: {e}")
+        return False
+
 def cover_page_drawing(client_name: str, report_title: str, birth_date: str,
                        birth_time: str, location: str, logo_path: str = None,
-                       brand_name: str = None, contact_mobile: str = None,
+                       brand_name: str = None, brand_logo_path: str = None,
+                       brand_tagline: str = None, astrologer_image_path: str = None,
+                       background_image_path: str = None,
+                       contact_mobile: str = None,
                        contact_email: str = None, contact_website: str = None) -> list:
-    """Build cover page flowables with branding."""
+    """Build a magazine-style cover page with images, borders, and branding."""
     styles = get_styles()
     elements = []
 
-    elements.append(Spacer(1, 60))
+    # ── Side borders (magazine frame) ──
+    BORDER_COLOR = PRIMARY
+    BORDER_WIDTH = 14
+    elements.append(Spacer(1, 8))
+    top_bar = Drawing(480, 4)
+    top_bar.add(Rect(0, 0, 480, 4, fillColor=PRIMARY, strokeColor=None))
+    top_bar.add(Rect(0, 0, 160, 4, fillColor=SECONDARY, strokeColor=None))
+    top_bar.add(Rect(320, 0, 160, 4, fillColor=ACCENT, strokeColor=None))
+    elements.append(top_bar)
+    elements.append(Spacer(1, 16))
 
-    # Decorative top bar
-    d = Drawing(480, 6)
-    d.add(Rect(0, 0, 480, 6, fillColor=PRIMARY, strokeColor=None))
-    d.add(Rect(0, 0, 160, 6, fillColor=SECONDARY, strokeColor=None))
-    d.add(Rect(320, 0, 160, 6, fillColor=ACCENT, strokeColor=None))
-    elements.append(d)
-    elements.append(Spacer(1, 10))
-
-    # Floral corner decorations
-    # Floral corner decorations
-    fc = Drawing(480, 480)
-    # Top-left
-    fc.add(Rect(24, 444, 60, 2, fillColor=PRIMARY, strokeColor=None))
-    fc.add(Rect(24, 444, 2, 60, fillColor=PRIMARY, strokeColor=None))
-    fc.add(String(30, 450, '\u273D', fontSize=18, fillColor=PRIMARY, fontName='Helvetica'))
-    fc.add(String(78, 430, '\u2740', fontSize=14, fillColor=ACCENT, fontName='Helvetica'))
-    # Top-right
-    fc.add(Rect(396, 444, 60, 2, fillColor=PRIMARY, strokeColor=None))
-    fc.add(Rect(478, 444, 2, 60, fillColor=PRIMARY, strokeColor=None))
-    fc.add(String(440, 450, '\u273D', fontSize=18, fillColor=PRIMARY, fontName='Helvetica'))
-    fc.add(String(392, 430, '\u2740', fontSize=14, fillColor=ACCENT, fontName='Helvetica'))
-    # Bottom-left
-    fc.add(Rect(24, 14, 60, 2, fillColor=SECONDARY, strokeColor=None))
-    fc.add(Rect(24, 14, 2, 60, fillColor=SECONDARY, strokeColor=None))
-    fc.add(String(30, 20, '\u273D', fontSize=18, fillColor=SECONDARY, fontName='Helvetica'))
-    fc.add(String(78, 40, '\u2740', fontSize=14, fillColor=ACCENT, fontName='Helvetica'))
-    # Bottom-right
-    fc.add(Rect(396, 14, 60, 2, fillColor=SECONDARY, strokeColor=None))
-    fc.add(Rect(478, 14, 2, 16, fillColor=SECONDARY, strokeColor=None))
-    fc.add(String(440, 20, '\u273D', fontSize=18, fillColor=SECONDARY, fontName='Helvetica'))
-    fc.add(String(392, 40, '\u2740', fontSize=14, fillColor=ACCENT, fontName='Helvetica'))
-
-    elements.append(fc)
-    elements.append(Spacer(1, 20))
-
-    # Decorative floral border bar
-    fb = Drawing(480, 14)
-    fb.add(Rect(0, 6, 480, 1, fillColor=PRIMARY, strokeColor=None))
-    fb.add(String(224, 0, '\u2748 \u273F \u2748', fontSize=12, fillColor=PRIMARY, fontName='Helvetica'))
-    elements.append(fb)
-    elements.append(Spacer(1, 20))
-
-    # Ganesha icon
-    g = Drawing(480, 120)
-
-    # Golden aura
-    g.add(Circle(240, 60, 50, fillColor=colors.HexColor('#FFF8E1'), strokeColor=colors.HexColor('#FFD54F'), strokeWidth=1))
-    # Head
-    g.add(Circle(240, 65, 22, fillColor=PRIMARY, strokeColor=SECONDARY, strokeWidth=1.5))
-    # Left ear
-    g.add(Ellipse(214, 66, 14, 22, fillColor=PRIMARY, strokeColor=SECONDARY, strokeWidth=1))
-    # Right ear
-    g.add(Ellipse(266, 66, 14, 22, fillColor=PRIMARY, strokeColor=SECONDARY, strokeWidth=1))
-    # Crown
-    g.add(Path().moveTo(231, 43).lineTo(240, 30).lineTo(249, 43).close().moveTo(235, 45).lineTo(240, 35).lineTo(245, 45).close())
-    g.add(Circle(240, 28, 3, fillColor=colors.red, strokeColor=None))
-    # Eyes
-    g.add(Circle(233, 62, 2.5, fillColor=rl_colors.white, strokeColor=None))
-    g.add(Circle(247, 62, 2.5, fillColor=rl_colors.white, strokeColor=None))
-    # Trunk
-    g.add(Path().moveTo(253, 68).curveTo(265, 85, 255, 105, 240, 100).curveTo(235, 98, 238, 95, 240, 97))
-    # Body
-    g.add(Ellipse(240, 110, 24, 16, fillColor=SECONDARY, strokeColor=colors.HexColor('#E65100'), strokeWidth=1))
-    # Blessing hand
-    g.add(Path().moveTo(214, 105).curveTo(200, 95, 198, 85, 205, 82))
-    # Hand with modak
-    g.add(Path().moveTo(266, 105).curveTo(278, 112, 272, 125, 265, 120))
-    g.add(Circle(268, 123, 6, fillColor=colors.HexColor('#FFD54F'), strokeColor=colors.HexColor('#F9A825'), strokeWidth=1))
-
-    elements.append(g)
-    elements.append(Spacer(1, 6))
-
-    # Brand name (if different from client name)
-    if brand_name:
+    # ── Brand Logo (top center) ──
+    logo_source = brand_logo_path or logo_path
+    if logo_source:
+        _add_image_to_elements(elements, logo_source, 120, 120)
+    elif brand_name:
         elements.append(Paragraph(brand_name.upper(), ParagraphStyle(
-            'brand_title', parent=styles['CoverSubtitle'],
-            fontSize=12, textColor=SECONDARY, fontName='Helvetica-Bold'
+            'brand_logo_text', parent=styles['CoverTitle'],
+            fontSize=18, textColor=PRIMARY, fontName='Helvetica-Bold',
+            alignment=TA_CENTER
         )))
-        elements.append(Spacer(1, 8))
+        elements.append(Spacer(1, 4))
 
-    elements.append(Paragraph(client_name.upper(), styles['CoverTitle']))
-    elements.append(Spacer(1, 6))
+    # ── Brand Tagline ──
+    if brand_tagline:
+        elements.append(Paragraph(
+            f'<i>{brand_tagline}</i>',
+            ParagraphStyle('tagline', parent=styles['CoverSubtitle'],
+                           fontSize=11, textColor=ACCENT, fontName='Helvetica-Oblique',
+                           alignment=TA_CENTER)
+        ))
+        elements.append(Spacer(1, 12))
+    else:
+        elements.append(Spacer(1, 6))
 
-    # Decorative line
-    d3 = Drawing(480, 4)
-    d3.add(Rect(140, 0, 200, 2, fillColor=SECONDARY, strokeColor=None))
-    elements.append(d3)
-    elements.append(Spacer(1, 12))
+    # ── Decorative divider ──
+    divider = Drawing(480, 3)
+    divider.add(Rect(100, 0, 280, 2, fillColor=SECONDARY, strokeColor=None))
+    elements.append(divider)
+    elements.append(Spacer(1, 16))
 
+    # ── Report Title ──
     elements.append(Paragraph(report_title, ParagraphStyle(
-        'cover_report', parent=styles['CoverSubtitle'],
-        fontSize=20, textColor=ACCENT, fontName='Helvetica-Bold'
+        'cover_report_title', parent=styles['CoverTitle'],
+        fontSize=26, textColor=PRIMARY, fontName='Helvetica-Bold',
+        alignment=TA_CENTER, leading=32
     )))
-    elements.append(Spacer(1, 30))
+    elements.append(Spacer(1, 8))
 
-    # Birth details box
+    # ── Client Name ──
+    if client_name:
+        elements.append(Paragraph(client_name.upper(), ParagraphStyle(
+            'cover_client_name', parent=styles['CoverTitle'],
+            fontSize=20, textColor=colors.HexColor('#333'), fontName='Helvetica-Bold',
+            alignment=TA_CENTER
+        )))
+        elements.append(Spacer(1, 24))
+
+    # ── Birth Details Card (centered, semi-transparent background) ──
     detail_data = [
         [Paragraph('<b>Date of Birth</b>', styles['TableCell']),
          Paragraph(birth_date, styles['TableCell'])],
@@ -491,11 +621,13 @@ def cover_page_drawing(client_name: str, report_title: str, birth_date: str,
         ('BACKGROUND', (1, 0), (1, -1), colors.white),
         ('TOPPADDING', (0, 0), (-1, -1), 6),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('BOX', (0, 0), (-1, -1), 1.5, PRIMARY),
     ]))
+    detail_table.hAlign = 'CENTER'
     elements.append(detail_table)
-    elements.append(Spacer(1, 30))
+    elements.append(Spacer(1, 20))
 
-    # Contact details box
+    # ── Contact Info ──
     contact_rows = []
     if contact_mobile:
         contact_rows.append(('Mobile', contact_mobile))
@@ -516,37 +648,79 @@ def cover_page_drawing(client_name: str, report_title: str, birth_date: str,
             ('TOPPADDING', (0, 0), (-1, -1), 4),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ]))
+        contact_table.hAlign = 'CENTER'
         elements.append(contact_table)
-        elements.append(Spacer(1, 20))
+        elements.append(Spacer(1, 16))
 
-    # Footer of cover
+    # ── Astrologer Image (bottom-left, large magazine style) ──
+    if astrologer_image_path:
+        _add_image_to_elements(elements, astrologer_image_path, 200, 240, 'LEFT')
+        elements.append(Spacer(1, 8))
+
+    # ── Generated By Footer ──
+    elements.append(Spacer(1, 12))
     elements.append(Paragraph(
-        f'Generated by {brand_name or "AstroVakta"} Vedic Astrology Engine',
-        styles['SmallText']
+        f'Generated by {brand_name or "AstroVakta"} — Vedic Astrology Report',
+        ParagraphStyle('cover_footer', parent=styles['SmallText'],
+                       fontSize=8, textColor=LIGHT_TEXT, alignment=TA_CENTER)
     ))
-    elements.append(Spacer(1, 6))
     elements.append(Paragraph(
-        f'Report Date: {datetime.now().strftime("%Y-%m-%d %H:%M")}',
-        styles['SmallText']
+        f'Report Date: {datetime.now().strftime("%B %d, %Y — %H:%M")}',
+        ParagraphStyle('cover_footer2', parent=styles['SmallText'],
+                       fontSize=7, textColor=LIGHT_TEXT, alignment=TA_CENTER)
     ))
+
+    # ── Bottom bar ──
+    elements.append(Spacer(1, 12))
+    bottom_bar = Drawing(480, 4)
+    bottom_bar.add(Rect(0, 0, 480, 4, fillColor=PRIMARY, strokeColor=None))
+    bottom_bar.add(Rect(0, 0, 160, 4, fillColor=SECONDARY, strokeColor=None))
+    bottom_bar.add(Rect(320, 0, 160, 4, fillColor=ACCENT, strokeColor=None))
+    elements.append(bottom_bar)
 
     elements.append(PageBreak())
     return elements
 
 
 def back_page_elements(disclaimer_text: str = None, brand_name: str = None,
+                       brand_logo_path: str = None, background_image_path: str = None,
                        contact_mobile: str = None, contact_email: str = None,
                        contact_website: str = None) -> list:
-    """Build back page with disclaimer and contact info."""
+    """Build magazine-style back page with branding, disclaimer and contact info."""
     styles = get_styles()
     elements = []
 
-    elements.append(Spacer(1, 40))
-    elements.append(section_divider())
+    # ── Top bar ──
+    top_bar = Drawing(480, 4)
+    top_bar.add(Rect(0, 0, 480, 4, fillColor=PRIMARY, strokeColor=None))
+    top_bar.add(Rect(0, 0, 160, 4, fillColor=SECONDARY, strokeColor=None))
+    top_bar.add(Rect(320, 0, 160, 4, fillColor=ACCENT, strokeColor=None))
+    elements.append(top_bar)
+    elements.append(Spacer(1, 20))
 
-    elements.append(colored_heading('Disclaimer', SECONDARY, 14))
+    # ── Brand Logo (small, top center) ──
+    if brand_logo_path:
+        _add_image_to_elements(elements, brand_logo_path, 80, 80)
+        elements.append(Spacer(1, 12))
+
+    # ── Brand Name ──
+    if brand_name:
+        elements.append(Paragraph(brand_name.upper(), ParagraphStyle(
+            'back_brand', parent=styles['CoverTitle'],
+            fontSize=22, textColor=PRIMARY, fontName='Helvetica-Bold',
+            alignment=TA_CENTER
+        )))
+        elements.append(Spacer(1, 16))
+
+    # ── Decorative divider ──
+    divider = Drawing(480, 3)
+    divider.add(Rect(100, 0, 280, 2, fillColor=SECONDARY, strokeColor=None))
+    elements.append(divider)
+    elements.append(Spacer(1, 16))
+
+    # ── Disclaimer ──
+    elements.append(colored_heading('Disclaimer & Guidelines', SECONDARY, 14))
     elements.append(Spacer(1, 8))
-
     default_disclaimer = (
         "This report is generated based on Vedic astrological principles and the birth data provided. "
         "Astrology is an interpretive art and science; the predictions and recommendations herein are "
@@ -557,9 +731,9 @@ def back_page_elements(disclaimer_text: str = None, brand_name: str = None,
         "only if they resonate with your beliefs."
     )
     elements.append(Paragraph(disclaimer_text or default_disclaimer, styles['Disclaimer']))
-    elements.append(Spacer(1, 20))
+    elements.append(Spacer(1, 24))
 
-    # Contact info box
+    # ── Contact Info ──
     contact_rows = []
     if contact_mobile:
         contact_rows.append(('Mobile', contact_mobile))
@@ -573,16 +747,29 @@ def back_page_elements(disclaimer_text: str = None, brand_name: str = None,
     if contact_rows:
         elements.append(colored_heading('Contact Information', ACCENT, 11))
         elements.append(Spacer(1, 6))
-        elements.extend(_kv_block(dict(contact_rows)))
-        elements.append(Spacer(1, 20))
+        contact_data = [[Paragraph(f'<b>{k}</b>', styles['TableCell']),
+                         Paragraph(v, styles['TableCell'])] for k, v in contact_rows]
+        contact_table = Table(contact_data, colWidths=[140, 200])
+        contact_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+            ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+            ('GRID', (0, 0), (-1, -1), 0.5, ACCENT),
+            ('BACKGROUND', (0, 0), (0, -1), CREAM),
+            ('BACKGROUND', (1, 0), (1, -1), colors.white),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        contact_table.hAlign = 'CENTER'
+        elements.append(contact_table)
+        elements.append(Spacer(1, 24))
 
-    # Bottom decorative bar
-    d = Drawing(480, 6)
-    d.add(Rect(0, 0, 480, 6, fillColor=PRIMARY, strokeColor=None))
-    d.add(Rect(0, 0, 160, 6, fillColor=SECONDARY, strokeColor=None))
-    d.add(Rect(320, 0, 160, 6, fillColor=ACCENT, strokeColor=None))
-    elements.append(d)
-    elements.append(Spacer(1, 10))
+    # ── Bottom bar + footer ──
+    bottom_bar = Drawing(480, 4)
+    bottom_bar.add(Rect(0, 0, 480, 4, fillColor=PRIMARY, strokeColor=None))
+    bottom_bar.add(Rect(0, 0, 160, 4, fillColor=SECONDARY, strokeColor=None))
+    bottom_bar.add(Rect(320, 0, 160, 4, fillColor=ACCENT, strokeColor=None))
+    elements.append(bottom_bar)
+    elements.append(Spacer(1, 8))
     elements.append(Paragraph(f'{brand_name or "AstroVakta"} — Vedic Astrology Platform', styles['Footer']))
     if contact_website:
         elements.append(Paragraph(contact_website, styles['Footer']))

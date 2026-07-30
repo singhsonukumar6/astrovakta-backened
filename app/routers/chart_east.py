@@ -104,11 +104,10 @@ def _render_east_svg(width: int, height: int, asc: dict, planets: list, theme: s
             dwg.add(dwg.text(sign_name, insert=(x + 4, y + 16),
                              font_size='11px', fill=text_fill, font_weight='bold'))
 
-            # House number center
-            cx = x + cell_w / 2
-            cy = y + cell_h / 2
-            dwg.add(dwg.text(f'H{house_num}', insert=(cx - 12, cy - 8),
-                             font_size='13px', fill='#8B008B', font_weight='bold'))
+            # House number top-right corner
+            dwg.add(dwg.text(f'H{house_num}', insert=(x + cell_w - 6, y + 14),
+                             font_size='11px', fill='#8B008B', font_weight='bold',
+                             text_anchor='end'))
 
     # Place planets
     cell_planets = {i: [] for i in range(12)}
@@ -141,10 +140,8 @@ def _render_east_svg(width: int, height: int, asc: dict, planets: list, theme: s
                              font_size='12px', fill=color, font_weight='bold'))
 
     # Title
-    asc_deg = asc.get('degree', 0)
-    asc_deg_local = asc_deg % 30 if isinstance(asc_deg, (int, float)) else 0
-    dwg.add(dwg.text(f"East Indian Chart | Asc: {asc_sign} {asc_deg_local:.1f}°",
-                     insert=(width / 2, 18), font_size='14px', fill='#8B008B',
+    dwg.add(dwg.text(f"East Indian Chart",
+                     insert=(width / 2, 18), font_size='14px', fill='#333',
                      font_weight='bold', text_anchor='middle'))
 
     output = StringIO()
@@ -207,7 +204,7 @@ def _render_moon_svg(width: int, height: int, asc: dict, moon_sign: str, planets
 
     for h in range(1, 13):
         pts = [sp(p) for p in HOUSE_POLYGONS[h]]
-        dwg.add(svgwrite.shapes.Polygon(pts, fill="url(#grad)", stroke='#8B4513', stroke_width=1.5))
+        dwg.add(svgwrite.shapes.Polygon(pts, fill="url(#grad)", stroke='#8B4513', stroke_width=2))
 
     tc = '#006666' if 'dark' not in theme else '#66cccc'
     for h in range(1, 13):
@@ -240,11 +237,9 @@ def _render_moon_svg(width: int, height: int, asc: dict, moon_sign: str, planets
             retro = planet.get('isRetrograde', False)
             label = f"{abbr}{'®' if retro else ''}"
             dwg.add(dwg.text(label, insert=(px, py), font_size='14px', fill=color, font_weight='bold', text_anchor='middle'))
-            deg = f"{planet['degree']:.1f}°"
-            dwg.add(dwg.text(deg, insert=(px, py + 14 * scale_y), font_size='11px', fill=color, text_anchor='middle'))
 
-    dwg.add(dwg.text(f"Moon Chart | Moon: {moon_sign}",
-                     insert=(width / 2, 20), font_size='15px', fill='#8B008B',
+    dwg.add(dwg.text(f"Moon Chart ({moon_sign})",
+                     insert=(width / 2, 18), font_size='14px', fill='#333',
                      font_weight='bold', text_anchor='middle'))
 
     output = StringIO()

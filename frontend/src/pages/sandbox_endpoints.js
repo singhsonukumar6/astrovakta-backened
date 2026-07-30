@@ -3,6 +3,8 @@ const birthFields = (extra = []) => [
   { key: 'dateOfBirth', label: 'Date of Birth', type: 'date', group: 'Birth Data' },
   { key: 'timeOfBirth', label: 'Time of Birth', type: 'time', group: 'Birth Data' },
   { key: '_location', label: 'Birth Location', type: 'location', group: 'Birth Data' },
+  { key: 'latitude', label: 'Latitude', type: 'number', group: 'Birth Data', placeholder: '28.6139', step: 0.0001 },
+  { key: 'longitude', label: 'Longitude', type: 'number', group: 'Birth Data', placeholder: '77.2090', step: 0.0001 },
   ...extra,
 ]
 
@@ -10,9 +12,13 @@ const partnerBirthFields = (extra = []) => [
   { key: 'dateOfBirth', label: 'Your Date of Birth', type: 'date', group: 'Your Data' },
   { key: 'timeOfBirth', label: 'Your Time of Birth', type: 'time', group: 'Your Data' },
   { key: '_location', label: 'Your Location', type: 'location', group: 'Your Data' },
+  { key: 'latitude', label: 'Latitude', type: 'number', group: 'Your Data', placeholder: '28.6139', step: 0.0001 },
+  { key: 'longitude', label: 'Longitude', type: 'number', group: 'Your Data', placeholder: '77.2090', step: 0.0001 },
   { key: 'partnerDateOfBirth', label: 'Partner Date of Birth', type: 'date', group: 'Partner Data' },
   { key: 'partnerTimeOfBirth', label: 'Partner Time of Birth', type: 'time', group: 'Partner Data' },
   { key: '_partnerLocation', label: 'Partner Location', type: 'location', group: 'Partner Data' },
+  { key: 'partnerLatitude', label: 'Partner Latitude', type: 'number', group: 'Partner Data', placeholder: '28.6139', step: 0.0001 },
+  { key: 'partnerLongitude', label: 'Partner Longitude', type: 'number', group: 'Partner Data', placeholder: '77.2090', step: 0.0001 },
   ...extra,
 ]
 
@@ -62,6 +68,7 @@ export const endpointCategories = {
     { method: 'POST', path: '/chart/divisional-svg?d=1', label: 'D1 Rasi (General Life)', fields: birthFields([{ key: 'name', label: 'Division', type: 'select', options: ['D1','D2','D3','D4','D5','D6','D7','D8','D9','D10','D11','D12','D16','D20','D24','D27','D30','D40','D45','D60'], group: 'Chart' }, { key: 'theme', label: 'Theme', type: 'select', options: ['dark', 'light'], group: 'Style' }]) },
     { method: 'POST', path: '/chart/divisional-svg?d=9', label: 'D9 Navamsa (Marriage)', fields: birthFields([{ key: 'name', label: 'Division', type: 'select', options: ['D1','D2','D3','D4','D5','D6','D7','D8','D9','D10','D11','D12','D16','D20','D24','D27','D30','D40','D45','D60'], group: 'Chart' }, { key: 'theme', label: 'Theme', type: 'select', options: ['dark', 'light'], group: 'Style' }]) },
     { method: 'POST', path: '/chart/divisional-svg?d=10', label: 'D10 Dashamamsa (Career)', fields: birthFields([{ key: 'name', label: 'Division', type: 'select', options: ['D1','D2','D3','D4','D5','D6','D7','D8','D9','D10','D11','D12','D16','D20','D24','D27','D30','D40','D45','D60'], group: 'Chart' }, { key: 'theme', label: 'Theme', type: 'select', options: ['dark', 'light'], group: 'Style' }]) },
+    { method: 'POST', path: '/chart/generate', label: 'Generate Chart (API)', fields: birthFields([{ key: 'chartType', label: 'Chart Type', type: 'select', options: ['north_indian', 'navamsa', 'ashtakavarga'], group: 'Chart' }, { key: 'width', label: 'Width', type: 'number', placeholder: '600', group: 'Style' }, { key: 'height', label: 'Height', type: 'number', placeholder: '450', group: 'Style' }]) },
   ],
   Horoscope: [
     { method: 'POST', path: '/horoscope/daily', label: 'Daily Horoscope', fields: birthFields() },
@@ -238,7 +245,7 @@ export const endpointCategories = {
     { method: 'POST', path: '/pooja/availability', label: 'Availability', fields: [{ key: 'date', label: 'Date', type: 'date', group: 'Details' }, { key: 'poojaName', label: 'Pooja Name', type: 'text', group: 'Details' }, { key: 'location', label: 'Location', type: 'text', placeholder: 'e.g. Delhi', group: 'Details' }] },
   ],
   Reports: [
-    { method: 'POST', path: '/reports/full-pdf', label: 'Full Kundli PDF Report', pdf: true, fields: birthFields([{ key: 'clientName', label: 'Client Name', type: 'text', group: 'Report' }, { key: 'reportTitle', label: 'Report Title', type: 'text', group: 'Report' }, { key: 'brandName', label: 'Brand Name', type: 'text', group: 'Report' }, { key: 'contactMobile', label: 'Contact Mobile', type: 'text', group: 'Report' }, { key: 'contactEmail', label: 'Contact Email', type: 'text', group: 'Report' }, { key: 'contactWebsite', label: 'Contact Website', type: 'text', group: 'Report' }]) },
+    { method: 'POST', path: '/reports/full-pdf', label: 'Full Kundli PDF Report', pdf: true, fields: birthFields([{ key: 'clientName', label: 'Client Name', type: 'text', group: 'Report' }, { key: 'reportTitle', label: 'Report Title', type: 'text', group: 'Report' }, { key: 'brandName', label: 'Brand Name', type: 'text', group: 'Report' }, { key: 'brandLogo', label: 'Brand Logo', type: 'file', group: 'Report', accept: 'image/*' }, { key: 'brandText', label: 'Brand Tagline', type: 'text', group: 'Report', placeholder: 'Your Trusted Astrology Guide' }, { key: 'astrologerImage', label: 'Astrologer Photo', type: 'file', group: 'Report', accept: 'image/*' }, { key: 'backgroundImage', label: 'Background Image', type: 'file', group: 'Report', accept: 'image/*' }, { key: 'contactMobile', label: 'Contact Mobile', type: 'text', group: 'Report' }, { key: 'contactEmail', label: 'Contact Email', type: 'text', group: 'Report' }, { key: 'contactWebsite', label: 'Contact Website', type: 'text', group: 'Report' }]) },
     { method: 'POST', path: '/reports/pdf-info', label: 'PDF Report Info', fields: birthFields([{ key: 'clientName', label: 'Client Name', type: 'text', group: 'Report' }]) },
     { method: 'POST', path: '/reports/birth-chart', label: 'Birth Chart Report', fields: birthFields() },
     { method: 'POST', path: '/reports/predictions', label: 'Predictions Report', fields: birthFields() },

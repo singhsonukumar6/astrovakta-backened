@@ -131,6 +131,8 @@ CREATE TABLE IF NOT EXISTS users (
     avatar_url TEXT,
     email_verified BOOLEAN DEFAULT 0,
     verification_token TEXT,
+    monthly_limit INTEGER DEFAULT 500,
+    clerk_id TEXT UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS password_resets (
@@ -319,6 +321,8 @@ def init_db() -> None:
                 ("users", "avatar_url", "TEXT"),
                 ("users", "email_verified", "BOOLEAN DEFAULT FALSE"),
                 ("users", "verification_token", "TEXT"),
+                ("users", "monthly_limit", "INTEGER DEFAULT 500"),
+                ("users", "clerk_id", "TEXT"),
                 ("usage_logs", "response_time_ms", "INTEGER"),
                 ("usage_logs", "endpoint_group", "TEXT"),
             ]:
@@ -347,6 +351,8 @@ def init_db() -> None:
         _migrate_sqlite(cursor, "users", "avatar_url", "TEXT")
         _migrate_sqlite(cursor, "users", "email_verified", "BOOLEAN DEFAULT 0")
         _migrate_sqlite(cursor, "users", "verification_token", "TEXT")
+        _migrate_sqlite(cursor, "users", "monthly_limit", "INTEGER DEFAULT 500")
+        _migrate_sqlite(cursor, "users", "clerk_id", "TEXT")
         _migrate_sqlite(cursor, "usage_logs", "response_time_ms", "INTEGER")
         _migrate_sqlite(cursor, "usage_logs", "endpoint_group", "TEXT")
         conn.commit()
