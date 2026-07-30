@@ -192,15 +192,13 @@ class APIKeyMiddleware:
         async def _send(message):
             if message["type"] == "http.response.start":
                 response_status[0] = message["status"]
-                message["headers"] = [
-                    (k, v) for k, v in message.get("headers", [])
-                    if k.decode().lower() != "x-ratelimit-limit"
-                    and k.decode().lower() != "x-ratelimit-remaining"
-                    and k.decode().lower() != "x-ratelimit-reset"
-                ]
-                message["headers"].append((b"x-ratelimit-limit", str(monthly_limit).encode()))
-                message["headers"].append((b"x-ratelimit-remaining", str(remaining).encode()))
-                message["headers"].append((b"x-ratelimit-reset", b"First day of next month UTC"))
+                headers = list(message.get("headers", []))
+                headers = [(k, v) for k, v in headers
+                    if k.decode().lower() not in ("x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-reset")]
+                headers.append((b"x-ratelimit-limit", str(monthly_limit).encode()))
+                headers.append((b"x-ratelimit-remaining", str(remaining).encode()))
+                headers.append((b"x-ratelimit-reset", b"First day of next month UTC"))
+                message["headers"] = headers
 
             await send(message)
 

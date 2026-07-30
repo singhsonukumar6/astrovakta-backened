@@ -13,7 +13,11 @@ def error(message: str = "Error", status_code: int = 400, data: Any = None) -> J
     body: Dict[str, Any] = {"success": False, "message": message}
     if data is not None:
         body["data"] = data
-    return JSONResponse(content=body, status_code=status_code)
+    resp = JSONResponse(content=body, status_code=status_code)
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+    resp.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-API-Key"
+    return resp
 
 
 def not_found(message: str = "Resource not found") -> JSONResponse:
