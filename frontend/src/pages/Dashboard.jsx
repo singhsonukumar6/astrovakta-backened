@@ -890,11 +890,10 @@ export default function Dashboard() {
     setLocalUser(updated)
   }
 
-  if (authLoading || clerkSyncing || (clerkSignedIn && !isAuthenticated)) {
+  if (authLoading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 72, flexDirection: 'column', gap: 16 }}>
-        <div className="gradient-text" style={{ fontSize: 18, fontWeight: 600 }}>Syncing your account...</div>
-        <p style={{ color: '#64748b', fontSize: 14 }}>Please wait while we set things up.</p>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 72 }}>
+        <div className="gradient-text" style={{ fontSize: 18, fontWeight: 600 }}>Loading...</div>
       </div>
     )
   }
