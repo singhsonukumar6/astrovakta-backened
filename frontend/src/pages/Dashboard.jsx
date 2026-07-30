@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SignedOut, SignInButton } from '@clerk/clerk-react'
 import {
@@ -877,12 +877,15 @@ function Profile({ user, onUserUpdate }) {
 // ──────────── MAIN DASHBOARD ────────────
 export default function Dashboard() {
   const { user, logout, isAuthenticated, loading: authLoading, clerkSyncing, clerkSignedIn } = useAuth()
-  const [activeTab, setActiveTab] = useState('overview')
   const [keys, setKeys] = useState([])
   const [localUser, setLocalUser] = useState(null)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const navigate = useNavigate()
-  const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = searchParams.get('tab') || 'overview'
+
+  const goToTab = (tabId) => {
+    setSearchParams({ tab: tabId }, { replace: true })
+  }
 
   useEffect(() => {
     setLocalUser(user)
@@ -891,10 +894,6 @@ export default function Dashboard() {
   useEffect(() => {
     if (!authLoading && !clerkSignedIn) navigate('/')
   }, [authLoading, clerkSignedIn, navigate])
-
-  useEffect(() => {
-    setActiveTab('overview')
-  }, [location.key])
 
   useEffect(() => {
     if (isAuthenticated && user && !user.email_verified && !clerkSignedIn) {
@@ -907,10 +906,6 @@ export default function Dashboard() {
       getKeys().then((data) => setKeys(Array.isArray(data) ? data : data.keys || [])).catch(() => {})
     }
   }, [isAuthenticated])
-
-  useEffect(() => {
-    setSidebarOpen(false)
-  }, [activeTab])
 
   const refreshKeys = () => {
     getKeys().then((data) => setKeys(Array.isArray(data) ? data : data.keys || [])).catch(() => {})
@@ -951,7 +946,6 @@ export default function Dashboard() {
 
   return (
     <div style={{ minHeight: '100vh', paddingTop: 72 }}>
-      {/* Desktop sidebar */}
       <aside className="dash-sidebar" style={{
         width: 240, borderRight: '1px solid var(--border-color)',
         padding: '24px 12px', display: 'flex', flexDirection: 'column',
@@ -959,7 +953,7 @@ export default function Dashboard() {
       }}>
         <div style={{ flex: 1 }}>
           {tabs.map((tab) => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+            <button key={tab.id} onClick={() => goToTab(tab.id)}
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                 padding: '10px 14px', borderRadius: 10, border: 'none',
@@ -992,10 +986,9 @@ export default function Dashboard() {
         </button>
       </aside>
 
-      {/* Mobile bottom tab bar */}
       <nav className="dash-bottombar">
         {tabs.map((tab) => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+          <button key={tab.id} onClick={() => goToTab(tab.id)}
             className={activeTab === tab.id ? 'active' : ''}
           >
             <tab.icon size={20} />
