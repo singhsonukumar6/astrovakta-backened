@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { SignedOut, SignInButton } from '@clerk/clerk-react'
 import {
   LayoutDashboard,
   Key,
@@ -28,6 +29,7 @@ import {
   Settings,
   Mail,
   ScrollText,
+  LogIn,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth.jsx'
@@ -849,7 +851,7 @@ function Profile({ user, onUserUpdate }) {
 
 // ──────────── MAIN DASHBOARD ────────────
 export default function Dashboard() {
-  const { user, logout, isAuthenticated, loading: authLoading } = useAuth()
+  const { user, logout, isAuthenticated, loading: authLoading, clerkSyncing, clerkSignedIn } = useAuth()
   const [activeTab, setActiveTab] = useState('overview')
   const [keys, setKeys] = useState([])
   const [localUser, setLocalUser] = useState(null)
@@ -861,8 +863,8 @@ export default function Dashboard() {
   }, [user])
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) navigate('/login')
-  }, [authLoading, isAuthenticated, navigate])
+    if (!authLoading && !isAuthenticated && !clerkSyncing) navigate('/')
+  }, [authLoading, isAuthenticated, clerkSyncing, navigate])
 
   useEffect(() => {
     if (isAuthenticated && user && !user.email_verified) {
@@ -888,15 +890,33 @@ export default function Dashboard() {
     setLocalUser(updated)
   }
 
-  if (authLoading) {
+  if (authLoading || clerkSyncing) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 72 }}>
-        <div className="gradient-text" style={{ fontSize: 18 }}>Loading...</div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 72, flexDirection: 'column', gap: 16 }}>
+        <div className="gradient-text" style={{ fontSize: 18, fontWeight: 600 }}>Syncing your account...</div>
+        <p style={{ color: '#64748b', fontSize: 14 }}>Please wait while we set things up.</p>
       </div>
     )
   }
 
-  if (!isAuthenticated) return null
+  if (!isAuthenticated) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 72, flexDirection: 'column', gap: 20 }}>
+        <Shield size={48} color="#64748b" />
+        <h2 style={{ fontSize: 24, fontWeight: 700 }}>Access Required</h2>
+        <p style={{ color: '#94a3b8', fontSize: 15, maxWidth: 360, textAlign: 'center' }}>
+          You need to sign in to access the dashboard.
+        </p>
+        <SignedOut>
+          <SignInButton mode="modal">
+            <button className="btn-primary" style={{ padding: '14px 32px', fontSize: 16 }}>
+              <LogIn size={18} /> Sign In
+            </button>
+          </SignInButton>
+        </SignedOut>
+      </div>
+    )
+  }
 
   const displayUser = localUser || user
 

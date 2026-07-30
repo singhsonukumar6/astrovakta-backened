@@ -8,6 +8,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [token, setToken] = useState(() => localStorage.getItem('token'))
   const [loading, setLoading] = useState(true)
+  const [clerkSyncing, setClerkSyncing] = useState(false)
   const { isLoaded: clerkLoaded, isSignedIn: clerkSignedIn } = useClerkAuth()
   const { user: clerkUser } = useUser()
 
@@ -18,6 +19,7 @@ export function AuthProvider({ children }) {
       setUser(null)
       localStorage.removeItem('token')
       setLoading(false)
+      setClerkSyncing(false)
       return
     }
 
@@ -25,8 +27,13 @@ export function AuthProvider({ children }) {
     const name = `${clerkUser?.firstName || ''} ${clerkUser?.lastName || ''}`.trim()
     const clerkId = clerkUser?.id
 
-    if (token && user) return
+    if (token && user) {
+      setLoading(false)
+      setClerkSyncing(false)
+      return
+    }
 
+    setClerkSyncing(true)
     api.post('/auth/clerk-sync', { clerk_id: clerkId, email, name })
       .then((res) => {
         const newToken = res.data?.token
@@ -38,7 +45,10 @@ export function AuthProvider({ children }) {
         }
       })
       .catch(() => {})
-      .finally(() => setLoading(false))
+      .finally(() => {
+        setLoading(false)
+        setClerkSyncing(false)
+      })
   }, [clerkLoaded, clerkSignedIn, clerkUser])
 
   useEffect(() => {
@@ -74,7 +84,12 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, login, logout, loading, isAuthenticated: !!token && !!user, refreshUser }}
+      value={{
+        user, token, login, logout, loading, clerkSyncing,
+        isAuthenticated: !!token && !!user,
+        clerkSignedIn,
+        refreshUser,
+      }}
     >
       {children}
     </AuthContext.Provider>
