@@ -38,6 +38,84 @@ TIER_LIMITS = {
     "enterprise": 999999999,
 }
 
+TIER_CREDIT_LIMITS = {
+    "free": 500,
+    "starter": 5000,
+    "pro": 50000,
+    "enterprise": 999999999,
+}
+
+CREDIT_COSTS = {
+    # 1 credit — simple lookups / calculators
+    "/api/location": 1,
+    "/api/calculator": 1,
+    "/api/utility": 1,
+    "/api/calendar": 1,
+    "/calendar-api": 1,
+    "/api/festival": 1,
+    "/lucky": 1,
+    "/api/numerology": 1,
+    # 2 credits — standard chart data
+    "/api/kundli": 2,
+    "/horoscope/panchang": 2,
+    "/horoscope/muhurat": 2,
+    "/horoscope/yoga": 2,
+    "/horoscope/bhava-chalit": 2,
+    "/horoscope/planet-details": 2,
+    "/chart/svg": 2,
+    "/chart/grid-svg": 2,
+    "/chart/east-svg": 2,
+    "/chart/moon-svg": 2,
+    "/chart/generate": 2,
+    "/chart/divisional-svg": 2,
+    # 3 credits — complex calculations
+    "/horoscope/daily": 3,
+    "/horoscope/weekly": 3,
+    "/horoscope/monthly": 3,
+    "/horoscope/yearly": 3,
+    "/horoscope/career": 3,
+    "/horoscope/love": 3,
+    "/horoscope/finance": 3,
+    "/horoscope/health": 3,
+    "/horoscope/business": 3,
+    "/horoscope/education": 3,
+    "/horoscope/child": 3,
+    "/horoscope/foreign": 3,
+    "/horoscope/dasha": 3,
+    "/horoscope/transit": 3,
+    "/horoscope/compat": 3,
+    "/horoscope/dosha": 3,
+    "/horoscope/varshaphal": 3,
+    "/api/transit": 3,
+    "/api/compat": 3,
+    "/api/dosha": 3,
+    "/api/gemstone": 3,
+    "/api/rudraksha": 3,
+    "/pooja": 3,
+    "/dasha": 3,
+    # 5 credits — divisional / specialized
+    "/chart/navamsa-svg": 5,
+    "/chart/hora-svg": 5,
+    "/chart/sudarshana-svg": 5,
+    "/kp": 5,
+    "/lal-kitab": 5,
+    "/yogini": 5,
+    "/api/prashna": 5,
+    # 10 credits — AI
+    "/ai": 10,
+    # 50 credits — PDF reports
+    "/reports": 50,
+}
+
+
+def get_credit_cost(path: str) -> int:
+    """Return the credit cost for an endpoint path. Match longest prefix first."""
+    best = 1
+    for prefix, cost in sorted(CREDIT_COSTS.items(), key=lambda x: -len(x[0])):
+        if path.startswith(prefix):
+            return cost
+    return best
+
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -143,20 +221,18 @@ def validate_api_key(key: str) -> Optional[dict]:
     month_start = _get_month_start().isoformat()
 
     today_row = db.execute(
-        "SELECT COUNT(*) AS cnt FROM usage_logs ul "
+        "SELECT COALESCE(SUM(credits_used), 0) AS total_credits FROM usage_logs ul "
         "JOIN api_keys ak ON ul.api_key_id = ak.id "
         "WHERE ak.user_id = ? AND DATE(ul.timestamp) = ?",
         (user_id, today),
     ).fetchone()
-    requests_today = today_row["cnt"] if today_row else 0
 
     month_row = db.execute(
-        "SELECT COUNT(*) AS cnt FROM usage_logs ul "
+        "SELECT COALESCE(SUM(credits_used), 0) AS total_credits FROM usage_logs ul "
         "JOIN api_keys ak ON ul.api_key_id = ak.id "
         "WHERE ak.user_id = ? AND ul.timestamp >= ?",
         (user_id, month_start),
     ).fetchone()
-    requests_this_month = month_row["cnt"] if month_row else 0
 
     now = datetime.now(timezone.utc).isoformat()
     db.execute(
@@ -165,8 +241,8 @@ def validate_api_key(key: str) -> Optional[dict]:
     )
     db.commit()
     info = _to_dict(row)
-    info["requests_today"] = requests_today
-    info["requests_this_month"] = requests_this_month
+    info["credits_today"] = today_row["total_credits"] if today_row else 0
+    info["credits_this_month"] = month_row["total_credits"] if month_row else 0
     return info
 
 
@@ -189,11 +265,12 @@ def list_api_keys(user_id: int) -> list:
 
 # ──────────────── USAGE ────────────────
 def log_usage(api_key_id: int, endpoint: str, status_code: int,
-              response_time_ms: int = None, endpoint_group: str = None) -> None:
+              response_time_ms: int = None, endpoint_group: str = None,
+              credits: int = 1) -> None:
     get_db().execute(
-        "INSERT INTO usage_logs (api_key_id, endpoint, status_code, response_time_ms, endpoint_group) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (api_key_id, endpoint, status_code, response_time_ms, endpoint_group),
+        "INSERT INTO usage_logs (api_key_id, endpoint, status_code, response_time_ms, endpoint_group, credits_used) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (api_key_id, endpoint, status_code, response_time_ms, endpoint_group, credits),
     )
     get_db().commit()
 
@@ -211,20 +288,20 @@ def get_usage_stats(api_key_id: int) -> dict:
     month_start = _get_month_start().isoformat()
 
     today_row = db.execute(
-        "SELECT COUNT(*) AS cnt FROM usage_logs ul "
+        "SELECT COALESCE(SUM(credits_used), 0) AS credits FROM usage_logs ul "
         "JOIN api_keys ak ON ul.api_key_id = ak.id "
         "WHERE ak.user_id = ? AND DATE(ul.timestamp) = ?",
         (user_id, today),
     ).fetchone()
 
     total_row = db.execute(
-        "SELECT COUNT(*) AS cnt FROM usage_logs ul "
+        "SELECT COALESCE(SUM(credits_used), 0) AS credits, COUNT(*) AS calls FROM usage_logs ul "
         "JOIN api_keys ak ON ul.api_key_id = ak.id "
         "WHERE ak.user_id = ?", (user_id,)
     ).fetchone()
 
     month_row = db.execute(
-        "SELECT COUNT(*) AS cnt FROM usage_logs ul "
+        "SELECT COALESCE(SUM(credits_used), 0) AS credits FROM usage_logs ul "
         "JOIN api_keys ak ON ul.api_key_id = ak.id "
         "WHERE ak.user_id = ? AND ul.timestamp >= ?",
         (user_id, month_start),
@@ -238,10 +315,10 @@ def get_usage_stats(api_key_id: int) -> dict:
     ).fetchone()
 
     top_endpoints = db.execute(
-        "SELECT ul.endpoint, COUNT(*) AS hits FROM usage_logs ul "
+        "SELECT ul.endpoint, COUNT(*) AS hits, COALESCE(SUM(ul.credits_used), 0) AS credits FROM usage_logs ul "
         "JOIN api_keys ak ON ul.api_key_id = ak.id "
         "WHERE ak.user_id = ? "
-        "GROUP BY ul.endpoint ORDER BY hits DESC LIMIT 10",
+        "GROUP BY ul.endpoint ORDER BY credits DESC LIMIT 10",
         (user_id,),
     ).fetchall()
 
@@ -251,10 +328,11 @@ def get_usage_stats(api_key_id: int) -> dict:
         "key_id": key["id"],
         "key_name": key["name"],
         "tier": key["tier"],
-        "monthly_limit": user.get("monthly_limit", 0),
-        "requests_today": today_row["cnt"] if today_row else 0,
-        "requests_this_month": month_row["cnt"] if month_row else 0,
-        "requests_total": total_row["cnt"] if total_row else 0,
+        "monthly_credit_limit": user.get("monthly_limit", 500),
+        "credits_today": today_row["credits"] if today_row else 0,
+        "credits_this_month": month_row["credits"] if month_row else 0,
+        "credits_total": total_row["credits"] if total_row else 0,
+        "calls_total": total_row["calls"] if total_row else 0,
         "errors_total": errors_row["cnt"] if errors_row else 0,
         "top_endpoints": [dict(r) for r in top_endpoints],
     }

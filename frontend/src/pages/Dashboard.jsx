@@ -31,6 +31,7 @@ import {
   ScrollText,
   LogIn,
   Gauge,
+  Coins,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth.jsx'
@@ -122,7 +123,7 @@ function Overview({ user, keys }) {
         {[
           { label: 'API Keys', value: totalKeys, icon: Key, color: '#7c3aed' },
           { label: 'Active Keys', value: activeKeys, icon: Activity, color: '#22c55e' },
-          { label: 'Monthly Limit', value: (user?.monthly_limit ?? 0).toLocaleString(), icon: TrendingUp, color: '#3b82f6' },
+          { label: 'Credit Limit', value: (user?.monthly_limit ?? 500).toLocaleString(), icon: Coins, color: '#3b82f6' },
           { label: 'Current Plan', value: user?.plan || 'Free', icon: Zap, color: '#f59e0b' },
         ].map((s) => (
           <div key={s.label} className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 24 }}>
@@ -693,15 +694,15 @@ function UsagePanel({ keys }) {
           </p>
         ) : (
           usage.top_endpoints.slice(0, 8).map((ep) => {
-            const maxHits = usage.top_endpoints[0]?.hits || 1
-            const epPct = (ep.hits / maxHits) * 100
+            const maxCredits = usage.top_endpoints[0]?.credits || 1
+            const epPct = (ep.credits / maxCredits) * 100
             return (
               <div key={ep.endpoint} style={{ marginBottom: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: '#cbd5e1', maxWidth: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {ep.endpoint}
                   </span>
-                  <span style={{ fontSize: 12, color: '#94a3b8' }}>{ep.hits}</span>
+                  <span style={{ fontSize: 12, color: '#94a3b8' }}>{ep.credits || 0} credits</span>
                 </div>
                 <div style={{ height: 6, background: 'rgba(124,58,237,0.08)', borderRadius: 3 }}>
                   <div style={{ height: '100%', width: `${epPct}%`, background: 'var(--gradient-primary)', borderRadius: 3, transition: 'width 0.3s ease' }} />

@@ -62,6 +62,9 @@ export const revokeKey = (keyId) =>
 export const getUsageStats = (keyId) =>
   api.get(`/auth/usage/${keyId}`).then((r) => r.data)
 
+export const getCreditCosts = () =>
+  api.get('/auth/credits/costs').then((r) => r.data)
+
 // ──── ADMIN ────
 export const adminGetUsers = (page = 1, search = '') =>
   api.get('/admin/users', { params: { page, search } }).then((r) => r.data)

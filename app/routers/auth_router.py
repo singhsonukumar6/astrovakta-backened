@@ -26,6 +26,8 @@ from ..auth import (
     reset_password_with_token,
     sync_clerk_user,
     TIER_LIMITS,
+    CREDIT_COSTS,
+    get_credit_cost,
 )
 
 router = APIRouter()
@@ -301,3 +303,12 @@ def clerk_sync(body: ClerkSyncBody):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to sync user")
     token = create_access_token(user["id"])
     return _user_response(user, token)
+
+
+@router.get("/credits/costs")
+def credit_costs():
+    """Return the credit cost map so the frontend can display per-endpoint costs."""
+    cost_summary = {}
+    for path, cost in sorted(CREDIT_COSTS.items()):
+        cost_summary[path] = cost
+    return {"credit_costs": cost_summary, "note": "Credits are deducted per API call. Different endpoints consume different amounts of credits."}

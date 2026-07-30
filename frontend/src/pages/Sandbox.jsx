@@ -1,8 +1,9 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Play, Copy, ChevronDown, Clock, CheckCircle2, XCircle, Code, Globe, Maximize2, X, Search, MapPin, Loader2, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Play, Copy, ChevronDown, Clock, CheckCircle2, XCircle, Code, Globe, Maximize2, X, Search, MapPin, Loader2, ToggleLeft, ToggleRight, Coins } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api.js'
+import { getCreditCosts } from '../lib/api.js'
 import { endpointCategories } from './sandbox_endpoints.js'
 
 // ──── Location Search Autocomplete ────
@@ -468,6 +469,21 @@ export default function Sandbox() {
   const [apiKey, setApiKey] = useState('')
   const [viewMode, setViewMode] = useState('web')
   const [searchQuery, setSearchQuery] = useState('')
+  const [creditCosts, setCreditCosts] = useState({})
+
+  useEffect(() => {
+    getCreditCosts().then(data => setCreditCosts(data.credit_costs || {})).catch(() => {})
+  }, [])
+
+  function getEndpointCredit(path) {
+    if (!path) return 1
+    const costs = Object.entries(creditCosts)
+    costs.sort((a, b) => b[0].length - a[0].length)
+    for (const [prefix, cost] of costs) {
+      if (path.startsWith(prefix)) return cost
+    }
+    return 1
+  }
 
   const allEndpoints = useMemo(() => Object.values(endpointCategories).flat(), [])
   const currentEndpoint = useMemo(() => allEndpoints.find(e => e.path === selectedEndpoint), [allEndpoints, selectedEndpoint])
@@ -719,6 +735,17 @@ export default function Sandbox() {
               <button className="btn-primary" onClick={sendRequest} disabled={loading} style={{ width: '100%', justifyContent: 'center' }}>
                 {loading ? 'Sending...' : <><Play size={16} /> Send Request</>}
               </button>
+
+              <div style={{
+                marginTop: 12, padding: '8px 14px', borderRadius: 8,
+                background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}>
+                <Coins size={14} color="#eab308" />
+                <span style={{ fontSize: 12, color: '#eab308', fontWeight: 600 }}>
+                  Cost: {getEndpointCredit(selectedEndpoint)} credit{getEndpointCredit(selectedEndpoint) > 1 ? 's' : ''}
+                </span>
+              </div>
             </div>
           </div>
 

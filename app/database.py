@@ -325,6 +325,7 @@ def init_db() -> None:
                 ("users", "clerk_id", "TEXT"),
                 ("usage_logs", "response_time_ms", "INTEGER"),
                 ("usage_logs", "endpoint_group", "TEXT"),
+                ("usage_logs", "credits_used", "INTEGER DEFAULT 0"),
             ]:
                 try:
                     row = conn.execute(
@@ -355,4 +356,5 @@ def init_db() -> None:
         _migrate_sqlite(cursor, "users", "clerk_id", "TEXT")
         _migrate_sqlite(cursor, "usage_logs", "response_time_ms", "INTEGER")
         _migrate_sqlite(cursor, "usage_logs", "endpoint_group", "TEXT")
+        _migrate_sqlite(cursor, "usage_logs", "credits_used", "INTEGER DEFAULT 0")
         conn.commit()

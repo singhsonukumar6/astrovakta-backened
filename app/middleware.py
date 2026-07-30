@@ -5,7 +5,7 @@ from starlette.responses import JSONResponse, Response
 
 from .response import error as _error_resp
 
-from .auth import validate_api_key, log_usage
+from .auth import validate_api_key, log_usage, get_credit_cost
 
 PROTECTED_PREFIXES = (
     "/api/",
@@ -169,22 +169,24 @@ class APIKeyMiddleware:
         request.state.api_key_info = key_info
 
         monthly_limit = key_info.get("monthly_limit", 0)
-        requests_this_month = key_info.get("requests_this_month", 0)
+        credits_this_month = key_info.get("credits_this_month", 0)
+        credit_cost = get_credit_cost(path)
 
-        if monthly_limit and requests_this_month >= monthly_limit:
-            log_usage(key_info["id"], path, 402)
+        if monthly_limit and (credits_this_month + credit_cost) > monthly_limit:
+            log_usage(key_info["id"], path, 402, credits=credit_cost)
             response = _error_resp(
                 "Monthly API call limit exceeded",
                 402,
                 {"monthly_limit": monthly_limit,
-                 "requests_this_month": requests_this_month,
+                 "credits_this_month": credits_this_month,
+                 "credit_cost": credit_cost,
                  "reset": "First day of next month UTC",
-                 "message": "Contact admin to increase your monthly API call limit"},
+                 "message": "Contact admin to increase your monthly credit limit"},
             )
             await response(scope, receive, send)
             return
 
-        remaining = max(0, monthly_limit - requests_this_month)
+        remaining = max(0, monthly_limit - credits_this_month)
 
         start = time.time()
         response_status = [200]
@@ -205,4 +207,4 @@ class APIKeyMiddleware:
         await self.app(scope, request.receive, _send)
 
         elapsed = time.time() - start
-        log_usage(key_info["id"], path, response_status[0])
+        log_usage(key_info["id"], path, response_status[0], credits=credit_cost)
