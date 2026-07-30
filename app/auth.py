@@ -84,14 +84,14 @@ def sync_clerk_user(clerk_id: str, email: str, name: str) -> Optional[dict]:
     ).fetchone()
     if existing:
         db.execute(
-            "UPDATE users SET clerk_id = ?, name = ?, email = ? WHERE id = ?",
+            "UPDATE users SET clerk_id = ?, name = ?, email = ?, email_verified = TRUE WHERE id = ?",
             (clerk_id, name.strip(), email.lower().strip(), existing["id"]),
         )
         db.commit()
         return _to_dict(db.execute("SELECT * FROM users WHERE id = ?", (existing["id"],)).fetchone())
     row = _insert_and_get_id(
         "users", "id", db,
-        "INSERT INTO users (email, name, password_hash, clerk_id) VALUES (?, ?, ?, ?)",
+        "INSERT INTO users (email, name, password_hash, clerk_id, email_verified) VALUES (?, ?, ?, ?, TRUE)",
         (email.lower().strip(), name.strip(), hash_password("clerk_" + secrets.token_hex(16)), clerk_id),
     )
     db.commit()

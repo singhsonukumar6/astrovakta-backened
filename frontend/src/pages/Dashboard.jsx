@@ -867,10 +867,10 @@ export default function Dashboard() {
   }, [authLoading, clerkSignedIn, navigate])
 
   useEffect(() => {
-    if (isAuthenticated && user && !user.email_verified) {
+    if (isAuthenticated && user && !user.email_verified && !clerkSignedIn) {
       navigate('/verify-email-prompt', { state: { email: user.email } })
     }
-  }, [isAuthenticated, user, navigate])
+  }, [isAuthenticated, user, clerkSignedIn, navigate])
 
   useEffect(() => {
     if (isAuthenticated) {
