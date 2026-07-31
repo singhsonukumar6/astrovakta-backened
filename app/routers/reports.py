@@ -3,8 +3,10 @@ Reports & PDF generation endpoints.
 """
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import Response, JSONResponse
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
+
+from ..response import success as _success, error as _error
 
 router = APIRouter(tags=["Reports"])
 
@@ -384,10 +386,7 @@ def generate_full_pdf(body: FullPDFRequest, request: Request = None) -> Response
         )
     except Exception as e:
         import traceback
-        return JSONResponse(
-            content={"success": False, "message": str(e)},
-            status_code=500,
-        )
+        return _error(str(e), 500)
 
 
 @router.post('/reports/pdf-info')
