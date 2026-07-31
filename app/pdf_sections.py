@@ -1128,10 +1128,12 @@ def build_ashtakavarga_chart_section(planets: list) -> list:
         elements.append(make_modern_table(headers, rows, [45] + [25]*12 + [35]))
         elements.append(Spacer(1, 8))
 
+        strong_houses = ', '.join([f"H{h.get('house')}({h.get('points')})" for h in sav.get('strongestHouses', [])])
+        weak_houses = ', '.join([f"H{h.get('house')}({h.get('points')})" for h in sav.get('weakestHouses', [])])
         elements.append(Paragraph(
             f"<b>Sarvashtakavarga Average:</b> {sav.get('average', 0)} | "
-            f"<b>Strongest Houses:</b> {', '.join([f'H{h['house']}({h['points']})' for h in sav.get('strongestHouses', [])])} | "
-            f"<b>Weakest Houses:</b> {', '.join([f'H{h['house']}({h['points']})' for h in sav.get('weakestHouses', [])])}",
+            f"<b>Strongest Houses:</b> {strong_houses} | "
+            f"<b>Weakest Houses:</b> {weak_houses}",
             styles['BodyText2']
         ))
 
@@ -2138,10 +2140,12 @@ def build_ashtakavarga_section(planets: list) -> list:
     content.append(make_modern_table(headers, rows, col_widths))
     content.append(Spacer(1, 8))
 
+    strong_houses = ', '.join([f"H{h.get('house')}({h.get('points')})" for h in sav.get('strongestHouses', [])])
+    weak_houses = ', '.join([f"H{h.get('house')}({h.get('points')})" for h in sav.get('weakestHouses', [])])
     content.append(Paragraph(
         f"<b>Sarvashtakavarga Average:</b> {sav.get('average', 0)} | "
-        f"<b>Strongest Houses:</b> {', '.join([f'H{h['house']}({h['points']})' for h in sav.get('strongestHouses', [])])} | "
-        f"<b>Weakest Houses:</b> {', '.join([f'H{h['house']}({h['points']})' for h in sav.get('weakestHouses', [])])}",
+        f"<b>Strongest Houses:</b> {strong_houses} | "
+        f"<b>Weakest Houses:</b> {weak_houses}",
         styles['BodyText2']
     ))
     content.append(Paragraph(
