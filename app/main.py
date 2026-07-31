@@ -135,6 +135,11 @@ async def global_exception_handler(request, exc: Exception):
     return JSONResponse(
         status_code=500,
         content={"success": False, "message": "Internal server error", "data": None},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+            "Access-Control-Allow-Headers": "Authorization, Content-Type, X-API-Key",
+        },
     )
 
 
@@ -143,6 +148,11 @@ async def not_found_handler(request, exc):
     return JSONResponse(
         status_code=404,
         content={"success": False, "message": "Endpoint not found", "data": None},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+            "Access-Control-Allow-Headers": "Authorization, Content-Type, X-API-Key",
+        },
     )
 
 
@@ -151,6 +161,11 @@ async def validation_handler(request, exc):
     return JSONResponse(
         status_code=422,
         content={"success": False, "message": "Validation error", "data": exc.errors() if hasattr(exc, 'errors') else str(exc)},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+            "Access-Control-Allow-Headers": "Authorization, Content-Type, X-API-Key",
+        },
     )
 
 
