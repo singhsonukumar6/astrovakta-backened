@@ -11,6 +11,7 @@ from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
     PageBreak, KeepTogether, HRFlowable, Image, ListFlowable, ListItem
 )
+from reportlab.lib.utils import ImageReader
 from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle, Ellipse, Path, Polygon
 from reportlab.graphics import renderPDF
 from reportlab.pdfbase import pdfmetrics
@@ -492,26 +493,45 @@ def make_page_break_if_needed():
 
 def _load_image(image_source: str):
     """Load an image from a local file path, URL, or base64 data URI.
-    Returns a ReportLab Image object or None if loading fails."""
+    Returns a ReportLab ImageReader or None if loading/validation fails.
+    All images are validated with PIL to prevent downstream rendering crashes."""
     if not image_source:
         return None
     try:
+        from PIL import Image as PILImage
+        import io as _pio
+
+        # Load raw bytes from source
+        raw_bytes = None
         if os.path.exists(image_source):
-            return Image(image_source)
-        if image_source.startswith('data:'):
-            import base64, io
+            raw_bytes = open(image_source, 'rb').read()
+        elif image_source.startswith('data:'):
+            import base64
             _, encoded = image_source.split(',', 1)
-            img_data = base64.b64decode(encoded)
-            buf = io.BytesIO(img_data)
-            return None, buf  # return raw buffer for ImageReader
-        if image_source.startswith('http://') or image_source.startswith('https://'):
-            import urllib.request, io
-            img_data = urllib.request.urlopen(image_source, timeout=10).read()
-            buf = io.BytesIO(img_data)
-            return None, buf
-        return None
+            raw_bytes = base64.b64decode(encoded)
+        elif image_source.startswith(('http://', 'https://')):
+            import urllib.request
+            raw_bytes = urllib.request.urlopen(image_source, timeout=10).read()
+        else:
+            return None
+
+        if not raw_bytes:
+            return None
+
+        # Validate with PIL — catches corrupt/malformed images before they crash doc.build()
+        buf = _pio.BytesIO(raw_bytes)
+        pil_img = PILImage.open(buf)
+        pil_img.verify()
+
+        # Re-open after verify() since verify() exhausts the buffer
+        buf.seek(0)
+        pil_img = PILImage.open(buf)
+        pil_img.load()
+
+        return ImageReader(buf)
+
     except Exception as e:
-        logger.warning(f"Image load failed for {image_source[:50]}...: {e}")
+        logger.warning(f"Image load failed for {image_source[:60]}...: {e}")
         return None
 
 def _add_image_to_elements(elements, image_source, width, height, hAlign='CENTER'):
@@ -519,14 +539,10 @@ def _add_image_to_elements(elements, image_source, width, height, hAlign='CENTER
     if not image_source:
         return
     try:
-        result = _load_image(image_source)
-        if result is None:
+        img_reader = _load_image(image_source)
+        if img_reader is None:
             return
-        if isinstance(result, tuple):
-            _, buf = result
-            img = Image(buf, width=width, height=height)
-        else:
-            img = result
+        img = Image(img_reader, width=width, height=height)
         img.hAlign = hAlign
         elements.append(img)
         return True
