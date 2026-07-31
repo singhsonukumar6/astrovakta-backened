@@ -2,11 +2,15 @@
 Reports & PDF generation endpoints.
 """
 from typing import Dict, Any, List, Optional
+import logging
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from ..response import success as _success, error as _error
+from ..response import error as _error
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Reports"])
 
@@ -334,14 +338,14 @@ class FullPDFRequest(BaseModel):
 
 @router.post('/reports/full-pdf')
 def generate_full_pdf(body: FullPDFRequest, request: Request = None) -> Response:
-    from ..pdf_generator import KundliPDFGenerator
-
     user_id = None
-    if request:
-        key_info = getattr(getattr(request, 'state', None), 'api_key_info', None)
-        user_id = key_info.get('user_id') if key_info else None
-
     try:
+        from ..pdf_generator import KundliPDFGenerator
+
+        if request:
+            key_info = getattr(getattr(request, 'state', None), 'api_key_info', None)
+            user_id = key_info.get('user_id') if key_info else None
+
         generator = KundliPDFGenerator(
             birth_date=body.dateOfBirth,
             birth_time=body.timeOfBirth,
@@ -386,20 +390,21 @@ def generate_full_pdf(body: FullPDFRequest, request: Request = None) -> Response
         )
     except Exception as e:
         import traceback
+        logging.error(f"full-pdf generation failed: {e}\n{traceback.format_exc()}")
         return _error(str(e), 500)
 
 
 @router.post('/reports/pdf-info')
 def pdf_report_info(body: FullPDFRequest, request: Request = None) -> Dict[str, Any]:
     """Get info about what the PDF report will contain (without generating it)."""
-    from ..pdf_generator import KundliPDFGenerator
-
     user_id = None
-    if request:
-        key_info = getattr(getattr(request, 'state', None), 'api_key_info', None)
-        user_id = key_info.get('user_id') if key_info else None
-
     try:
+        from ..pdf_generator import KundliPDFGenerator
+
+        if request:
+            key_info = getattr(getattr(request, 'state', None), 'api_key_info', None)
+            user_id = key_info.get('user_id') if key_info else None
+
         generator = KundliPDFGenerator(
             birth_date=body.dateOfBirth,
             birth_time=body.timeOfBirth,
