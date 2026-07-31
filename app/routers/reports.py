@@ -3,7 +3,7 @@ Reports & PDF generation endpoints.
 """
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
 from pydantic import BaseModel, Field
 
 router = APIRouter(tags=["Reports"])
@@ -332,7 +332,6 @@ class FullPDFRequest(BaseModel):
 
 @router.post('/reports/full-pdf')
 def generate_full_pdf(body: FullPDFRequest, request: Request = None) -> Response:
-    """Generate a complete, colorful PDF birth chart report with charts, predictions, and remedies."""
     from ..pdf_generator import KundliPDFGenerator
 
     user_id = None
@@ -385,10 +384,9 @@ def generate_full_pdf(body: FullPDFRequest, request: Request = None) -> Response
         )
     except Exception as e:
         import traceback
-        return Response(
-            content=f'{{"error": "{str(e)}", "trace": "{traceback.format_exc()[-200:]}"}}',
+        return JSONResponse(
+            content={"success": False, "message": str(e)},
             status_code=500,
-            media_type='application/json'
         )
 
 
