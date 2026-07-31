@@ -1923,7 +1923,7 @@ def build_rudraksha_section(planets: list) -> list:
     weak_planets = [p for p in planets if p.get('houseStatus') in ['Debilitated', 'Enemy']]
     for p in weak_planets[:3]:
         if p['name'] in PLANET_RUDRAK:
-            recommended.append((f'{p['name']} (Weak)', PLANET_RUDRAK[p['name']]))
+            recommended.append((f"{p['name']} (Weak)", PLANET_RUDRAK[p['name']]))
 
     if not recommended:
         recommended.append(('General Wellness', '5 Mukhi (Kalagni Rudra)'))
