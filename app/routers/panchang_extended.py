@@ -1,12 +1,18 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 import swisseph as swe
 import pytz
 
 from ..models import PanchangRequest
+from ..i18n import detect_language, t as _t, translate_response
 
 router = APIRouter()
+
+# Field maps for each endpoint
+_WEEKDAY_FIELDS = {"weekday": "weekday"}
+_CHOGHADIYA_FIELDS = {"weekday": "weekday", "name": "choghadiya"}
+_HORA_FIELDS = {"weekday": "weekday", "planet": "planet", "period": "hora_period"}
 
 
 def _get_sunrise_sunset_jd(date_str: str, tz_name: str, lat: float, lon: float):
@@ -315,7 +321,8 @@ def _calc_abhijit_muhurat(sunrise_jd: float, sunset_jd: float) -> Dict[str, Any]
 # --- Endpoints ---
 
 @router.post("/panchang/rahu-kaal")
-def rahu_kaal(body: PanchangRequest):
+def rahu_kaal(body: PanchangRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     sunrise_jd, sunset_jd = _get_sunrise_sunset_jd(body.date, body.timezone, body.latitude, body.longitude)
     if sunrise_jd is None:
         return {"status": 400, "error": "Unable to calculate sunrise/sunset for given location"}
@@ -325,29 +332,28 @@ def rahu_kaal(body: PanchangRequest):
 
     result = _calc_rahu_kaal(sunrise_jd, sunset_jd, weekday)
 
-    return {
-        "status": 200,
-        "data": {
-            "date": body.date,
-            "weekday": weekday_names[weekday],
-            "sunrise": _jd_to_time_str(sunrise_jd, body.timezone),
-            "sunset": _jd_to_time_str(sunset_jd, body.timezone),
-            "rahuKaalStart": _jd_to_time_str(result["start_jd"], body.timezone),
-            "rahuKaalEnd": _jd_to_time_str(result["end_jd"], body.timezone),
-            "partIndex": result["partIndex"],
-            "totalParts": result["totalParts"],
-            "duration": _format_duration(result["partDuration"]),
-        },
+    data = {
+        "date": body.date,
+        "weekday": weekday_names[weekday],
+        "sunrise": _jd_to_time_str(sunrise_jd, body.timezone),
+        "sunset": _jd_to_time_str(sunset_jd, body.timezone),
+        "rahuKaalStart": _jd_to_time_str(result["start_jd"], body.timezone),
+        "rahuKaalEnd": _jd_to_time_str(result["end_jd"], body.timezone),
+        "partIndex": result["partIndex"],
+        "totalParts": result["totalParts"],
+        "duration": _format_duration(result["partDuration"]),
     }
+    data = translate_response(data, lang, _WEEKDAY_FIELDS)
+    return {"status": 200, "data": data}
 
 
 @router.post("/panchang/gulika-kaal")
-def gulika_kaal(body: PanchangRequest):
+def gulika_kaal(body: PanchangRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     sunrise_jd, sunset_jd = _get_sunrise_sunset_jd(body.date, body.timezone, body.latitude, body.longitude)
     if sunrise_jd is None:
         return {"status": 400, "error": "Unable to calculate sunrise/sunset for given location"}
 
-    # Get next day sunrise for night division
     from datetime import timedelta as td
     next_date = (datetime.strptime(body.date, "%Y-%m-%d") + td(days=1)).strftime("%Y-%m-%d")
     next_sunrise_jd, _ = _get_sunrise_sunset_jd(next_date, body.timezone, body.latitude, body.longitude)
@@ -359,24 +365,24 @@ def gulika_kaal(body: PanchangRequest):
 
     result = _calc_gulika_kaal(sunrise_jd, sunset_jd, next_sunrise_jd, weekday)
 
-    return {
-        "status": 200,
-        "data": {
-            "date": body.date,
-            "weekday": weekday_names[weekday],
-            "sunrise": _jd_to_time_str(sunrise_jd, body.timezone),
-            "sunset": _jd_to_time_str(sunset_jd, body.timezone),
-            "gulikaKaalStart": _jd_to_time_str(result["start_jd"], body.timezone),
-            "gulikaKaalEnd": _jd_to_time_str(result["end_jd"], body.timezone),
-            "partIndex": result["partIndex"],
-            "totalParts": result["totalParts"],
-            "duration": _format_duration(result["partDuration"]),
-        },
+    data = {
+        "date": body.date,
+        "weekday": weekday_names[weekday],
+        "sunrise": _jd_to_time_str(sunrise_jd, body.timezone),
+        "sunset": _jd_to_time_str(sunset_jd, body.timezone),
+        "gulikaKaalStart": _jd_to_time_str(result["start_jd"], body.timezone),
+        "gulikaKaalEnd": _jd_to_time_str(result["end_jd"], body.timezone),
+        "partIndex": result["partIndex"],
+        "totalParts": result["totalParts"],
+        "duration": _format_duration(result["partDuration"]),
     }
+    data = translate_response(data, lang, _WEEKDAY_FIELDS)
+    return {"status": 200, "data": data}
 
 
 @router.post("/panchang/yamaganda")
-def yamaganda(body: PanchangRequest):
+def yamaganda(body: PanchangRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     sunrise_jd, sunset_jd = _get_sunrise_sunset_jd(body.date, body.timezone, body.latitude, body.longitude)
     if sunrise_jd is None:
         return {"status": 400, "error": "Unable to calculate sunrise/sunset for given location"}
@@ -386,24 +392,24 @@ def yamaganda(body: PanchangRequest):
 
     result = _calc_yamaganda(sunrise_jd, sunset_jd, weekday)
 
-    return {
-        "status": 200,
-        "data": {
-            "date": body.date,
-            "weekday": weekday_names[weekday],
-            "sunrise": _jd_to_time_str(sunrise_jd, body.timezone),
-            "sunset": _jd_to_time_str(sunset_jd, body.timezone),
-            "yamagandaStart": _jd_to_time_str(result["start_jd"], body.timezone),
-            "yamagandaEnd": _jd_to_time_str(result["end_jd"], body.timezone),
-            "partIndex": result["partIndex"],
-            "totalParts": result["totalParts"],
-            "duration": _format_duration(result["partDuration"]),
-        },
+    data = {
+        "date": body.date,
+        "weekday": weekday_names[weekday],
+        "sunrise": _jd_to_time_str(sunrise_jd, body.timezone),
+        "sunset": _jd_to_time_str(sunset_jd, body.timezone),
+        "yamagandaStart": _jd_to_time_str(result["start_jd"], body.timezone),
+        "yamagandaEnd": _jd_to_time_str(result["end_jd"], body.timezone),
+        "partIndex": result["partIndex"],
+        "totalParts": result["totalParts"],
+        "duration": _format_duration(result["partDuration"]),
     }
+    data = translate_response(data, lang, _WEEKDAY_FIELDS)
+    return {"status": 200, "data": data}
 
 
 @router.post("/panchang/choghadiya")
-def choghadiya(body: PanchangRequest):
+def choghadiya(body: PanchangRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     sunrise_jd, sunset_jd = _get_sunrise_sunset_jd(body.date, body.timezone, body.latitude, body.longitude)
     if sunrise_jd is None:
         return {"status": 400, "error": "Unable to calculate sunrise/sunset for given location"}
@@ -419,28 +425,32 @@ def choghadiya(body: PanchangRequest):
 
     result = _calc_choghadiya(sunrise_jd, sunset_jd, next_sunrise_jd, weekday)
 
-    # Convert UTC times to local times
     for period in ["dayChoghadiya", "nightChoghadiya"]:
         for ch in result[period]:
-            # Convert start/end JDs to local time
             ch["start"] = _jd_to_time_str(ch["startJd"], body.timezone)
             ch["end"] = _jd_to_time_str(ch["endJd"], body.timezone)
 
-    return {
-        "status": 200,
-        "data": {
-            "date": body.date,
-            "weekday": weekday_names[weekday],
-            "sunrise": _jd_to_time_str(sunrise_jd, body.timezone),
-            "sunset": _jd_to_time_str(sunset_jd, body.timezone),
-            "dayChoghadiya": result["dayChoghadiya"],
-            "nightChoghadiya": result["nightChoghadiya"],
-        },
+    data = {
+        "date": body.date,
+        "weekday": weekday_names[weekday],
+        "sunrise": _jd_to_time_str(sunrise_jd, body.timezone),
+        "sunset": _jd_to_time_str(sunset_jd, body.timezone),
+        "dayChoghadiya": result["dayChoghadiya"],
+        "nightChoghadiya": result["nightChoghadiya"],
     }
+    data = translate_response(data, lang, _WEEKDAY_FIELDS)
+    # Translate choghadiya names inside the arrays
+    if lang != "en":
+        for period in ["dayChoghadiya", "nightChoghadiya"]:
+            for ch in data.get(period, []):
+                if "name" in ch:
+                    ch["name"] = _t(lang, "choghadiya", ch["name"])
+    return {"status": 200, "data": data}
 
 
 @router.post("/panchang/hora")
-def hora(body: PanchangRequest):
+def hora(body: PanchangRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     sunrise_jd, sunset_jd = _get_sunrise_sunset_jd(body.date, body.timezone, body.latitude, body.longitude)
     if sunrise_jd is None:
         return {"status": 400, "error": "Unable to calculate sunrise/sunset for given location"}
@@ -456,27 +466,31 @@ def hora(body: PanchangRequest):
 
     horas = _calc_hora(sunrise_jd, sunset_jd, next_sunrise_jd, weekday)
 
-    # Convert to local time
     for hora_item in horas:
         hora_item["start"] = _jd_to_time_str(hora_item["startJd"], body.timezone)
         hora_item["end"] = _jd_to_time_str(hora_item["endJd"], body.timezone)
 
-    return {
-        "status": 200,
-        "data": {
-            "date": body.date,
-            "weekday": weekday_names[weekday],
-            "sunrise": _jd_to_time_str(sunrise_jd, body.timezone),
-            "sunset": _jd_to_time_str(sunset_jd, body.timezone),
-            "horas": horas,
-        },
+    data = {
+        "date": body.date,
+        "weekday": weekday_names[weekday],
+        "sunrise": _jd_to_time_str(sunrise_jd, body.timezone),
+        "sunset": _jd_to_time_str(sunset_jd, body.timezone),
+        "horas": horas,
     }
+    data = translate_response(data, lang, {"weekday": "weekday"})
+    # Translate hora planet names and period labels
+    if lang != "en":
+        for hora_item in data.get("horas", []):
+            if "planet" in hora_item:
+                hora_item["planet"] = _t(lang, "planet", hora_item["planet"])
+            if "period" in hora_item:
+                hora_item["period"] = _t(lang, "hora_period", hora_item["period"])
+    return {"status": 200, "data": data}
 
 
 @router.post("/panchang/moonrise")
-def moonrise(body: PanchangRequest):
+def moonrise(body: PanchangRequest, request: Request):
     result = _calc_moon_event(body.date, body.timezone, body.latitude, body.longitude, is_rise=True)
-
     return {
         "status": 200,
         "data": {
@@ -488,9 +502,8 @@ def moonrise(body: PanchangRequest):
 
 
 @router.post("/panchang/moonset")
-def moonset(body: PanchangRequest):
+def moonset(body: PanchangRequest, request: Request):
     result = _calc_moon_event(body.date, body.timezone, body.latitude, body.longitude, is_rise=False)
-
     return {
         "status": 200,
         "data": {
@@ -502,7 +515,7 @@ def moonset(body: PanchangRequest):
 
 
 @router.post("/panchang/abhijit-muhurat")
-def abhijit_muhurat(body: PanchangRequest):
+def abhijit_muhurat(body: PanchangRequest, request: Request):
     sunrise_jd, sunset_jd = _get_sunrise_sunset_jd(body.date, body.timezone, body.latitude, body.longitude)
     if sunrise_jd is None:
         return {"status": 400, "error": "Unable to calculate sunrise/sunset for given location"}

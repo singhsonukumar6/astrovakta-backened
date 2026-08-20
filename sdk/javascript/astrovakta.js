@@ -75,7 +75,9 @@ class AstroVaktaClient {
 
   /**
    * Get Tithi, Nakshatra, Yoga, Karana, Sunrise, and Sunset.
-   * @param {Object} requestParams
+   * Supports multi-language output via `lang` parameter.
+   * @param {Object} requestParams - Birth data (dateOfBirth, timeOfBirth, latitude, longitude, timezone)
+   * @param {string} [requestParams.lang] - Output language: en, hi, ta, te, kn, ml, bn, mr, gu, pa
    * @returns {Promise<Object>}
    */
   getPanchang(requestParams) {

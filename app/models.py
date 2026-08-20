@@ -7,6 +7,7 @@ class BaseLocationRequest(BaseModel):
     latitude: float = Field(..., example=28.6139, ge=-90, le=90)
     longitude: float = Field(..., example=77.2090, ge=-180, le=180)
     timezone: str = Field(..., example="Asia/Kolkata")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class PanchangRequest(BaseLocationRequest):

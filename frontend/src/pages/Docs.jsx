@@ -424,6 +424,7 @@ ${COM.split('').map((c, i) => i < 500 ? c : '').join('')}
   },
   {
     id: 'panchang', label: 'Panchang & Calendar', icon: Calendar,
+    note: 'All panchang and calendar endpoints support multi-language output. Add "lang":"hi" (or ta, te, kn, ml, bn, mr, gu, pa) to get results in your language. Default is English.',
     endpoints: [
       { method: 'POST', path: '/horoscope/panchang', desc: 'Full panchang (Tithi, Nakshatra, Yoga, Karana)', body: B },
       { method: 'POST', path: '/horoscope/panchang/rahu-kaal', desc: 'Rahu Kaal', body: B },

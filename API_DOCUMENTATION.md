@@ -198,6 +198,29 @@ POST /horoscope/panchang
 
 Returns: Tithi, Nakshatra, Yoga, Karana, Vara, Rahu Kaal, Gulika Kaal, Yamaganda, Choghadiya, Hora, Moonrise/Moonset.
 
+**Multi-language support:** Add `"lang"` to the request body to get results in your language. Also accepts `Accept-Language` header.
+
+| Language | Code |
+|----------|------|
+| English (default) | `en` |
+| Hindi | `hi` |
+| Tamil | `ta` |
+| Telugu | `te` |
+| Kannada | `kn` |
+| Malayalam | `ml` |
+| Bengali | `bn` |
+| Marathi | `mr` |
+| Gujarati | `gu` |
+| Punjabi | `pa` |
+
+Example with Hindi:
+```bash
+curl -X POST https://api.astrovakta.com/horoscope/panchang \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: avk_xxxxxxxx" \
+  -d '{"dateOfBirth":"1990-05-15","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","lang":"hi"}'
+```
+
 Additional endpoints: `/horoscope/panchang/rahu-kaal`, `/horoscope/panchang/choghadiya`, `/horoscope/panchang/hora`, etc.
 
 ### 4.6 Transit (Gochar)

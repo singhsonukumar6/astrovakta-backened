@@ -10,6 +10,8 @@ from app.utils import (
     TITHI_NAMES, NAKSHATRAS, YOGA_NAMES, KARANA_SEQUENCE,
 )
 from app.models import PanchangRequest
+from app.i18n import detect_language, translate_response, t as translate_t
+from app.i18n.registry import get_category_translations
 
 
 class TestPanchang:
@@ -135,3 +137,82 @@ class TestPanchangRequestModel:
                 longitude=77.2090,
                 timezone="Asia/Kolkata",
             )
+
+
+class TestI18n:
+    def test_detect_language_default(self):
+        assert detect_language() == "en"
+
+    def test_detect_language_from_query(self):
+        assert detect_language(query_lang="hi") == "hi"
+
+    def test_detect_language_from_header(self):
+        assert detect_language(header_lang="hi-IN") == "hi"
+
+    def test_detect_language_query_takes_priority(self):
+        assert detect_language(query_lang="ta", header_lang="hi") == "ta"
+
+    def test_detect_language_invalid_falls_back(self):
+        assert detect_language(query_lang="xx") == "en"
+
+    def test_translate_value_hindi(self):
+        result = translate_t("hi", "tithi", "Ekadashi")
+        assert result == "एकादशी"
+
+    def test_translate_value_english_passthrough(self):
+        result = translate_t("en", "tithi", "Ekadashi")
+        assert result == "Ekadashi"
+
+    def test_translate_value_unknown_falls_back(self):
+        result = translate_t("hi", "tithi", "UnknownTithi")
+        assert result == "UnknownTithi"
+
+    def test_translate_response_dict(self):
+        data = {"tithi": "Ekadashi", "nakshatra": "Rohini", "count": 42}
+        field_map = {"tithi": "tithi", "nakshatra": "nakshatra"}
+        result = translate_response(data, "hi", field_map)
+        assert result["tithi"] == "एकादशी"
+        assert result["nakshatra"] == "रोहिणी"
+        assert result["count"] == 42
+
+    def test_translate_response_nested(self):
+        data = {"outer": {"weekday": "Sunday"}}
+        result = translate_response(data, "hi", {"weekday": "weekday"})
+        assert result["outer"]["weekday"] == "रविवार"
+
+    def test_translate_response_list(self):
+        data = [{"name": "Amrit"}, {"name": "Rog"}]
+        result = translate_response(data, "hi", {"name": "choghadiya"})
+        assert result[0]["name"] == "अमृत"
+        assert result[1]["name"] == "रोग"
+
+    def test_hindi_tithi_translations_complete(self):
+        hi_tithi = get_category_translations("hi", "tithi")
+        assert len(hi_tithi) >= 16  # At least all unique tithi names
+
+    def test_hindi_nakshatra_translations_complete(self):
+        hi_nak = get_category_translations("hi", "nakshatra")
+        assert len(hi_nak) == 27
+
+    def test_hindi_weekday_translations_complete(self):
+        hi_wd = get_category_translations("hi", "weekday")
+        assert len(hi_wd) == 7
+
+    def test_lang_field_on_request_model(self):
+        req = PanchangRequest(
+            date="2025-06-15",
+            latitude=28.6139,
+            longitude=77.2090,
+            timezone="Asia/Kolkata",
+            lang="hi",
+        )
+        assert req.lang == "hi"
+
+    def test_lang_field_defaults_to_en(self):
+        req = PanchangRequest(
+            date="2025-06-15",
+            latitude=28.6139,
+            longitude=77.2090,
+            timezone="Asia/Kolkata",
+        )
+        assert req.lang == "en"

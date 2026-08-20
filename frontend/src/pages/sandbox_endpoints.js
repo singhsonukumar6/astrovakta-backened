@@ -1,10 +1,13 @@
 // ──── Field Templates ────
+const langField = { key: 'lang', label: 'Language', type: 'select', group: 'Output', options: ['en','hi','ta','te','kn','ml','bn','mr','gu','pa'], optional: true }
+
 const birthFields = (extra = []) => [
   { key: 'dateOfBirth', label: 'Date of Birth', type: 'date', group: 'Birth Data' },
   { key: 'timeOfBirth', label: 'Time of Birth', type: 'time', group: 'Birth Data' },
   { key: '_location', label: 'Birth Location', type: 'location', group: 'Birth Data' },
   { key: 'latitude', label: 'Latitude', type: 'number', group: 'Birth Data', placeholder: '28.6139', step: 0.0001 },
   { key: 'longitude', label: 'Longitude', type: 'number', group: 'Birth Data', placeholder: '77.2090', step: 0.0001 },
+  langField,
   ...extra,
 ]
 
@@ -48,6 +51,7 @@ const calendarFields = (extra = []) => [
   { key: 'year', label: 'Year', type: 'number', group: 'Date' },
   { key: 'month', label: 'Month', type: 'number', group: 'Date', min: 1, max: 12 },
   { key: '_location', label: 'Location', type: 'location', group: 'Location' },
+  langField,
   ...extra,
 ]
 

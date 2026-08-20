@@ -1,11 +1,23 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 
 from ..models import CalendarPanchangRequest
 from ..utils import TITHI_NAMES
+from ..i18n import detect_language, translate_response
 
 router = APIRouter()
+
+# Field maps for calendar_api responses
+_PANCHANG_FIELDS = {
+    "tithi": "tithi",
+    "nakshatra": "nakshatra",
+    "yoga": "yoga",
+    "karana": "karana",
+    "paksha": "paksha",
+    "moonPhase": "moon_phase",
+    "weekday": "weekday",
+}
 
 
 class HinduCalendarRequest(CalendarPanchangRequest):
@@ -58,7 +70,8 @@ def _compute_panchang_for_day(year: int, month: int, day: int, lat: float, lon: 
 
 
 @router.post('/calendar-api/hindu')
-def hindu_calendar(body: HinduCalendarRequest):
+def hindu_calendar(body: HinduCalendarRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     days = _days_in_month(body.year, body.month)
     calendar_days = []
 
@@ -88,6 +101,9 @@ def hindu_calendar(body: HinduCalendarRequest):
             'hinduMonth': HINDU_MONTH_NAMES[hindu_month_idx + 1],
         })
 
+    # Translate all entries
+    calendar_days = translate_response(calendar_days, lang, _PANCHANG_FIELDS)
+
     return {
         'status': 200,
         'data': {
@@ -101,13 +117,17 @@ def hindu_calendar(body: HinduCalendarRequest):
 
 
 @router.post('/calendar-api/panchang')
-def panchang_month(body: PanchangRequest):
+def panchang_month(body: PanchangRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     days = _days_in_month(body.year, body.month)
     panchang_data = []
 
     for day in range(1, days + 1):
         panchang = _compute_panchang_for_day(body.year, body.month, day, body.latitude, body.longitude, body.timezone)
         panchang_data.append(panchang)
+
+    # Translate all entries before computing summaries
+    panchang_data = translate_response(panchang_data, lang, _PANCHANG_FIELDS)
 
     tithi_summary = {}
     nakshatra_summary = {}

@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
@@ -6,8 +6,20 @@ import calendar
 
 from ..utils import to_julian, panchang_at_jd, sunrise_sunset, TITHI_NAMES
 from ..models import CalendarPanchangRequest
+from ..i18n import detect_language, translate_response
 
 router = APIRouter()
+
+# Field maps for calendar responses
+_PANCHANG_FIELDS = {
+    "tithi": "tithi",
+    "nakshatra": "nakshatra",
+    "yoga": "yoga",
+    "karana": "karana",
+    "paksha": "paksha",
+    "moonPhase": "moon_phase",
+    "weekday": "weekday",
+}
 
 
 class HinduCalendarRequest(CalendarPanchangRequest):
@@ -121,7 +133,8 @@ def generate_muhurat_windows(date_str: str, sunrise_time: str, sunset_time: str,
 
 
 @router.post("/calendar/hindu")
-def hindu_calendar(req: HinduCalendarRequest):
+def hindu_calendar(req: HinduCalendarRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     year = req.year
     month = req.month
     num_days = calendar.monthrange(year, month)[1]
@@ -149,6 +162,9 @@ def hindu_calendar(req: HinduCalendarRequest):
             "sunset": ss
         })
 
+    # Translate all daily entries
+    daily_data = translate_response(daily_data, lang, _PANCHANG_FIELDS)
+
     month_names = ["", "Chaitra", "Vaishakha", "Jyeshtha", "Ashadha", "Shravana", "Bhadrapada",
                    "Ashwin", "Kartik", "Margashirsha", "Pausha", "Magha", "Phalguna"]
 
@@ -166,7 +182,8 @@ def hindu_calendar(req: HinduCalendarRequest):
 
 
 @router.post("/calendar/panchang")
-def panchang_calendar(req: PanchangRequest):
+def panchang_calendar(req: PanchangRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     year = req.year
     month = req.month
     num_days = calendar.monthrange(year, month)[1]
@@ -202,6 +219,9 @@ def panchang_calendar(req: PanchangRequest):
             "sunrise": sr,
             "sunset": ss
         })
+
+    # Translate all entries
+    panchang_data = translate_response(panchang_data, lang, _PANCHANG_FIELDS)
 
     return {
         "status": 200,

@@ -40,8 +40,8 @@ from .middleware import APIKeyMiddleware
 
 app = FastAPI(
     title="Vedic Astrology API",
-    version="2.0.0",
-    description="Complete Vedic Astrology API with 180+ endpoints for birth charts, panchang, horoscopes, dasha, transits, compatibility, doshas, yogas, numerology, gemstones, rudraksha, muhurats, festivals, reports, AI interpretations, and more.",
+    version="2.1.0",
+    description="Complete Vedic Astrology API with 180+ endpoints for birth charts, panchang, horoscopes, dasha, transits, compatibility, doshas, yogas, numerology, gemstones, rudraksha, muhurats, festivals, reports, AI interpretations, and more. Supports 9 Indian languages (Hindi, Tamil, Telugu, Kannada, Malayalam, Bengali, Marathi, Gujarati, Punjabi) via the `lang` parameter or `Accept-Language` header.",
     openapi_tags=[
         {"name": "Charts - Visual", "description": "SVG chart generation: South Indian, North Indian, Grid, East Indian, Moon"},
         {"name": "Charts - Specialized", "description": "Dedicated charts: Navamsa (D9), Hora (D2), Sudarshana Chakra"},
@@ -50,7 +50,7 @@ app = FastAPI(
         {"name": "Birth Chart", "description": "Core Kundli / birth chart data"},
         {"name": "Horoscope", "description": "Daily, weekly, monthly, yearly horoscopes"},
         {"name": "Dasha", "description": "Vimshottari, Chara, Yogini, Kalachakra, Ashtottari dasha periods"},
-        {"name": "Panchang", "description": "Tithi, Nakshatra, Yoga, Karana, Muhurat calculations"},
+        {"name": "Panchang", "description": "Tithi, Nakshatra, Yoga, Karana, Muhurat calculations. Supports multi-language output (lang parameter)."},
         {"name": "Transit", "description": "Planetary transit analysis and predictions"},
         {"name": "Compatibility", "description": "Ashtakoot milan, gun milan, matching"},
         {"name": "Dosha", "description": "Manglik, Kaal Sarp, Shani, Nadi, Bhakoot, Yogini doshas"},
@@ -66,7 +66,7 @@ app = FastAPI(
         {"name": "Rudraksha", "description": "Rudraksha recommendations and identification"},
         {"name": "Numerology", "description": "Life path, destiny, soul, expression numbers"},
         {"name": "Festival", "description": "Hindu festival dates and calendars"},
-        {"name": "Calendar", "description": "Hindu calendar, panchang calendar, festival calendar"},
+        {"name": "Calendar", "description": "Hindu calendar, panchang calendar, festival calendar. Supports multi-language output (lang parameter)."},
         {"name": "Pooja", "description": "Pooja recommendations and booking"},
         {"name": "Lucky", "description": "Lucky color, number, day, metal based on numerology"},
         {"name": "Reports", "description": "PDF report generation - Kundli, Horoscope, Career, Health, Finance, Marriage"},
