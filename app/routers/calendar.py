@@ -4,25 +4,18 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 import calendar
 
-from ..utils import to_julian, panchang_at_jd, sunrise_sunset
+from ..utils import to_julian, panchang_at_jd, sunrise_sunset, TITHI_NAMES
+from ..models import CalendarPanchangRequest
 
 router = APIRouter()
 
 
-class HinduCalendarRequest(BaseModel):
-    year: int = Field(..., example=2025)
-    month: int = Field(..., ge=1, le=12, example=6)
-    latitude: float = Field(..., example=28.6139)
-    longitude: float = Field(..., example=77.2090)
-    timezone: str = Field(..., example="Asia/Kolkata")
+class HinduCalendarRequest(CalendarPanchangRequest):
+    pass
 
 
-class PanchangRequest(BaseModel):
-    year: int = Field(..., example=2025)
-    month: int = Field(..., ge=1, le=12, example=6)
-    latitude: float = Field(..., example=28.6139)
-    longitude: float = Field(..., example=77.2090)
-    timezone: str = Field(..., example="Asia/Kolkata")
+class PanchangRequest(CalendarPanchangRequest):
+    pass
 
 
 class FestivalCalendarRequest(BaseModel):
@@ -47,15 +40,6 @@ NAKSHATRAS = [
     ('Mula', 'Ketu'), ('Purva Ashadha', 'Venus'), ('Uttara Ashadha', 'Sun'),
     ('Shravana', 'Moon'), ('Dhanishta', 'Mars'), ('Shatabhisha', 'Rahu'),
     ('Purva Bhadrapada', 'Jupiter'), ('Uttara Bhadrapada', 'Saturn'), ('Revati', 'Mercury')
-]
-
-TITHI_NAMES = [
-    'Pratipada', 'Dwitiya', 'Tritiya', 'Chaturthi', 'Panchami',
-    'Shashthi', 'Saptami', 'Ashtami', 'Navami', 'Dashami',
-    'Ekadashi', 'Dwadashi', 'Trayodashi', 'Chaturdashi', 'Purnima',
-    'Pratipada', 'Dwitiya', 'Tritiya', 'Chaturthi', 'Panchami',
-    'Shashthi', 'Saptami', 'Ashtami', 'Navami', 'Dashami',
-    'Ekadashi', 'Dwadashi', 'Trayodashi', 'Chaturdashi', 'Amavasya'
 ]
 
 

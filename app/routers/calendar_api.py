@@ -2,24 +2,18 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 
+from ..models import CalendarPanchangRequest
+from ..utils import TITHI_NAMES
 
 router = APIRouter()
 
 
-class HinduCalendarRequest(BaseModel):
-    year: int = Field(..., example=2026)
-    month: int = Field(..., example=7)
-    latitude: float = Field(..., example=28.6139)
-    longitude: float = Field(..., example=77.2090)
-    timezone: str = Field(..., example="Asia/Kolkata")
+class HinduCalendarRequest(CalendarPanchangRequest):
+    pass
 
 
-class PanchangRequest(BaseModel):
-    year: int = Field(..., example=2026)
-    month: int = Field(..., example=7)
-    latitude: float = Field(..., example=28.6139)
-    longitude: float = Field(..., example=77.2090)
-    timezone: str = Field(..., example="Asia/Kolkata")
+class PanchangRequest(CalendarPanchangRequest):
+    pass
 
 
 class FestivalRequest(BaseModel):
@@ -29,12 +23,7 @@ class FestivalRequest(BaseModel):
     timezone: Optional[str] = Field("Asia/Kolkata", example="Asia/Kolkata")
 
 
-class MuhuratRequest(BaseModel):
-    year: int = Field(..., example=2026)
-    month: int = Field(..., example=7)
-    latitude: float = Field(..., example=28.6139)
-    longitude: float = Field(..., example=77.2090)
-    timezone: str = Field(..., example="Asia/Kolkata")
+class MuhuratRequest(CalendarPanchangRequest):
     activity: Optional[str] = Field(None, example="marriage")
 
 
@@ -43,13 +32,6 @@ MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
 
 HINDU_MONTH_NAMES = ['', 'Chaitra', 'Vaishakha', 'Jyeshtha', 'Ashadha', 'Shravana', 'Bhadrapada',
                      'Ashwini', 'Kartik', 'Margashirsha', 'Pausa', 'Magha', 'Phalguna']
-
-TITHI_NAMES_FULL = [
-    'Pratipada', 'Dwitiya', 'Tritiya', 'Chaturthi', 'Panchami', 'Shashthi', 'Saptami',
-    'Ashtami', 'Navami', 'Dashami', 'Ekadashi', 'Dwadashi', 'Trayodashi', 'Chaturdashi', 'Purnima',
-    'Pratipada', 'Dwitiya', 'Tritiya', 'Chaturthi', 'Panchami', 'Shashthi', 'Saptami',
-    'Ashtami', 'Navami', 'Dashami', 'Ekadashi', 'Dwadashi', 'Trayodashi', 'Chaturdashi', 'Amavasya'
-]
 
 
 def _days_in_month(year: int, month: int) -> int:
@@ -63,7 +45,7 @@ def _days_in_month(year: int, month: int) -> int:
 
 
 def _compute_panchang_for_day(year: int, month: int, day: int, lat: float, lon: float, tz: str) -> Dict[str, Any]:
-    from ..main import to_julian, panchang_at_jd, sunrise_sunset
+    from ..utils import to_julian, panchang_at_jd, sunrise_sunset
     date_str = f"{year}-{month:02d}-{day:02d}"
     jd = to_julian(date_str, '12:00', tz)
     panchang = panchang_at_jd(jd)

@@ -292,9 +292,9 @@ def panchang_at_jd(jd: float) -> Dict[str, Any]:
     yoga_sum = (s_lon + m_lon) % 360.0
     yoga_num = int(yoga_sum // 13.333333) + 1
     yoga_name = YOGA_NAMES[(yoga_num - 1) % 27]
-    kar_index = int((diff % 12) // 6)
-    kar_name = KARANA_SEQUENCE[min(kar_index, len(KARANA_SEQUENCE) - 1)]
-    moon_phase = 'Full Moon' if tithi_num == 15 else ('New Moon' if tithi_num == 30 else ('Waxing' if tithi_num < 15 else 'Waning'))
+    kar_index = int(diff // 6) % len(KARANA_SEQUENCE)
+    kar_name = KARANA_SEQUENCE[kar_index]
+    moon_phase = 'Full Moon' if tithi_num == 15 else ('Amavasya' if tithi_num == 30 else ('Waxing' if tithi_num < 15 else 'Waning'))
     return {
         'tithi': tithi_name,
         'tithiNumber': tithi_num,
