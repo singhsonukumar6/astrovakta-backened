@@ -1,9 +1,24 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional
 
+from ..i18n import detect_language, translate_response, t as _t
 
 router = APIRouter()
+
+# Field → translation category mapping for gemstone responses
+_GEMSTONE_FIELDS = {
+    "planet": "planet",
+    "ascendantLord": "planet",
+    "currentDashaLord": "planet",
+    "mahadasha": "planet",
+    "antardasha": "planet",
+    "lagnaSign": "zodiac",
+    "lagnaLord": "planet",
+    "name": "gemstone",
+    "gemstoneName": "gemstone",
+    "day": "weekday",
+}
 
 
 class BirthDetailRequest(BaseModel):
@@ -12,6 +27,7 @@ class BirthDetailRequest(BaseModel):
     latitude: float = Field(..., example=28.6139)
     longitude: float = Field(..., example=77.2090)
     timezone: str = Field(..., example="Asia/Kolkata")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class WeightRequest(BaseModel):
@@ -22,11 +38,13 @@ class WeightRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     bodyWeightKg: Optional[float] = Field(None, example=70)
     planet: Optional[str] = Field(None, example="Sun")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class ByPlanetRequest(BaseModel):
     planet: str = Field(..., example="Sun")
     bodyWeightKg: Optional[float] = Field(None, example=70)
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 GEMSTONE_DATA = {
@@ -358,7 +376,8 @@ def _build_response(planet, gemstone_info, wearing_info=None):
 
 
 @router.post('/gemstone/recommendation')
-def gemstone_recommendation(body: BirthDetailRequest):
+def gemstone_recommendation(body: BirthDetailRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     planets, houses, dasha = _calc_birth_chart(
         body.dateOfBirth, body.timeOfBirth, body.latitude, body.longitude, body.timezone
     )
@@ -397,20 +416,22 @@ def gemstone_recommendation(body: BirthDetailRequest):
                 'hindiName': alt_gemstone['hindiName'],
                 'reason': f'Ascendant Lord ({asc_lord})'
             }
-    return resp
+    return translate_response(resp, lang, _GEMSTONE_FIELDS)
 
 
 @router.post('/gemstone/by-planet')
-def gemstone_by_planet(body: ByPlanetRequest):
+def gemstone_by_planet(body: ByPlanetRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     planet = body.planet.strip().title()
     if planet not in PLANET_NAMES:
         return {'status': 400, 'error': f'Invalid planet: {body.planet}. Valid planets: {", ".join(PLANET_NAMES)}'}
     gemstone_info = _get_gemstone_info(planet, body.bodyWeightKg)
-    return _build_response(planet, gemstone_info)
+    return translate_response(_build_response(planet, gemstone_info), lang, _GEMSTONE_FIELDS)
 
 
 @router.post('/gemstone/by-lagna')
-def gemstone_by_lagna(body: BirthDetailRequest):
+def gemstone_by_lagna(body: BirthDetailRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     planets, houses, _ = _calc_birth_chart(
         body.dateOfBirth, body.timeOfBirth, body.latitude, body.longitude, body.timezone
     )
@@ -421,11 +442,12 @@ def gemstone_by_lagna(body: BirthDetailRequest):
     resp = _build_response(asc_lord, gemstone_info)
     resp['lagnaSign'] = houses.get('ascendant', {}).get('sign', 'Unknown')
     resp['lagnaLord'] = asc_lord
-    return resp
+    return translate_response(resp, lang, _GEMSTONE_FIELDS)
 
 
 @router.post('/gemstone/by-dasha')
-def gemstone_by_dasha(body: BirthDetailRequest):
+def gemstone_by_dasha(body: BirthDetailRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, vimshottari_full, parse_local_datetime
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     birth_local = parse_local_datetime(body.dateOfBirth, body.timeOfBirth, body.timezone)
@@ -460,11 +482,12 @@ def gemstone_by_dasha(body: BirthDetailRequest):
                 'name': ad_gemstone['name'],
                 'hindiName': ad_gemstone['hindiName']
             }
-    return resp
+    return translate_response(resp, lang, _GEMSTONE_FIELDS)
 
 
 @router.post('/gemstone/wearing')
-def gemstone_wearing(body: BirthDetailRequest):
+def gemstone_wearing(body: BirthDetailRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     planets, houses, dasha = _calc_birth_chart(
         body.dateOfBirth, body.timeOfBirth, body.latitude, body.longitude, body.timezone
     )
@@ -513,11 +536,12 @@ def gemstone_wearing(body: BirthDetailRequest):
         'dos': gemstone_info['dos'],
         'donts': gemstone_info['donts']
     }
-    return _build_response(primary_planet, gemstone_info, wearing)
+    return translate_response(_build_response(primary_planet, gemstone_info, wearing), lang, _GEMSTONE_FIELDS)
 
 
 @router.post('/gemstone/weight')
-def gemstone_weight(body: WeightRequest):
+def gemstone_weight(body: WeightRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     planet = body.planet
     if not planet:
         planets, houses, _ = _calc_birth_chart(
@@ -558,11 +582,12 @@ def gemstone_weight(body: WeightRequest):
     else:
         result['note'] = 'Provide bodyWeightKg for personalized weight recommendation. Standard weight range is shown above.'
 
-    return result
+    return translate_response(result, lang, _GEMSTONE_FIELDS)
 
 
 @router.post('/gemstone/metal')
-def gemstone_metal(body: ByPlanetRequest):
+def gemstone_metal(body: ByPlanetRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     planet = body.planet.strip().title()
     if planet not in PLANET_NAMES:
         return {'status': 400, 'error': f'Invalid planet: {planet}. Valid planets: {", ".join(PLANET_NAMES)}'}
@@ -582,14 +607,14 @@ def gemstone_metal(body: ByPlanetRequest):
         'Ketu': 'Silver is the metal of Ketu. It enhances spiritual detachment, intuition, and liberation.'
     }
 
-    return {
+    return translate_response({
         'status': 200,
         'planet': planet,
         'gemstoneName': gemstone_info['name'],
         'recommendedMetal': gemstone_info['metal'],
         'metalNote': metal_notes.get(planet, ''),
         'alternativeMetals': _get_alternative_metals(planet)
-    }
+    }, lang, _GEMSTONE_FIELDS)
 
 
 def _get_alternative_metals(planet):
@@ -608,7 +633,8 @@ def _get_alternative_metals(planet):
 
 
 @router.post('/gemstone/finger')
-def gemstone_finger(body: ByPlanetRequest):
+def gemstone_finger(body: ByPlanetRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     planet = body.planet.strip().title()
     if planet not in PLANET_NAMES:
         return {'status': 400, 'error': f'Invalid planet: {planet}. Valid planets: {", ".join(PLANET_NAMES)}'}
@@ -650,7 +676,7 @@ def gemstone_finger(body: ByPlanetRequest):
     finger_name = gemstone_info['finger']
     finger_detail = finger_map.get(finger_name, {})
 
-    return {
+    return translate_response({
         'status': 200,
         'planet': planet,
         'gemstoneName': gemstone_info['name'],
@@ -661,4 +687,4 @@ def gemstone_finger(body: ByPlanetRequest):
         'fingerDescription': finger_detail.get('description', ''),
         'hand': 'Right hand (for natives)',
         'note': 'Always wear on the right hand for males and left hand for females unless prescribed otherwise by an astrologer.'
-    }
+    }, lang, _GEMSTONE_FIELDS)

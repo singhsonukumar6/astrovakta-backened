@@ -3,8 +3,8 @@ Panchaka Analysis + Gulika Position + Roga Nidana router.
 Traditional Vedic astrology calculations for panchaka, gulika, and disease prediction.
 """
 
-from fastapi import APIRouter
-from pydantic import BaseModel
+from fastapi import APIRouter, Request
+from pydantic import BaseModel, Field
 from ..utils import (
     to_julian,
     calc_planets,
@@ -22,6 +22,29 @@ import pytz
 from dateutil import parser as dtparser
 from typing import Optional
 
+from ..i18n import detect_language, translate_response, t as _t
+
+# Field → translation category mapping for panchaka responses
+_PANCHAKA_FIELDS = {
+    "type": "panchaka_type",
+    "severity": "dosha_severity",
+    "sign": "zodiac",
+    "gulika_sign": "zodiac",
+    "sixth_house_sign": "zodiac",
+    "nakshatra": "nakshatra",
+    "dasha_lord": "planet",
+    "sign_lord": "planet",
+    "sixth_lord": "planet",
+    "lord": "planet",
+    "planet": "planet",
+    "malefic": "planet",
+    "aspect": "transit_aspect",
+    "tithi": "tithi",
+    "yoga": "yoga",
+    "paksha": "paksha",
+    "karana": "karana",
+}
+
 router = APIRouter()
 
 
@@ -33,6 +56,7 @@ class PanchakaRequest(BaseModel):
     latitude: float
     longitude: float
     timezone: str
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 # ──────────────────────────── Constants ────────────────────────────
@@ -351,12 +375,13 @@ def _get_dasha_lord(nakshatra_index: int) -> str:
 
 
 @router.post("/horoscope/panchang/panchaka")
-def panchaka_analysis(body: PanchakaRequest):
+def panchaka_analysis(body: PanchakaRequest, request: Request):
     """
     Panchaka analysis for a given date/time/place.
     Determines the panchaka type from the Moon's nakshatra at birth
     and returns effects, severity, remedies, and day favourability.
     """
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     local_dt = _parse_local_dt(body.dateOfBirth, body.timeOfBirth, body.timezone)
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
 
@@ -402,7 +427,7 @@ def panchaka_analysis(body: PanchakaRequest):
     moon_nak_idx = next((i for i, n in enumerate(NAKSHATRAS) if n == moon_nak), 0)
     dasha_lord = _get_dasha_lord(moon_nak_idx)
 
-    return {
+    return translate_response({
         "status": "success",
         "input": {
             "dateOfBirth": body.dateOfBirth,
@@ -439,17 +464,18 @@ def panchaka_analysis(body: PanchakaRequest):
             "sign": gulika_sign,
         },
         "panchang": panchang,
-    }
+    }, lang, _PANCHAKA_FIELDS)
 
 
 # ──────────────────────────── Gulika Position ────────────────────────────
 
 
 @router.post("/horoscope/panchang/gulika-position")
-def gulika_position(body: PanchakaRequest):
+def gulika_position(body: PanchakaRequest, request: Request):
     """
     Calculate Gulika (Mandi) position in the natal chart and its effects.
     """
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     local_dt = _parse_local_dt(body.dateOfBirth, body.timeOfBirth, body.timezone)
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     weekday = local_dt.weekday()
@@ -508,7 +534,7 @@ def gulika_position(body: PanchakaRequest):
     elif gulika_house == 12:
         severity = "Medium (expenditure and hospitalisation)"
 
-    return {
+    return translate_response({
         "status": "success",
         "input": {
             "dateOfBirth": body.dateOfBirth,
@@ -536,14 +562,14 @@ def gulika_position(body: PanchakaRequest):
             "saturn_longitude": round(saturn_long, 4),
             "ascendant_longitude": round(asc_long, 4),
         },
-    }
+    }, lang, _PANCHAKA_FIELDS)
 
 
 # ──────────────────────────── Roga Nidana ────────────────────────────
 
 
 @router.post("/horoscope/panchang/roga-nidana")
-def roga_nidana(body: PanchakaRequest):
+def roga_nidana(body: PanchakaRequest, request: Request):
     """
     Disease prediction (Roga Nidana) based on:
     - 6th house and 6th lord
@@ -551,6 +577,7 @@ def roga_nidana(body: PanchakaRequest):
     - Gulika position
     - Ascendant lord and ascendant sign
     """
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     local_dt = _parse_local_dt(body.dateOfBirth, body.timeOfBirth, body.timezone)
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     weekday = local_dt.weekday()
@@ -754,7 +781,7 @@ def roga_nidana(body: PanchakaRequest):
             "house": _house_from_long(plon, cusps),
         }
 
-    return {
+    return translate_response({
         "status": "success",
         "input": {
             "dateOfBirth": body.dateOfBirth,
@@ -776,4 +803,4 @@ def roga_nidana(body: PanchakaRequest):
         "hidden_disease_note": hidden_disease_note,
         "planet_positions": planet_positions,
         "remedies": remedies,
-    }
+    }, lang, _PANCHAKA_FIELDS)

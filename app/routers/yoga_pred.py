@@ -1,6 +1,17 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional
+
+from ..i18n import detect_language, translate_response, t as _t
+
+# Field → translation category mapping for yoga prediction responses
+_YOGA_FIELDS = {
+    "name": "yoga_name",
+    "yoga": "yoga_name",
+    "sign": "zodiac",
+    "dignity": "planet_status",
+    "level": "yoga_strength",
+}
 
 from ..utils import (
     to_julian, calc_planets, calc_houses, get_sign, get_nakshatra,
@@ -18,6 +29,7 @@ class YogaPredRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     houseSystem: Optional[str] = Field('W', example='W')
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class YogaDetailedRequest(YogaPredRequest):
@@ -642,7 +654,8 @@ def _enrich_yoga(yoga_name: str, yoga_info: dict, detected_yoga: dict, planets: 
 
 
 @router.post('/horoscope/yoga/predictions')
-def yoga_predictions(body: YogaPredRequest):
+def yoga_predictions(body: YogaPredRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     planets, houses_data, asc_sign, detected = _compute_chart(body)
 
     enriched = []
@@ -653,16 +666,17 @@ def yoga_predictions(body: YogaPredRequest):
 
     return {
         'status': 200,
-        'data': {
+        'data': translate_response({
             'ascendant': houses_data.get('ascendant', {}),
             'totalYogasDetected': len(enriched),
             'yogas': enriched,
-        },
+        }, lang, _YOGA_FIELDS),
     }
 
 
 @router.post('/horoscope/yoga/detailed')
-def yoga_detailed(body: YogaDetailedRequest):
+def yoga_detailed(body: YogaDetailedRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     planets, houses_data, asc_sign, detected = _compute_chart(body)
 
     target = body.yogaName.strip()
@@ -692,7 +706,7 @@ def yoga_detailed(body: YogaDetailedRequest):
 
     return {
         'status': 200,
-        'data': enriched,
+        'data': translate_response(enriched, lang, _YOGA_FIELDS),
     }
 
 
@@ -782,14 +796,15 @@ def _compute_score(planets: list, detected: list) -> dict:
 
 
 @router.post('/horoscope/yoga/score')
-def yoga_score(body: YogaPredRequest):
+def yoga_score(body: YogaPredRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     planets, houses_data, asc_sign, detected = _compute_chart(body)
     score_data = _compute_score(planets, detected)
 
     return {
         'status': 200,
-        'data': {
+        'data': translate_response({
             'ascendant': houses_data.get('ascendant', {}),
             **score_data,
-        },
+        }, lang, _YOGA_FIELDS),
     }

@@ -1,5 +1,12 @@
 """Shared Pydantic models for panchang and calendar endpoints."""
 from pydantic import BaseModel, Field, model_validator
+from typing import Optional
+
+
+class LangMixin:
+    """Mixin that adds a `lang` field for multi-language response support."""
+    lang: str = Field("en", example="hi",
+                      description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class BaseLocationRequest(BaseModel):

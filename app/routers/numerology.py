@@ -1,5 +1,12 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
+
+from ..i18n import detect_language, translate_response, t as _t
+
+# Field → translation category mapping for numerology responses
+_NUMEROLOGY_FIELDS = {
+    "rating": "muhurat_rating",
+}
 
 router = APIRouter()
 
@@ -212,30 +219,37 @@ def format_interpretation_response(number: int, description: str) -> dict:
 
 class LifePathRequest(BaseModel):
     dateOfBirth: str = Field(..., example="1990-05-15")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class DestinyRequest(BaseModel):
     fullName: str = Field(..., example="John Michael Smith")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class SoulRequest(BaseModel):
     fullName: str = Field(..., example="John Michael Smith")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class ExpressionRequest(BaseModel):
     fullName: str = Field(..., example="John Michael Smith")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class MobileRequest(BaseModel):
     mobileNumber: str = Field(..., example="9876543210")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class VehicleRequest(BaseModel):
     vehicleNumber: str = Field(..., example="MH12AB1234")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 @router.post('/numerology/life-path')
-def life_path_number(body: LifePathRequest):
+def life_path_number(body: LifePathRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     parts = body.dateOfBirth.replace('-', '').replace('/', '').replace('.', '')
     digits = [int(d) for d in parts if d.isdigit()]
 
@@ -262,11 +276,12 @@ def life_path_number(body: LifePathRequest):
         f"{interp['overall']}"
     )
 
-    return format_interpretation_response(life_path, description)
+    return translate_response(format_interpretation_response(life_path, description), lang, _NUMEROLOGY_FIELDS)
 
 
 @router.post('/numerology/destiny')
-def destiny_number(body: DestinyRequest):
+def destiny_number(body: DestinyRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     name = body.fullName.upper().strip()
     total = sum(letter_to_number(ch) for ch in name if ch.isalpha())
     destiny = reduce_to_single(total)
@@ -279,11 +294,12 @@ def destiny_number(body: DestinyRequest):
         f"{interp['overall']}"
     )
 
-    return format_interpretation_response(destiny, description)
+    return translate_response(format_interpretation_response(destiny, description), lang, _NUMEROLOGY_FIELDS)
 
 
 @router.post('/numerology/soul')
-def soul_number(body: SoulRequest):
+def soul_number(body: SoulRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     name = body.fullName.upper().strip()
     vowel_total = sum(letter_to_number(ch) for ch in name if ch in VOWELS)
     soul = reduce_to_single(vowel_total) if vowel_total > 0 else 0
@@ -296,11 +312,12 @@ def soul_number(body: SoulRequest):
         f"{interp['overall']}"
     )
 
-    return format_interpretation_response(soul, description)
+    return translate_response(format_interpretation_response(soul, description), lang, _NUMEROLOGY_FIELDS)
 
 
 @router.post('/numerology/expression')
-def expression_number(body: ExpressionRequest):
+def expression_number(body: ExpressionRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     name = body.fullName.upper().strip()
     total = sum(letter_to_number(ch) for ch in name if ch.isalpha())
     expression = reduce_to_single(total)
@@ -313,11 +330,12 @@ def expression_number(body: ExpressionRequest):
         f"{interp['overall']}"
     )
 
-    return format_interpretation_response(expression, description)
+    return translate_response(format_interpretation_response(expression, description), lang, _NUMEROLOGY_FIELDS)
 
 
 @router.post('/numerology/mobile')
-def mobile_number(body: MobileRequest):
+def mobile_number(body: MobileRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     digits = [int(d) for d in body.mobileNumber if d.isdigit()]
     total = sum(digits)
     mobile_num = reduce_to_single(total)
@@ -330,17 +348,18 @@ def mobile_number(body: MobileRequest):
         f"{interp['overall']}"
     )
 
-    return {
+    return translate_response({
         "status": 200,
         "number": mobile_num,
         "rating": rating,
         "interpretation": interp,
         "description": description
-    }
+    }, lang, _NUMEROLOGY_FIELDS)
 
 
 @router.post('/numerology/vehicle')
-def vehicle_number(body: VehicleRequest):
+def vehicle_number(body: VehicleRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     digits = [int(d) for d in body.vehicleNumber if d.isdigit()]
     total = sum(digits)
     vehicle_num = reduce_to_single(total)
@@ -354,13 +373,13 @@ def vehicle_number(body: VehicleRequest):
         f"{interp['overall']}"
     )
 
-    return {
+    return translate_response({
         "status": 200,
         "number": vehicle_num,
         "rating": rating,
         "interpretation": interp,
         "description": description
-    }
+    }, lang, _NUMEROLOGY_FIELDS)
 
 
 

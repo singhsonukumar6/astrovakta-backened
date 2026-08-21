@@ -1,10 +1,21 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional
 
 from ..response import success, error
+from ..i18n import detect_language, translate_response, t as _t
 
 router = APIRouter()
+
+# Field → translation category mapping for yogini dosha response
+_YOGINI_FIELDS = {
+    "moonNakshatra": "nakshatra",
+    "moonNakshatraLord": "planet",
+    "severity": "dosha_severity",
+    "doshaType": "dosha_severity",
+    "ascendantSign": "zodiac",
+    "ascendantLord": "planet",
+}
 
 
 class BirthRequest(BaseModel):
@@ -15,6 +26,7 @@ class BirthRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     houseSystem: Optional[str] = Field('W', example='W')
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 YOGINI_NAKSHATRA_MAP = [
@@ -108,7 +120,8 @@ YOGINI_DOSHA_RULES = {
 
 
 @router.post('/yogini/dosha')
-def yogini_dosha(body: BirthRequest):
+def yogini_dosha(body: BirthRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, NAKSHATRAS
     import pytz
     from datetime import datetime
@@ -162,7 +175,7 @@ def yogini_dosha(body: BirthRequest):
             severity_score += 1
         severity = 'High' if severity_score >= 3 else ('Moderate' if severity_score >= 2 else 'Mild')
 
-    return success({
+    data = translate_response({
             'moonNakshatra': nakshatra_name,
             'moonNakshatraLord': nakshatra_lord,
             'moonNakshatraNumber': nk_idx + 1,
@@ -176,4 +189,5 @@ def yogini_dosha(body: BirthRequest):
             'additionalFactors': additional_factors,
             'ascendantSign': asc_sign,
             'ascendantLord': asc_lord,
-    }, "Yogini Dosha")
+    }, lang, _YOGINI_FIELDS)
+    return success(data, "Yogini Dosha")

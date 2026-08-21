@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -8,6 +8,17 @@ import pytz
 from ..utils import to_julian, calc_planets, sunrise_sunset, ZODIAC_SIGNS
 import swisseph as swe
 
+from ..i18n import detect_language, translate_response, t as _t
+
+# Field → translation category mapping for utility responses
+_UTILITY_FIELDS = {
+    "name": "planet",
+    "sign": "zodiac",
+    "motion": "planet_status",
+    "paksha": "paksha",
+    "phaseName": "moon_phase",
+}
+
 router = APIRouter()
 
 
@@ -15,6 +26,7 @@ class AyanamsaRequest(BaseModel):
     date: str = Field(..., example="2025-01-15")
     time: Optional[str] = Field("12:00", example="12:00")
     timezone: Optional[str] = Field("Asia/Kolkata", example="Asia/Kolkata")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class EphemerisRequest(BaseModel):
@@ -22,6 +34,7 @@ class EphemerisRequest(BaseModel):
     time: Optional[str] = Field("12:00", example="12:00")
     timezone: Optional[str] = Field("Asia/Kolkata", example="Asia/Kolkata")
     nodeMode: Optional[str] = Field("mean", example="mean")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class PlanetSpeedRequest(BaseModel):
@@ -29,12 +42,14 @@ class PlanetSpeedRequest(BaseModel):
     time: Optional[str] = Field("12:00", example="12:00")
     timezone: Optional[str] = Field("Asia/Kolkata", example="Asia/Kolkata")
     nodeMode: Optional[str] = Field("mean", example="mean")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class LunarPhaseRequest(BaseModel):
     date: str = Field(..., example="2025-06-15")
     time: Optional[str] = Field("12:00", example="12:00")
     timezone: Optional[str] = Field("Asia/Kolkata", example="Asia/Kolkata")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class EclipseRequest(BaseModel):
@@ -42,6 +57,7 @@ class EclipseRequest(BaseModel):
     time: Optional[str] = Field("12:00", example="12:00")
     timezone: Optional[str] = Field("Asia/Kolkata", example="Asia/Kolkata")
     rangeDays: Optional[int] = Field(30, ge=1, le=90, example=30)
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class SunriseSunsetRequest(BaseModel):
@@ -49,12 +65,14 @@ class SunriseSunsetRequest(BaseModel):
     latitude: float = Field(..., example=28.6139)
     longitude: float = Field(..., example=77.2090)
     timezone: str = Field(..., example="Asia/Kolkata")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class JulianDayRequest(BaseModel):
     date: str = Field(..., example="2025-06-15")
     time: str = Field(..., example="12:00")
     timezone: str = Field(..., example="Asia/Kolkata")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 def get_moon_phase_name(moon_age: float) -> str:
@@ -105,7 +123,8 @@ def calculate_ayanamsa(req: AyanamsaRequest):
 
 
 @router.post("/utility/ephemeris")
-def ephemeris_positions(req: EphemerisRequest):
+def ephemeris_positions(req: EphemerisRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     try:
         jd = to_julian(req.date, req.time or "12:00", req.timezone or "Asia/Kolkata")
         swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
@@ -143,7 +162,7 @@ def ephemeris_positions(req: EphemerisRequest):
 
         ayan = swe.get_ayanamsa(jd)
 
-        return {
+        return translate_response({
             "status": 200,
             "data": {
                 "date": req.date,
@@ -155,13 +174,14 @@ def ephemeris_positions(req: EphemerisRequest):
                 "planets": planets,
                 "totalPlanets": len([p for p in planets if 'error' not in p])
             }
-        }
+        }, lang, _UTILITY_FIELDS)
     except Exception as e:
         return {"status": 500, "error": str(e), "message": "Error calculating ephemeris"}
 
 
 @router.post("/utility/planet-speed")
-def planet_speed(req: PlanetSpeedRequest):
+def planet_speed(req: PlanetSpeedRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     try:
         jd = to_julian(req.date, req.time or "12:00", req.timezone or "Asia/Kolkata")
         swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
@@ -187,7 +207,7 @@ def planet_speed(req: PlanetSpeedRequest):
             except Exception as ex:
                 speeds.append({"name": name, "error": str(ex)})
 
-        return {
+        return translate_response({
             "status": 200,
             "data": {
                 "date": req.date,
@@ -196,13 +216,14 @@ def planet_speed(req: PlanetSpeedRequest):
                 "planetSpeeds": speeds,
                 "unit": "degrees per day"
             }
-        }
+        }, lang, _UTILITY_FIELDS)
     except Exception as e:
         return {"status": 500, "error": str(e), "message": "Error calculating planet speeds"}
 
 
 @router.post("/utility/lunar-phase")
-def lunar_phase(req: LunarPhaseRequest):
+def lunar_phase(req: LunarPhaseRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     try:
         jd = to_julian(req.date, req.time or "12:00", req.timezone or "Asia/Kolkata")
         swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
@@ -220,7 +241,7 @@ def lunar_phase(req: LunarPhaseRequest):
         tithi_num = int(diff // 12) + 1
         paksha = 'Shukla' if tithi_num <= 15 else 'Krishna'
 
-        return {
+        return translate_response({
             "status": 200,
             "data": {
                 "date": req.date,
@@ -238,7 +259,7 @@ def lunar_phase(req: LunarPhaseRequest):
                 "nextFullMoon": "Approximately when moon reaches 180° from Sun",
                 "nextNewMoon": "Approximately when moon reaches 0°/360° from Sun"
             }
-        }
+        }, lang, _UTILITY_FIELDS)
     except Exception as e:
         return {"status": 500, "error": str(e), "message": "Error calculating lunar phase"}
 

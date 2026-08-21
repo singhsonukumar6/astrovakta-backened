@@ -1,10 +1,12 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 import swisseph as swe
 import pytz
 from dateutil import parser
+
+from ..i18n import detect_language, translate_response, t as _t
 
 from ..utils import (
     to_julian, calc_planets, calc_houses, get_sign, get_nakshatra,
@@ -13,6 +15,23 @@ from ..utils import (
 )
 
 router = APIRouter()
+
+# Field → translation category mapping for Varshaphal responses
+_VARSHAPHAL_FIELDS = {
+    "sign": "zodiac",
+    "planet1Sign": "zodiac",
+    "planet2Sign": "zodiac",
+    "planet": "planet",
+    "planet1": "planet",
+    "planet2": "planet",
+    "signLord": "planet",
+    "dignity": "planet_status",
+    "houseStatus": "planet_status",
+    "name": "yoga_name",
+    "strength": "yoga_strength",
+    "aspect": "transit_aspect",
+    "domain": "prediction_label",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -28,6 +47,7 @@ class VarshaphalRequest(BaseModel):
     year: int = Field(2026, description="Target year for the annual return chart")
     houseSystem: Optional[str] = Field('W', example='W')
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 # ---------------------------------------------------------------------------
@@ -313,8 +333,9 @@ def _tajika_aspect_type(lon1: float, lon2: float) -> Optional[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 @router.post('/horoscope/varshaphal')
-def varshaphal_chart(body: VarshaphalRequest) -> Dict[str, Any]:
+def varshaphal_chart(body: VarshaphalRequest, request: Request) -> Dict[str, Any]:
     """Annual Solar Return (Varshaphal) chart for the target year."""
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
 
     birth_jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     sr_jd = _find_solar_return_jd(
@@ -401,7 +422,7 @@ def varshaphal_chart(body: VarshaphalRequest) -> Dict[str, Any]:
 
     return {
         'success': True,
-        'data': {
+        'data': translate_response({
             'returnDate': return_date_info,
             'ascendant': asc_info,
             'planets': planets,
@@ -410,7 +431,7 @@ def varshaphal_chart(body: VarshaphalRequest) -> Dict[str, Any]:
             'yogas': yogas,
             'predictions': predictions,
             'yearSummary': _generate_year_summary(planets, muntha, yogas, asc_sign),
-        }
+        }, lang, _VARSHAPHAL_FIELDS)
     }
 
 
@@ -483,8 +504,9 @@ def _tajika_monthly_aspects(planets: list, target_year: int, tz_name: str, lat: 
 
 
 @router.post('/horoscope/varshaphal/prediction')
-def varshaphal_prediction(body: VarshaphalRequest) -> Dict[str, Any]:
+def varshaphal_prediction(body: VarshaphalRequest, request: Request) -> Dict[str, Any]:
     """Detailed year prediction with monthly Tajika breakdown."""
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
 
     birth_jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     sr_jd = _find_solar_return_jd(
@@ -559,7 +581,7 @@ def varshaphal_prediction(body: VarshaphalRequest) -> Dict[str, Any]:
 
     return {
         'success': True,
-        'data': {
+        'data': translate_response({
             'returnDate': {
                 'date': sr_dt_local.strftime('%Y-%m-%d'),
                 'time': sr_dt_local.strftime('%H:%M:%S'),
@@ -570,7 +592,7 @@ def varshaphal_prediction(body: VarshaphalRequest) -> Dict[str, Any]:
             'overallPredictions': overall,
             'monthlyPredictions': month_predictions,
             'yogas': yogas,
-        }
+        }, lang, _VARSHAPHAL_FIELDS)
     }
 
 
@@ -645,8 +667,9 @@ def _generate_domain_prediction(domain: str, planets: list, muntha: dict, house_
 # ---------------------------------------------------------------------------
 
 @router.post('/horoscope/varshaphal/tajika-aspects')
-def varshaphal_tajika_aspects(body: VarshaphalRequest) -> Dict[str, Any]:
+def varshaphal_tajika_aspects(body: VarshaphalRequest, request: Request) -> Dict[str, Any]:
     """Return all Tajika (annual) aspects between planets for the solar return chart."""
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
 
     birth_jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     sr_jd = _find_solar_return_jd(
@@ -723,7 +746,7 @@ def varshaphal_tajika_aspects(body: VarshaphalRequest) -> Dict[str, Any]:
 
     return {
         'success': True,
-        'data': {
+        'data': translate_response({
             'returnDate': {
                 'date': sr_dt_local.strftime('%Y-%m-%d'),
                 'time': sr_dt_local.strftime('%H:%M:%S'),
@@ -741,5 +764,5 @@ def varshaphal_tajika_aspects(body: VarshaphalRequest) -> Dict[str, Any]:
             },
             'tajikaSahams': sahams,
             'ithasalaChart': ithasala_pairs,
-        }
+        }, lang, _VARSHAPHAL_FIELDS)
     }

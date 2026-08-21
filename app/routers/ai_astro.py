@@ -18,6 +18,7 @@ class BirthRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     houseSystem: Optional[str] = Field('W', example='W')
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 class ChatRequest(BaseModel):
     question: str = Field(..., example="When will I get married?")
@@ -29,6 +30,7 @@ class ChatRequest(BaseModel):
     houseSystem: Optional[str] = Field('W', example='W')
     nodeMode: Optional[str] = Field('mean', example='mean')
     useAI: Optional[bool] = Field(True, description="Use real AI provider for predictions")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 class CompatRequest(BaseModel):
     dateOfBirth: str = Field(..., example="1990-05-15")
@@ -43,6 +45,7 @@ class CompatRequest(BaseModel):
     partnerTimezone: str = Field(..., example="Asia/Kolkata")
     houseSystem: Optional[str] = Field('W', example='W')
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 # ── Data ──────────────────────────────────────────────────────────────────
 GEMS = {'Sun':('Ruby','authority and vitality'),'Moon':('Pearl','emotional balance'),

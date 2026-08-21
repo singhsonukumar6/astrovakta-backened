@@ -49,6 +49,7 @@ class YearCalendarRequest(BaseModel):
     longitude: float = Field(..., example=77.2090)
     timezone: str = Field(..., example="Asia/Kolkata")
     month: Optional[int] = Field(None, ge=1, le=12, example=3)
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 class MonthlySummaryRequest(BaseModel):
     year: int = Field(..., example=2026)
@@ -56,6 +57,7 @@ class MonthlySummaryRequest(BaseModel):
     longitude: float = Field(..., example=77.2090)
     timezone: str = Field(..., example="Asia/Kolkata")
     month: int = Field(..., ge=1, le=12, example=10)
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 class AuspiciousDatesRequest(BaseModel):
     year: int = Field(..., example=2026)
@@ -64,6 +66,7 @@ class AuspiciousDatesRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     purpose: str = Field("general", example="marriage")
     month: Optional[int] = Field(None, ge=1, le=12)
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

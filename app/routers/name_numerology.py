@@ -1,7 +1,15 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 from typing import Optional
 import re
+
+from ..i18n import detect_language, translate_response, t as _t
+
+# Field → translation category mapping for name numerology responses
+_NAME_NUM_FIELDS = {
+    "dynamics": "compatibility_verdict_detail",
+    "advice": "compatibility_verdict_detail",
+}
 
 router = APIRouter()
 
@@ -300,6 +308,7 @@ def _get_lucky_elements(num: int) -> dict:
 
 class NameRequest(BaseModel):
     name: str = Field(..., min_length=1, description="Full name to analyse")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class NameNumberResponse(BaseModel):
@@ -314,6 +323,7 @@ class NameNumberResponse(BaseModel):
 class NameCompatRequest(BaseModel):
     name1: str = Field(..., min_length=1)
     name2: str = Field(..., min_length=1)
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class NameCompatResponse(BaseModel):
@@ -329,6 +339,7 @@ class NameCompatResponse(BaseModel):
 class BusinessNameRequest(BaseModel):
     name: str = Field(..., min_length=1)
     dateOfBirth: Optional[str] = None
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class BusinessNameResponse(BaseModel):
@@ -346,6 +357,7 @@ class BabyNameSuggestionRequest(BaseModel):
     targetNumber: int = Field(..., ge=1, le=33)
     gender: Optional[str] = None
     startingLetter: Optional[str] = None
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class BabyNameItem(BaseModel):
@@ -364,7 +376,8 @@ class BabyNameResponse(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/api/numerology/name-number", response_model=NameNumberResponse)
-async def calculate_name_vibration(req: NameRequest):
+async def calculate_name_vibration(req: NameRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     cleaned = _clean_name(req.name)
     if not cleaned:
         raise HTTPException(status_code=400, detail="Name must contain at least one letter.")
@@ -387,18 +400,19 @@ async def calculate_name_vibration(req: NameRequest):
     for ch in cleaned:
         breakdown[ch] = PYTHAGOREAN.get(ch, 0)
 
-    return NameNumberResponse(
+    return translate_response(NameNumberResponse(
         name=req.name,
         name_number=number,
         system="Pythagorean",
         interpretation=interpretation,
         compatible_numbers=compatible,
         letter_breakdown=breakdown,
-    )
+    ).model_dump(), lang, _NAME_NUM_FIELDS)
 
 
 @router.post("/api/numerology/name-compatibility", response_model=NameCompatResponse)
-async def name_compatibility(req: NameCompatRequest):
+async def name_compatibility(req: NameCompatRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     for n in (req.name1, req.name2):
         if not _clean_name(n):
             raise HTTPException(status_code=400, detail=f"Name must contain at least one letter: {n}")
@@ -422,7 +436,7 @@ async def name_compatibility(req: NameCompatRequest):
     if 11 in (n1, n2) or 22 in (n1, n2) or 33 in (n1, n2):
         advice_parts.append("Master numbers present – this relationship carries spiritual significance.")
 
-    return NameCompatResponse(
+    return translate_response(NameCompatResponse(
         name1=req.name1,
         name2=req.name2,
         name1_number=n1,
@@ -430,11 +444,12 @@ async def name_compatibility(req: NameCompatRequest):
         compatibility_percentage=comp["percentage"],
         dynamics=comp["dynamics"],
         advice=" ".join(advice_parts),
-    )
+    ).model_dump(), lang, _NAME_NUM_FIELDS)
 
 
 @router.post("/api/numerology/business-name", response_model=BusinessNameResponse)
-async def business_name_analysis(req: BusinessNameRequest):
+async def business_name_analysis(req: BusinessNameRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     cleaned = _clean_name(req.name)
     if not cleaned:
         raise HTTPException(status_code=400, detail="Business name must contain at least one letter.")
@@ -463,7 +478,7 @@ async def business_name_analysis(req: BusinessNameRequest):
             rec_parts.append(f"Low alignment ({lp_compat}%) with the owner's Life Path {life_path}. Renaming or adding a partner with complementary energy is advised.")
     rec_parts.append(f"Best industries: {', '.join(success['best_industries'])}.")
 
-    return BusinessNameResponse(
+    return translate_response(BusinessNameResponse(
         business_name=req.name,
         business_number=biz_number,
         interpretation=interpretation,
@@ -472,11 +487,12 @@ async def business_name_analysis(req: BusinessNameRequest):
         success_factors=success,
         lucky_elements=lucky,
         recommendation=" ".join(rec_parts),
-    )
+    ).model_dump(), lang, _NAME_NUM_FIELDS)
 
 
 @router.post("/api/numerology/baby-name", response_model=BabyNameResponse)
-async def baby_name_suggestions(req: BabyNameSuggestionRequest):
+async def baby_name_suggestions(req: BabyNameSuggestionRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     target = req.targetNumber
     candidates = BABY_NAMES.get(target, [])
 
@@ -501,8 +517,8 @@ async def baby_name_suggestions(req: BabyNameSuggestionRequest):
         for c in filtered
     ]
 
-    return BabyNameResponse(
+    return translate_response(BabyNameResponse(
         target_number=target,
         names=names_out,
         total_count=len(names_out),
-    )
+    ).model_dump(), lang, _NAME_NUM_FIELDS)

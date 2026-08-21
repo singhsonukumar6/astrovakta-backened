@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
@@ -11,7 +11,25 @@ from ..utils import (
     planet_status, NAKSHATRAS,
 )
 
+from ..i18n import detect_language, translate_response, t as _t
+
 router = APIRouter()
+
+FIELD_MAP = {
+    'system': 'dasha_name',
+    'planet': 'planet',
+    'mahadasha': 'planet',
+    'antardasha': 'planet',
+    'pratyantardasha': 'planet',
+    'firstMahadashaLord': 'planet',
+    'fromPlanet': 'planet',
+    'toPlanet': 'planet',
+    'sign': 'zodiac',
+    'signLord': 'planet',
+    'nakshatra': 'nakshatra',
+    'nakshatraLord': 'planet',
+    'dignity': 'planet_status',
+}
 
 
 class DashaDetailRequest(BaseModel):
@@ -23,6 +41,7 @@ class DashaDetailRequest(BaseModel):
     nodeMode: Optional[str] = Field('mean', example='mean')
     startYear: Optional[int] = Field(None, example=2020)
     endYear: Optional[int] = Field(None, example=2040)
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class DashaPlanetRequest(DashaDetailRequest):
@@ -288,7 +307,8 @@ def _get_house_for_planet(planet: str, houses: List[Dict[str, Any]]) -> int:
 
 
 @router.post('/horoscope/dasha/timeline')
-def dasha_timeline(body: DashaDetailRequest) -> Dict[str, Any]:
+def dasha_timeline(body: DashaDetailRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..utils import to_julian as _to_julian, calc_planets as _calc_planets, calc_houses as _calc_houses
 
     jd = _to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
@@ -385,7 +405,7 @@ def dasha_timeline(body: DashaDetailRequest) -> Dict[str, Any]:
             cur_pd['endDate'] if cur_pd else cur_ad['endDate'] if cur_ad else cur_md['endDate'],
         )
 
-    return {
+    data = {
         'status': 200,
         'system': 'Vimshottari',
         'birthDetails': {
@@ -407,10 +427,12 @@ def dasha_timeline(body: DashaDetailRequest) -> Dict[str, Any]:
             'totalSpanYears': sum(md['years'] for md in full_timeline),
         },
     }
+    return translate_response(data, lang, FIELD_MAP)
 
 
 @router.post('/horoscope/dasha/details')
-def dasha_planet_details(body: DashaPlanetRequest) -> Dict[str, Any]:
+def dasha_planet_details(body: DashaPlanetRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..utils import to_julian as _to_julian, calc_planets as _calc_planets, calc_houses as _calc_houses
 
     valid_planets = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu']
@@ -524,7 +546,7 @@ def dasha_planet_details(body: DashaPlanetRequest) -> Dict[str, Any]:
             } if cur_pd else None,
         }
 
-    return {
+    data = {
         'status': 200,
         'system': 'Vimshottari',
         'planet': planet_name,
@@ -546,10 +568,12 @@ def dasha_planet_details(body: DashaPlanetRequest) -> Dict[str, Any]:
         'totalOccurrences': len(planet_md_entries),
         'note': f"This shows all {planet_name} Mahadasha periods in the full 120-year Vimshottari cycle. Each Mahadasha contains proportional Antardasha and Pratyantardasha sub-periods.",
     }
+    return translate_response(data, lang, FIELD_MAP)
 
 
 @router.post('/horoscope/dasha/current')
-def current_dasha(body: DashaDetailRequest) -> Dict[str, Any]:
+def current_dasha(body: DashaDetailRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..utils import to_julian as _to_julian, calc_planets as _calc_planets, calc_houses as _calc_houses
 
     jd = _to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
@@ -655,7 +679,7 @@ def current_dasha(body: DashaDetailRequest) -> Dict[str, Any]:
     ad_effect = PLANET_DASHA_EFFECTS.get(cur_ad['planet'], {}) if cur_ad else {}
     pd_effect = PLANET_DASHA_EFFECTS.get(cur_pd['planet'], {}) if cur_pd else {}
 
-    return {
+    data = {
         'status': 200,
         'system': 'Vimshottari',
         'currentDate': today_str,
@@ -710,3 +734,4 @@ def current_dasha(body: DashaDetailRequest) -> Dict[str, Any]:
             'keyAdvice': f"Focus on {', '.join(md_effect.get('favorable', [])[:3])}. Perform remedies for {cur_md['planet']} to maximize benefits.",
         },
     }
+    return translate_response(data, lang, FIELD_MAP)

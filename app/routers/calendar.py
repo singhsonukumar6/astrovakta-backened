@@ -32,6 +32,7 @@ class PanchangRequest(CalendarPanchangRequest):
 
 class FestivalCalendarRequest(BaseModel):
     year: int = Field(..., example=2025)
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class MuhuratRequest(BaseModel):
@@ -40,6 +41,7 @@ class MuhuratRequest(BaseModel):
     latitude: float = Field(..., example=28.6139)
     longitude: float = Field(..., example=77.2090)
     timezone: str = Field(..., example="Asia/Kolkata")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 NAKSHATRAS = [

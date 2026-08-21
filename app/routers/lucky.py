@@ -1,11 +1,20 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
+
+from ..i18n import detect_language, translate_response, t as _t
+
+# Field → translation category mapping for lucky responses
+_LUCKY_FIELDS = {
+    "luckyDay": "weekday",
+    "luckyGemstone": "gemstone",
+}
 
 router = APIRouter()
 
 class BirthDateRequest(BaseModel):
     dateOfBirth: str = Field(..., example="1990-05-15")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 def _reduce_to_single(n):
@@ -41,50 +50,53 @@ _LUCKY_DATA = {
 
 
 @router.post("/lucky/color")
-def lucky_color(body: BirthDateRequest) -> Dict[str, Any]:
+def lucky_color(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     parts = body.dateOfBirth.split('-')
     day = int(parts[2])
     life_path = _reduce_to_single(int(parts[0]) + int(parts[1]) + day)
     root = _LUCKY_DATA.get(life_path, _LUCKY_DATA[1])
     return {
         "success": True,
-        "data": {
+        "data": translate_response({
             "birthDate": body.dateOfBirth,
             "lifePathNumber": life_path,
             "luckyColors": root["color"],
             "description": f"Colors aligned with your life path number {life_path} resonate with {root['element']} energy and enhance your natural strengths.",
             "avoidColors": "Black and dark grey can dampen your energy" if life_path in [1, 3, 9] else "Bright reds and oranges may overstimulate" if life_path in [2, 7] else "Neutral palette works best",
-        }
+        }, lang, _LUCKY_FIELDS)
     }
 
 
 @router.post("/lucky/number")
-def lucky_number(body: BirthDateRequest) -> Dict[str, Any]:
+def lucky_number(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     parts = body.dateOfBirth.split('-')
     day = int(parts[2])
     life_path = _reduce_to_single(int(parts[0]) + int(parts[1]) + day)
     root = _LUCKY_DATA.get(life_path, _LUCKY_DATA[1])
     return {
         "success": True,
-        "data": {
+        "data": translate_response({
             "birthDate": body.dateOfBirth,
             "lifePathNumber": life_path,
             "luckyNumbers": root["number"],
             "description": f"Numbers {root['number']} carry vibrations aligned with your life path {life_path}. Use them for important decisions, addresses, and dates.",
             "tip": "Single-digit root number is most powerful. Compound numbers add secondary influences.",
-        }
+        }, lang, _LUCKY_FIELDS)
     }
 
 
 @router.post("/lucky/day")
-def lucky_day(body: BirthDateRequest) -> Dict[str, Any]:
+def lucky_day(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     parts = body.dateOfBirth.split('-')
     day = int(parts[2])
     life_path = _reduce_to_single(int(parts[0]) + int(parts[1]) + day)
     root = _LUCKY_DATA.get(life_path, _LUCKY_DATA[1])
     return {
         "success": True,
-        "data": {
+        "data": translate_response({
             "birthDate": body.dateOfBirth,
             "lifePathNumber": life_path,
             "luckyDay": root["day"],
@@ -93,19 +105,20 @@ def lucky_day(body: BirthDateRequest) -> Dict[str, Any]:
                 "Sunday": "Sun", "Monday": "Moon", "Tuesday": "Mars", "Wednesday": "Mercury",
                 "Thursday": "Jupiter", "Friday": "Venus", "Saturday": "Saturn"
             }.get(root["day"], "Unknown"),
-        }
+        }, lang, _LUCKY_FIELDS)
     }
 
 
 @router.post("/lucky/metal")
-def lucky_metal(body: BirthDateRequest) -> Dict[str, Any]:
+def lucky_metal(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     parts = body.dateOfBirth.split('-')
     day = int(parts[2])
     life_path = _reduce_to_single(int(parts[0]) + int(parts[1]) + day)
     root = _LUCKY_DATA.get(life_path, _LUCKY_DATA[1])
     return {
         "success": True,
-        "data": {
+        "data": translate_response({
             "birthDate": body.dateOfBirth,
             "lifePathNumber": life_path,
             "luckyMetal": root["metal"],
@@ -113,5 +126,5 @@ def lucky_metal(body: BirthDateRequest) -> Dict[str, Any]:
             "element": root["element"],
             "description": f"Wearing {root['metal']} jewelry or carrying {root['metal']} items strengthens your planetary alignment. {root['gem']} is your birth-chart-aligned gemstone.",
             "wearAdvice": f"Wear {root['gem']} on the appropriate finger during {root['day']} {root['metal']} hora for maximum benefit.",
-        }
+        }, lang, _LUCKY_FIELDS)
     }

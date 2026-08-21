@@ -1,8 +1,36 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 
+from ..i18n import detect_language, translate_response, t as _t
+
 router = APIRouter()
+
+# Field → translation category mapping for compatibility summary/profile fields
+_COMPAT_SUMMARY_FIELDS = {
+    "verdict": "compatibility_verdict",
+    "verdictDetail": "compatibility_verdict_detail",
+    "moonSign": "zodiac",
+    "ascendant": "zodiac",
+}
+
+_PROFILE_FIELDS = {
+    "moonSign": "zodiac",
+    "moonNakshatra": "nakshatra",
+}
+
+# Per-guna field maps: 'male'/'female' values belong to different categories
+# depending on which guna (Varna → varna, Gana → gana, Nadi → nadi)
+_GUNA_FIELD_MAPS = {
+    "Varna": {"name": "compatibility_guna", "male": "varna", "female": "varna"},
+    "Vashya": {"name": "compatibility_guna"},
+    "Tara": {"name": "compatibility_guna"},
+    "Yoni": {"name": "compatibility_guna"},
+    "Graha Maitri": {"name": "compatibility_guna", "malePlanet": "planet", "femalePlanet": "planet"},
+    "Gana": {"name": "compatibility_guna", "male": "gana", "female": "gana"},
+    "Bhakoot": {"name": "compatibility_guna"},
+    "Nadi": {"name": "compatibility_guna", "male": "nadi", "female": "nadi"},
+}
 
 
 class CompatRequest(BaseModel):
@@ -17,6 +45,7 @@ class CompatRequest(BaseModel):
     femaleLongitude: float = Field(..., example=72.8777)
     femaleTimezone: str = Field(..., example="Asia/Kolkata")
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 NAKSHATRAS_ORDER = [
@@ -219,7 +248,7 @@ def _nadi_score(male_nakshatra: str, female_nakshatra: str) -> Dict[str, Any]:
             'description': f'Male {m_nadi}, Female {f_nadi} - {"Nadi Dosha - health concerns for offspring" if score == 0 else "No Nadi Dosha - excellent"}'}
 
 
-def _full_guna_milan(body: CompatRequest) -> Dict[str, Any]:
+def _full_guna_milan(body: CompatRequest, lang: str = "en") -> Dict[str, Any]:
     male_moon, female_moon, male_asc, female_asc, ZODIAC_SIGNS = _compute_moon_positions(body)
 
     if not male_moon or not female_moon:
@@ -239,7 +268,8 @@ def _full_guna_milan(body: CompatRequest) -> Dict[str, Any]:
     bhakoot = _bhakoot_score(male_moon_sign_idx, female_moon_sign_idx)
     nadi = _nadi_score(male_nakshatra, female_nakshatra)
 
-    gunas = [varna, vashya, tara, yoni, graha_maitri, gana, bhakoot, nadi]
+    gunas = [translate_response(g, lang, _GUNA_FIELD_MAPS.get(g['name'], {}))
+             for g in [varna, vashya, tara, yoni, graha_maitri, gana, bhakoot, nadi]]
     total_score = sum(g['score'] for g in gunas)
 
     if total_score >= 30:
@@ -258,7 +288,7 @@ def _full_guna_milan(body: CompatRequest) -> Dict[str, Any]:
         verdict = 'Not Recommended'
         verdict_detail = 'Low compatibility score. Strong remedies required.'
 
-    return {
+    data = {
         'status': 200,
         'summary': {
             'totalScore': total_score,
@@ -281,15 +311,18 @@ def _full_guna_milan(body: CompatRequest) -> Dict[str, Any]:
         },
         'ashtakootaGunas': gunas,
     }
+    return translate_response(data, lang, _COMPAT_SUMMARY_FIELDS)
 
 
 @router.post('/compat/gun-milan')
-def gun_milan(body: CompatRequest) -> Dict[str, Any]:
-    return _full_guna_milan(body)
+def gun_milan(body: CompatRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
+    return _full_guna_milan(body, lang)
 
 
 @router.post('/compat/nadi')
-def nadi_only(body: CompatRequest) -> Dict[str, Any]:
+def nadi_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     male_moon, female_moon, _, _, _ = _compute_moon_positions(body)
 
     if not male_moon or not female_moon:
@@ -297,18 +330,19 @@ def nadi_only(body: CompatRequest) -> Dict[str, Any]:
 
     male_nakshatra = male_moon['nakshatra']
     female_nakshatra = female_moon['nakshatra']
-    result = _nadi_score(male_nakshatra, female_nakshatra)
+    result = translate_response(_nadi_score(male_nakshatra, female_nakshatra), lang, _GUNA_FIELD_MAPS["Nadi"])
 
-    return {
+    return translate_response({
         'status': 200,
         'maleProfile': {'moonNakshatra': male_nakshatra, 'moonSign': male_moon['sign']},
         'femaleProfile': {'moonNakshatra': female_nakshatra, 'moonSign': female_moon['sign']},
         'nadi': result,
-    }
+    }, lang, _PROFILE_FIELDS)
 
 
 @router.post('/compat/bhakoot')
-def bhakoot_only(body: CompatRequest) -> Dict[str, Any]:
+def bhakoot_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     male_moon, female_moon, _, _, ZODIAC_SIGNS = _compute_moon_positions(body)
 
     if not male_moon or not female_moon:
@@ -316,18 +350,19 @@ def bhakoot_only(body: CompatRequest) -> Dict[str, Any]:
 
     male_moon_sign_idx = ZODIAC_SIGNS.index(male_moon['sign'])
     female_moon_sign_idx = ZODIAC_SIGNS.index(female_moon['sign'])
-    result = _bhakoot_score(male_moon_sign_idx, female_moon_sign_idx)
+    result = translate_response(_bhakoot_score(male_moon_sign_idx, female_moon_sign_idx), lang, _GUNA_FIELD_MAPS["Bhakoot"])
 
-    return {
+    return translate_response({
         'status': 200,
         'maleProfile': {'moonSign': male_moon['sign']},
         'femaleProfile': {'moonSign': female_moon['sign']},
         'bhakoot': result,
-    }
+    }, lang, _PROFILE_FIELDS)
 
 
 @router.post('/compat/yoni')
-def yoni_only(body: CompatRequest) -> Dict[str, Any]:
+def yoni_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     male_moon, female_moon, _, _, _ = _compute_moon_positions(body)
 
     if not male_moon or not female_moon:
@@ -335,18 +370,19 @@ def yoni_only(body: CompatRequest) -> Dict[str, Any]:
 
     male_nakshatra = male_moon['nakshatra']
     female_nakshatra = female_moon['nakshatra']
-    result = _yoni_score(male_nakshatra, female_nakshatra)
+    result = translate_response(_yoni_score(male_nakshatra, female_nakshatra), lang, _GUNA_FIELD_MAPS["Yoni"])
 
-    return {
+    return translate_response({
         'status': 200,
         'maleProfile': {'moonNakshatra': male_nakshatra, 'moonSign': male_moon['sign']},
         'femaleProfile': {'moonNakshatra': female_nakshatra, 'moonSign': female_moon['sign']},
         'yoni': result,
-    }
+    }, lang, _PROFILE_FIELDS)
 
 
 @router.post('/compat/gana')
-def gana_only(body: CompatRequest) -> Dict[str, Any]:
+def gana_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     male_moon, female_moon, _, _, _ = _compute_moon_positions(body)
 
     if not male_moon or not female_moon:
@@ -354,18 +390,19 @@ def gana_only(body: CompatRequest) -> Dict[str, Any]:
 
     male_nakshatra = male_moon['nakshatra']
     female_nakshatra = female_moon['nakshatra']
-    result = _gana_score(male_nakshatra, female_nakshatra)
+    result = translate_response(_gana_score(male_nakshatra, female_nakshatra), lang, _GUNA_FIELD_MAPS["Gana"])
 
-    return {
+    return translate_response({
         'status': 200,
         'maleProfile': {'moonNakshatra': male_nakshatra, 'moonSign': male_moon['sign']},
         'femaleProfile': {'moonNakshatra': female_nakshatra, 'moonSign': female_moon['sign']},
         'gana': result,
-    }
+    }, lang, _PROFILE_FIELDS)
 
 
 @router.post('/compat/tara')
-def tara_only(body: CompatRequest) -> Dict[str, Any]:
+def tara_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     male_moon, female_moon, _, _, _ = _compute_moon_positions(body)
 
     if not male_moon or not female_moon:
@@ -373,11 +410,11 @@ def tara_only(body: CompatRequest) -> Dict[str, Any]:
 
     male_nakshatra = male_moon['nakshatra']
     female_nakshatra = female_moon['nakshatra']
-    result = _tara_score(male_nakshatra, female_nakshatra)
+    result = translate_response(_tara_score(male_nakshatra, female_nakshatra), lang, _GUNA_FIELD_MAPS["Tara"])
 
-    return {
+    return translate_response({
         'status': 200,
         'maleProfile': {'moonNakshatra': male_nakshatra, 'moonSign': male_moon['sign']},
         'femaleProfile': {'moonNakshatra': female_nakshatra, 'moonSign': female_moon['sign']},
         'tara': result,
-    }
+    }, lang, _PROFILE_FIELDS)

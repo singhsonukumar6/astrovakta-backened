@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime
@@ -6,12 +6,39 @@ import swisseph as swe
 import pytz
 import logging
 
+from ..i18n import detect_language, translate_response, t as _t
+
 from ..utils import (
     to_julian, calc_planets, calc_houses, get_sign, get_nakshatra,
     ZODIAC_SIGNS, SIGN_LORDS, PLANET_PROPS, planet_status, panchang_at_jd,
 )
 
 router = APIRouter()
+
+# Field → translation category mapping for Prashna responses
+_PRASHNA_FIELDS = {
+    "sign": "zodiac",
+    "houseSign": "zodiac",
+    "ascendantSign": "zodiac",
+    "ascendantLordSign": "zodiac",
+    "moonSign": "zodiac",
+    "ascendantNakshatra": "nakshatra",
+    "nakshatra": "nakshatra",
+    "moonNakshatra": "nakshatra",
+    "type": "transit_aspect",
+    "status": "planet_status",
+    "lordStatus": "planet_status",
+    "ascendantLordStatus": "planet_status",
+    "houseLord": "planet",
+    "lord": "planet",
+    "ascendantLord": "planet",
+    "nakshatraLord": "planet",
+    "signLord": "planet",
+    "tithi": "tithi",
+    "yoga": "yoga",
+    "paksha": "paksha",
+    "karana": "karana",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +80,7 @@ class PrashnaRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     houseSystem: Optional[str] = Field('W', example='W')
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 def _resolve_question_time(
@@ -283,7 +311,8 @@ def _build_planet_summary(planets: list) -> Dict[str, Any]:
 
 
 @router.post('/prashna/chart')
-def prashna_chart(body: PrashnaRequest) -> Dict[str, Any]:
+def prashna_chart(body: PrashnaRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     try:
         date_str, time_str, tz, now = _resolve_question_time(body)
         jd = to_julian(date_str, time_str, body.timezone)
@@ -321,7 +350,7 @@ def prashna_chart(body: PrashnaRequest) -> Dict[str, Any]:
 
         return {
             'success': True,
-            'data': {
+            'data': translate_response({
                 'question': body.question,
                 'questionAnalysis': {
                     'detectedHouse': question_house,
@@ -363,7 +392,7 @@ def prashna_chart(body: PrashnaRequest) -> Dict[str, Any]:
                 'chartTime': f"{date_str} {time_str}",
                 'chartLocation': {'latitude': body.latitude, 'longitude': body.longitude},
                 'houseSystem': body.houseSystem or 'W',
-            },
+            }, lang, _PRASHNA_FIELDS),
         }
     except HTTPException:
         raise
@@ -373,7 +402,8 @@ def prashna_chart(body: PrashnaRequest) -> Dict[str, Any]:
 
 
 @router.post('/prashna/judgement')
-def prashna_judgement(body: PrashnaRequest) -> Dict[str, Any]:
+def prashna_judgement(body: PrashnaRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     try:
         date_str, time_str, tz, now = _resolve_question_time(body)
         jd = to_julian(date_str, time_str, body.timezone)
@@ -431,7 +461,7 @@ def prashna_judgement(body: PrashnaRequest) -> Dict[str, Any]:
 
         return {
             'success': True,
-            'data': {
+            'data': translate_response({
                 'question': body.question,
                 'chartTime': f"{date_str} {time_str}",
                 'querent': {
@@ -456,7 +486,7 @@ def prashna_judgement(body: PrashnaRequest) -> Dict[str, Any]:
                 'detailedAnalysis': _detailed_analysis(
                     body.question, question_house, asc, asc_lord, moon, aspects, judgement
                 ),
-            },
+            }, lang, _PRASHNA_FIELDS),
         }
     except HTTPException:
         raise

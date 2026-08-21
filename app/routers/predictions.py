@@ -1,10 +1,24 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 import random
 import swisseph as swe
 
 from ..utils import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, SIGN_LORDS, NAKSHATRAS, planet_status, get_nakshatra, ayanamsa_value
+from ..i18n import detect_language, translate_response, t as _t
+
+# Field → translation category mapping for prediction responses
+_PREDICTIONS_FIELDS = {
+    "sunSign": "zodiac",
+    "moonSign": "zodiac",
+    "ascendant": "zodiac",
+    "sign": "zodiac",
+    "transitSign": "zodiac",
+    "planet": "planet",
+    "lord": "planet",
+    "status": "planet_status",
+    "likelihood": "transit_strength",
+}
 
 router = APIRouter()
 
@@ -14,6 +28,7 @@ class BirthRequest(BaseModel):
     latitude: float = Field(..., example=28.6139)
     longitude: float = Field(..., example=77.2090)
     timezone: str = Field(..., example="Asia/Kolkata")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 class MonthlyTransitRequest(BaseModel):
     dateOfBirth: str = Field(..., example="1990-05-15")
@@ -23,6 +38,7 @@ class MonthlyTransitRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     month: Optional[int] = Field(None, ge=1, le=12)
     year: Optional[int] = Field(None, ge=2000, le=2100)
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 def _get_chart(body):
@@ -58,7 +74,8 @@ _BUSINESS = {
 
 
 @router.post("/horoscope/business")
-def business_prediction(body: BirthRequest) -> Dict[str, Any]:
+def business_prediction(body: BirthRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     jd, planets, house_data, moon_sign, sun_sign, asc_sign, pmap, house_map = _get_chart(body)
     templates = _BUSINESS.get(sun_sign, _BUSINESS['Aries'])
 
@@ -76,7 +93,7 @@ def business_prediction(body: BirthRequest) -> Dict[str, Any]:
 
     return {
         "success": True,
-        "data": {
+        "data": translate_response({
             "sunSign": sun_sign, "moonSign": moon_sign, "ascendant": asc_sign,
             "overview": templates["overview"],
             "strengths": templates["strengths"],
@@ -89,7 +106,7 @@ def business_prediction(body: BirthRequest) -> Dict[str, Any]:
                 "saturnHouse": sat_house, "mercuryHouse": mer_house,
             },
             "businessTiming": "Transits of Jupiter through your 2nd, 7th, 10th, and 11th houses mark periods of business growth."
-        }
+        }, lang, _PREDICTIONS_FIELDS)
     }
 
 
@@ -114,7 +131,8 @@ _EDUCATION = {
 
 
 @router.post("/horoscope/education")
-def education_prediction(body: BirthRequest) -> Dict[str, Any]:
+def education_prediction(body: BirthRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     jd, planets, house_data, moon_sign, sun_sign, asc_sign, pmap, house_map = _get_chart(body)
     templates = _EDUCATION.get(sun_sign, _EDUCATION['Aries'])
 
@@ -136,7 +154,7 @@ def education_prediction(body: BirthRequest) -> Dict[str, Any]:
 
     return {
         "success": True,
-        "data": {
+        "data": translate_response({
             "sunSign": sun_sign, "moonSign": moon_sign, "ascendant": asc_sign,
             "overview": templates["overview"],
             "learningStyle": templates["learning_style"],
@@ -146,7 +164,7 @@ def education_prediction(body: BirthRequest) -> Dict[str, Any]:
             "mercuryInfluence": {"house": mercury_house, "sign": mercury_sign, "status": planet_status('Mercury', mercury_sign)},
             "jupiterInfluence": {"house": jupiter_house, "sign": jup.get('sign', ''), "status": planet_status('Jupiter', jup.get('sign', ''))},
             "bestPeriodsForStudy": "Jupiter and Mercury transits through your 1st, 5th, and 9th houses are especially favorable for academic progress."
-        }
+        }, lang, _PREDICTIONS_FIELDS)
     }
 
 
@@ -155,7 +173,8 @@ def education_prediction(body: BirthRequest) -> Dict[str, Any]:
 # ══════════════════════════════════════════════
 
 @router.post("/horoscope/child")
-def child_prediction(body: BirthRequest) -> Dict[str, Any]:
+def child_prediction(body: BirthRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     jd, planets, house_data, moon_sign, sun_sign, asc_sign, pmap, house_map = _get_chart(body)
 
     fifth_house = house_map.get(5, {})
@@ -187,7 +206,7 @@ def child_prediction(body: BirthRequest) -> Dict[str, Any]:
 
     return {
         "success": True,
-        "data": {
+        "data": translate_response({
             "sunSign": sun_sign, "moonSign": moon_sign, "ascendant": asc_sign,
             "fifthHouse": {"sign": fifth_sign, "lord": fifth_lord, "planets": fifth_house.get('planets', [])},
             "jupiter": {"house": jup_house, "sign": jup_sign, "status": jup_status, "retrograde": jup.get('isRetrograde', False)},
@@ -197,7 +216,7 @@ def child_prediction(body: BirthRequest) -> Dict[str, Any]:
             "timingNote": "Jupiter transiting 5th house or aspecting natal Jupiter marks favorable conception periods.",
             "remedies": remedies,
             "overallAssessment": "Strong" if favorable else "Requires patience and remedies — not impossible, just needs timing"
-        }
+        }, lang, _PREDICTIONS_FIELDS)
     }
 
 
@@ -206,7 +225,8 @@ def child_prediction(body: BirthRequest) -> Dict[str, Any]:
 # ══════════════════════════════════════════════
 
 @router.post("/horoscope/foreign")
-def foreign_settlement(body: BirthRequest) -> Dict[str, Any]:
+def foreign_settlement(body: BirthRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     jd, planets, house_data, moon_sign, sun_sign, asc_sign, pmap, house_map = _get_chart(body)
 
     twelfth_house = house_map.get(12, {})
@@ -257,7 +277,7 @@ def foreign_settlement(body: BirthRequest) -> Dict[str, Any]:
 
     return {
         "success": True,
-        "data": {
+        "data": translate_response({
             "sunSign": sun_sign, "moonSign": moon_sign, "ascendant": asc_sign,
             "foreignSettlementScore": foreign_score,
             "likelihood": likelihood,
@@ -267,7 +287,7 @@ def foreign_settlement(body: BirthRequest) -> Dict[str, Any]:
             "bestTiming": best_timing,
             "favorableCountries": "Western and far-away directions from birthplace are generally favored when Rahu is strong.",
             "remedies": ["Worship Lord Vishnu", "Donate to charity abroad", "Wear Hessonite (Gomed) if Rahu is strong", "Travel during Jupiter transits"]
-        }
+        }, lang, _PREDICTIONS_FIELDS)
     }
 
 
@@ -289,7 +309,8 @@ _TRANSIT_EFFECTS = {
 
 
 @router.post("/horoscope/transit/monthly")
-def monthly_transit(body: MonthlyTransitRequest) -> Dict[str, Any]:
+def monthly_transit(body: MonthlyTransitRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from datetime import date as _date, timedelta as _td
     jd, planets, house_data, moon_sign, sun_sign, asc_sign, pmap, house_map = _get_chart(body)
 
@@ -350,12 +371,12 @@ def monthly_transit(body: MonthlyTransitRequest) -> Dict[str, Any]:
 
     return {
         "success": True,
-        "data": {
+        "data": translate_response({
             "month": target_month, "year": target_year,
             "sunSign": sun_sign, "moonSign": moon_sign, "ascendant": asc_sign,
             "overallMonth": overall,
             "planetaryTransits": transit_positions,
             "detailedReadings": monthly_readings,
             "advice": "Focus on planets transiting your 1st, 5th, 9th, and 11th houses for opportunities. Navigate carefully when planets transit 6th, 8th, or 12th houses."
-        }
+        }, lang, _PREDICTIONS_FIELDS)
     }

@@ -19,6 +19,7 @@ class EastChartRequest(BaseModel):
     theme: Optional[str] = Field('light', example='light')
     houseSystem: Optional[str] = Field('W', example='W')
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 PLANET_ABBR = {

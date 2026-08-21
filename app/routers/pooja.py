@@ -1,6 +1,20 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
+
+from ..i18n import detect_language, translate_response, t as _t
+
+# Field → translation category mapping for pooja responses
+_POOJA_FIELDS = {
+    "name": "pooja",
+    "forDosha": "dosha",
+    "severity": "dosha_severity",
+    "bestDay": "weekday",
+    "planet": "planet",
+    "status": "planet_status",
+    "moonNakshatra": "nakshatra",
+    "moonSign": "zodiac",
+}
 
 
 router = APIRouter()
@@ -14,6 +28,7 @@ class BirthRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     houseSystem: Optional[str] = Field('W', example='W')
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class BookingRequest(BaseModel):
@@ -28,12 +43,14 @@ class BookingRequest(BaseModel):
     name: str = Field(..., example="Rahul Sharma")
     phone: str = Field(..., example="+919876543210")
     email: Optional[str] = Field(None, example="rahul@example.com")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class AvailabilityRequest(BaseModel):
     poojaName: Optional[str] = Field(None, example="Mangal Dosh Nivaran Puja")
     date: str = Field(..., example="2026-08-15")
     location: Optional[str] = Field(None, example="Varanasi")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 PUJA_DATABASE = {
@@ -123,7 +140,8 @@ PLANET_TEMPLES = {
 
 
 @router.post('/pooja/recommendation')
-def pooja_recommendation(body: BirthRequest):
+def pooja_recommendation(body: BirthRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, detect_doshas, planet_status
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     planets = calc_planets(jd, None, body.nodeMode or 'mean')
@@ -167,16 +185,17 @@ def pooja_recommendation(body: BirthRequest):
 
     return {
         'status': 200,
-        'data': {
+        'data': translate_response({
             'recommendations': recommendations,
             'activeDoshas': [{'name': d['name'], 'severity': d.get('severity')} for d in active_doshas],
             'afflictedPlanets': afflicted,
-        },
+        }, lang, _POOJA_FIELDS),
     }
 
 
 @router.post('/pooja/temple')
-def temple_recommendation(body: BirthRequest):
+def temple_recommendation(body: BirthRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, planet_status
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     planets = calc_planets(jd, None, body.nodeMode or 'mean')
@@ -211,15 +230,16 @@ def temple_recommendation(body: BirthRequest):
 
     return {
         'status': 200,
-        'data': {
+        'data': translate_response({
             'primaryTemple': {'planet': weakest_planet, **primary_temple} if weakest_planet else PLANET_TEMPLES['Sun'],
             'allRecommendations': all_recommendations if all_recommendations else [{'planet': 'General', **PLANET_TEMPLES['Sun']}],
-        },
+        }, lang, _POOJA_FIELDS),
     }
 
 
 @router.post('/pooja/sankalp')
-def sankalp_details(body: BirthRequest):
+def sankalp_details(body: BirthRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, get_nakshatra
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     planets = calc_planets(jd, None, body.nodeMode or 'mean')
@@ -229,7 +249,7 @@ def sankalp_details(body: BirthRequest):
 
     return {
         'status': 200,
-        'data': {
+        'data': translate_response({
             'sankalp': {
                 'birthDate': body.dateOfBirth,
                 'birthTime': body.timeOfBirth,
@@ -246,7 +266,7 @@ def sankalp_details(body: BirthRequest):
                     'Face east or north during the puja',
                 ],
             },
-        },
+        }, lang, _POOJA_FIELDS),
     }
 
 

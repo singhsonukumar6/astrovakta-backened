@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
@@ -11,7 +11,24 @@ from ..utils import (
     ZODIAC_SIGNS, SIGN_LORDS, PLANET_PROPS, planet_status, ayanamsa_value,
 )
 
+from ..i18n import detect_language, translate_response, t as _t
+
 router = APIRouter()
+
+FIELD_MAP = {
+    'planet': 'planet',
+    'sign': 'zodiac',
+    'natalSign': 'zodiac',
+    'transitSign': 'zodiac',
+    'currentSign': 'zodiac',
+    'signLord': 'planet',
+    'lord': 'planet',
+    'nakshatra': 'nakshatra',
+    'nakshatraLord': 'planet',
+    'planetStatus': 'planet_status',
+    'aspectType': 'transit_aspect',
+    'nature': 'transit_strength',
+}
 
 PLANETS = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu']
 
@@ -234,6 +251,7 @@ class TransitPredRequest(BaseModel):
     transitTime: Optional[str] = Field('12:00', example='12:00')
     houseSystem: Optional[str] = Field('W', example='W')
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class TransitByPlanetRequest(TransitPredRequest):
@@ -409,7 +427,8 @@ def _build_natal_context(natal_planets: List[Dict[str, Any]], house_data: Dict[s
 
 
 @router.post('/horoscope/transit/prediction')
-def transit_prediction(body: TransitPredRequest) -> Dict[str, Any]:
+def transit_prediction(body: TransitPredRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     tz = pytz.timezone(body.timezone)
 
     jd_birth = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
@@ -445,7 +464,7 @@ def transit_prediction(body: TransitPredRequest) -> Dict[str, Any]:
     else:
         overall_outlook = 'mixed'
 
-    return {
+    data = {
         'status': 200,
         'message': 'Transit prediction computed successfully',
         'transitDate': transit_dt.strftime('%Y-%m-%d'),
@@ -460,10 +479,12 @@ def transit_prediction(body: TransitPredRequest) -> Dict[str, Any]:
             if ta['effects'].get('intensity') in ['high', 'very high']
         ],
     }
+    return translate_response(data, lang, FIELD_MAP)
 
 
 @router.post('/horoscope/transit/by-planet')
-def transit_by_planet(body: TransitByPlanetRequest) -> Dict[str, Any]:
+def transit_by_planet(body: TransitByPlanetRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     planet_name = body.planet.strip().capitalize()
     if planet_name not in PLANETS:
         return {
@@ -531,7 +552,7 @@ def transit_by_planet(body: TransitByPlanetRequest) -> Dict[str, Any]:
             })
         next_transits = next_signs
 
-    return {
+    data = {
         'status': 200,
         'message': f'{planet_name} transit analysis computed successfully',
         'transitDate': transit_dt.strftime('%Y-%m-%d'),
@@ -563,10 +584,12 @@ def transit_by_planet(body: TransitByPlanetRequest) -> Dict[str, Any]:
             [a['natalHouse'] for a in all_aspects if a['natalHouse'] > 0] + [transit_house]
         )),
     }
+    return translate_response(data, lang, FIELD_MAP)
 
 
 @router.post('/horoscope/transit/timing')
-def transit_timing(body: TransitTimingRequest) -> Dict[str, Any]:
+def transit_timing(body: TransitTimingRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     event_key = body.event.strip().lower()
     if event_key not in EVENT_TRANSIT_TRIGGERS:
         available = list(EVENT_TRANSIT_TRIGGERS.keys())
@@ -670,7 +693,7 @@ def transit_timing(body: TransitTimingRequest) -> Dict[str, Any]:
     if any(t['isRetrograde'] for t in active_triggers):
         probability = 'medium' if probability == 'low' else 'medium'
 
-    return {
+    data = {
         'status': 200,
         'message': f'Transit timing analysis for "{body.event}" computed successfully',
         'transitDate': transit_dt.strftime('%Y-%m-%d'),
@@ -694,3 +717,4 @@ def transit_timing(body: TransitTimingRequest) -> Dict[str, Any]:
             ),
         },
     }
+    return translate_response(data, lang, FIELD_MAP)

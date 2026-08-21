@@ -1,10 +1,20 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import timedelta
 
+from ..i18n import detect_language, translate_response, t as _t
 
 router = APIRouter()
+
+FIELD_MAP = {
+    'system': 'dasha_name',
+    'rulingPlanet': 'planet',
+    'lord': 'planet',
+    'startLord': 'planet',
+    'moonSign': 'zodiac',
+    'moonNakshatra': 'nakshatra',
+}
 
 
 class BirthRequest(BaseModel):
@@ -15,6 +25,7 @@ class BirthRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     houseSystem: Optional[str] = Field('W', example='W')
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 # ---- YOGINI DASHA ----
@@ -122,7 +133,8 @@ YOGINI_DESCRIPTIONS = {
 
 
 @router.post('/dasha/yogini')
-def yogini_dasha(body: BirthRequest):
+def yogini_dasha(body: BirthRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     result = _compute_yogini_dasha(body)
     if not result:
         return {'status': 400, 'error': 'Could not compute Moon position'}
@@ -133,12 +145,13 @@ def yogini_dasha(body: BirthRequest):
         md['description'] = desc.get('effects', '')
         md['nature'] = desc.get('nature', '')
 
-    return {
+    data = {
         'status': 200,
         'system': 'Yogini',
         'cycleYears': 36,
         'data': result,
     }
+    return translate_response(data, lang, FIELD_MAP)
 
 
 # ---- KALACHAKRA DASHA ----
@@ -158,7 +171,8 @@ KALACHAKRA_YEARS = {
 
 
 @router.post('/dasha/kalachakra')
-def kalachakra_dasha(body: BirthRequest):
+def kalachakra_dasha(body: BirthRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, ZODIAC_SIGNS, SIGN_LORDS, get_nakshatra, NAKSHATRAS
     import pytz
     from datetime import datetime
@@ -206,7 +220,7 @@ def kalachakra_dasha(body: BirthRequest):
             current = md
             break
 
-    return {
+    data = {
         'status': 200,
         'system': 'Kalachakra',
         'note': 'Kalachakra Dasha - based on Moon nakshatra pada',
@@ -220,6 +234,7 @@ def kalachakra_dasha(body: BirthRequest):
             'sequence': [{'lord': s['lord'], 'years': s['years']} for s in sequence],
         },
     }
+    return translate_response(data, lang, FIELD_MAP)
 
 
 # ---- ASHTOTTARI DASHA ----
@@ -231,7 +246,8 @@ ASHTOTTARI_SEQUENCE = [
 
 
 @router.post('/dasha/ashtottari')
-def ashtottari_dasha(body: BirthRequest):
+def ashtottari_dasha(body: BirthRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, ZODIAC_SIGNS, NAKSHATRAS
     import pytz
     from datetime import datetime
@@ -285,7 +301,7 @@ def ashtottari_dasha(body: BirthRequest):
             current = md
             break
 
-    return {
+    data = {
         'status': 200,
         'system': 'Ashtottari',
         'cycleYears': 108,
@@ -299,3 +315,4 @@ def ashtottari_dasha(body: BirthRequest):
             'current': current,
         },
     }
+    return translate_response(data, lang, FIELD_MAP)

@@ -1,8 +1,32 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 
+from ..i18n import detect_language, translate_response, t as _t
+
 router = APIRouter()
+
+# Field → translation category mapping for compatibility summary/profile fields
+_COMPAT_SUMMARY_FIELDS = {
+    "verdict": "compatibility_verdict",
+    "verdictDetail": "compatibility_verdict_detail",
+    "moonSign": "zodiac",
+    "ascendant": "zodiac",
+    "dosha": "dosha",
+}
+
+# Per-guna field maps: 'male'/'female' values belong to different categories
+# depending on which guna (Varna → varna, Gana → gana, Nadi → nadi)
+_GUNA_FIELD_MAPS = {
+    "Varna": {"name": "compatibility_guna", "male": "varna", "female": "varna"},
+    "Vashya": {"name": "compatibility_guna"},
+    "Tara": {"name": "compatibility_guna"},
+    "Yoni": {"name": "compatibility_guna"},
+    "Graha Maitri": {"name": "compatibility_guna", "malePlanet": "planet", "femalePlanet": "planet"},
+    "Gana": {"name": "compatibility_guna", "male": "gana", "female": "gana"},
+    "Bhakoot": {"name": "compatibility_guna"},
+    "Nadi": {"name": "compatibility_guna", "male": "nadi", "female": "nadi"},
+}
 
 
 class CompatRequest(BaseModel):
@@ -17,6 +41,7 @@ class CompatRequest(BaseModel):
     femaleLongitude: float = Field(..., example=72.8777)
     femaleTimezone: str = Field(..., example="Asia/Kolkata")
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 # Nakshatra-based Guna Milan (Ashtakoota) - Traditional 36 points system
@@ -211,7 +236,8 @@ def _nadi_score(male_nakshatra: str, female_nakshatra: str) -> Dict[str, Any]:
 
 
 @router.post('/compat')
-def kundli_matching(body: CompatRequest) -> Dict[str, Any]:
+def kundli_matching(body: CompatRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import (to_julian, calc_planets, calc_houses, ZODIAC_SIGNS,
                         get_nakshatra, SIGN_LORDS)
 
@@ -245,7 +271,8 @@ def kundli_matching(body: CompatRequest) -> Dict[str, Any]:
     bhakoot = _bhakoot_score(male_moon_sign_idx, female_moon_sign_idx)
     nadi = _nadi_score(male_nakshatra, female_nakshatra)
 
-    gunas = [varna, vashya, tara, yoni, graha_maitri, gana, bhakoot, nadi]
+    gunas = [translate_response(g, lang, _GUNA_FIELD_MAPS.get(g['name'], {}))
+             for g in [varna, vashya, tara, yoni, graha_maitri, gana, bhakoot, nadi]]
     total_score = sum(g['score'] for g in gunas)
     max_possible = 36
 
@@ -275,7 +302,7 @@ def kundli_matching(body: CompatRequest) -> Dict[str, Any]:
     if mars_female and mars_female.get('house') in [1, 2, 4, 7, 8, 12]:
         manglik_notes.append(f"Female is Manglik (Mars in house {mars_female['house']})")
 
-    return {
+    data = {
         'status': 200,
         'summary': {
             'totalScore': total_score,
@@ -299,11 +326,12 @@ def kundli_matching(body: CompatRequest) -> Dict[str, Any]:
         'ashtakootaGunas': gunas,
         'manglikNotes': manglik_notes,
     }
+    return translate_response(data, lang, _COMPAT_SUMMARY_FIELDS)
 
 
 @router.post('/compat/detailed')
-def kundli_matching_detailed(body: CompatRequest) -> Dict[str, Any]:
-    base = kundli_matching(body)
+def kundli_matching_detailed(body: CompatRequest, request: Request) -> Dict[str, Any]:
+    base = kundli_matching(body, request)
     if 'error' in base:
         return base
 

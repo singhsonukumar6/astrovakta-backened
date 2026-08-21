@@ -1,5 +1,13 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
+
+from ..i18n import detect_language, translate_response, t as _t
+
+# Field → translation category mapping for festival responses
+_FESTIVAL_FIELDS = {
+    "name": "festival",
+    "paksha": "paksha",
+}
 from typing import Optional, List, Dict, Any
 
 router = APIRouter()
@@ -7,10 +15,12 @@ router = APIRouter()
 class FestivalRequest(BaseModel):
     year: int = Field(..., example=2025)
     month: Optional[int] = Field(None, example=1)
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 class EkadashiRequest(BaseModel):
     year: int = Field(..., example=2025)
     month: Optional[int] = Field(None, example=6)
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 HINDU_FESTIVALS: Dict[int, Dict[str, str]] = {
     2024: {
@@ -264,16 +274,20 @@ def get_ekadashi_for_month(year: int, month: int) -> List[Dict[str, str]]:
 
 
 @router.post("/festival/hindu-festival")
-def hindu_festival(req: FestivalRequest):
+def hindu_festival(req: FestivalRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     year = req.year
     festivals = HINDU_FESTIVALS.get(year, {})
     if req.month:
         festivals = {k: v for k, v in festivals.items() if v.startswith(f"{year}-{req.month:02d}")}
+    if lang != "en":
+        festivals = {_t(lang, "festival", k): v for k, v in festivals.items()}
     return {"status": 200, "data": {"year": year, "festivals": festivals, "total": len(festivals)}}
 
 
 @router.post("/festival/ekadashi")
-def ekadashi_dates(req: EkadashiRequest):
+def ekadashi_dates(req: EkadashiRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     year = req.year
     if req.month:
         dates = get_ekadashi_for_month(year, req.month)
@@ -281,11 +295,12 @@ def ekadashi_dates(req: EkadashiRequest):
         dates = []
         for m in range(1, 13):
             dates.extend(get_ekadashi_for_month(year, m))
-    return {"status": 200, "data": {"year": year, "month": req.month, "ekadashi": dates, "total": len(dates)}}
+    return {"status": 200, "data": {"year": year, "month": req.month, "ekadashi": translate_response(dates, lang, _FESTIVAL_FIELDS), "total": len(dates)}}
 
 
 @router.post("/festival/sankranti")
-def sankranti_dates(req: FestivalRequest):
+def sankranti_dates(req: FestivalRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     year = req.year
     dates = SANKRANTI_DATES.get(year, SANKRANTI_DATES.get(2025, []))
     result = []
@@ -294,34 +309,37 @@ def sankranti_dates(req: FestivalRequest):
         if req.month and month != req.month:
             continue
         result.append({"date": d, "name": SANKRANTI_NAMES[i], "month": month})
-    return {"status": 200, "data": {"year": year, "sankranti": result, "total": len(result)}}
+    return {"status": 200, "data": {"year": year, "sankranti": translate_response(result, lang, _FESTIVAL_FIELDS), "total": len(result)}}
 
 
 @router.post("/festival/purnima")
-def purnima_dates(req: FestivalRequest):
+def purnima_dates(req: FestivalRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     year = req.year
     dates = PURNIMA_DATES.get(year, PURNIMA_DATES.get(2025, []))
     if req.month:
         dates = [d for d in dates if d.startswith(f"{year}-{req.month:02d}")]
-    return {"status": 200, "data": {"year": year, "month": req.month, "purnima": dates, "total": len(dates)}}
+    return {"status": 200, "data": {"year": year, "month": req.month, "purnima": translate_response(dates, lang, _FESTIVAL_FIELDS), "total": len(dates)}}
 
 
 @router.post("/festival/amavasya")
-def amavasya_dates(req: FestivalRequest):
+def amavasya_dates(req: FestivalRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     year = req.year
     dates = AMAVASYA_DATES.get(year, AMAVASYA_DATES.get(2025, []))
     if req.month:
         dates = [d for d in dates if d.startswith(f"{year}-{req.month:02d}")]
-    return {"status": 200, "data": {"year": year, "month": req.month, "amavasya": dates, "total": len(dates)}}
+    return {"status": 200, "data": {"year": year, "month": req.month, "amavasya": translate_response(dates, lang, _FESTIVAL_FIELDS), "total": len(dates)}}
 
 
 @router.post("/festival/chaturthi")
-def chaturthi_dates(req: FestivalRequest):
+def chaturthi_dates(req: FestivalRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     year = req.year
     date = CHATURTHI_DATES.get(year, CHATURTHI_DATES.get(2025))
     return {
         "status": 200,
-        "data": {
+        "data": translate_response({
             "year": year,
             "ganesh_chaturthi": {
                 "date": date,
@@ -329,12 +347,13 @@ def chaturthi_dates(req: FestivalRequest):
                 "tithi": "Chaturthi, Shukla Paksha, Bhadrapada",
                 "description": "Birthday of Lord Ganesha, celebrated on the 4th day of Shukla Paksha in Bhadrapada month"
             }
-        }
+        }, lang, _FESTIVAL_FIELDS)
     }
 
 
 @router.post("/festival/navratri")
-def navratri_dates(req: FestivalRequest):
+def navratri_dates(req: FestivalRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     year = req.year
     dates = NAVRATRI_DATES.get(year, NAVRATRI_DATES.get(2025, {}))
     if req.month:
@@ -343,7 +362,7 @@ def navratri_dates(req: FestivalRequest):
             return {"status": 200, "data": {"year": year, "month": req.month, "navratri": None, "message": "Navratri not in this month"}}
     return {
         "status": 200,
-        "data": {
+        "data": translate_response({
             "year": year,
             "navratri": {
                 "start": dates.get("start"),
@@ -351,17 +370,18 @@ def navratri_dates(req: FestivalRequest):
                 "name": "Shardiya Navratri",
                 "description": "Nine nights of Goddess Durga worship, Shukla Paksha, Ashwin month"
             }
-        }
+        }, lang, _FESTIVAL_FIELDS)
     }
 
 
 @router.post("/festival/diwali")
-def diwali_date(req: FestivalRequest):
+def diwali_date(req: FestivalRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     year = req.year
     date = DIWALI_DATES.get(year, DIWALI_DATES.get(2025))
     return {
         "status": 200,
-        "data": {
+        "data": translate_response({
             "year": year,
             "diwali": {
                 "date": date,
@@ -369,17 +389,18 @@ def diwali_date(req: FestivalRequest):
                 "tithi": "Krishna Amavasya, Kartik month",
                 "description": "Festival of lights, celebrating the return of Lord Rama and victory of light over darkness"
             }
-        }
+        }, lang, _FESTIVAL_FIELDS)
     }
 
 
 @router.post("/festival/holi")
-def holi_date(req: FestivalRequest):
+def holi_date(req: FestivalRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     year = req.year
     date = HOLI_DATES.get(year, HOLI_DATES.get(2025))
     return {
         "status": 200,
-        "data": {
+        "data": translate_response({
             "year": year,
             "holi": {
                 "date": date,
@@ -387,5 +408,5 @@ def holi_date(req: FestivalRequest):
                 "tithi": "Full Moon (Purnima), Phalguna month",
                 "description": "Festival of colors celebrating the burning of demoness Holika and victory of good over evil"
             }
-        }
+        }, lang, _FESTIVAL_FIELDS)
     }

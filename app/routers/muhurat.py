@@ -1,8 +1,19 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 import logging
+
+from ..i18n import detect_language, translate_response, t as _t
+
+# Field → translation category mapping for muhurat responses
+_MUHURAT_FIELDS = {
+    "tithi": "tithi",
+    "nakshatra": "nakshatra",
+    "yoga": "yoga",
+    "paksha": "paksha",
+    "rating": "muhurat_rating",
+}
 
 router = APIRouter()
 
@@ -15,6 +26,7 @@ class MuhuratRequest(BaseModel):
     latitude: float = Field(..., example=28.6139)
     longitude: float = Field(..., example=77.2090)
     timezone: str = Field(..., example="Asia/Kolkata")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 # ── Constants ────────────────────────────────────────────────────────────────
@@ -407,7 +419,7 @@ def _envelope(data: Dict[str, Any]) -> Dict[str, Any]:
 # ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/muhurat/marriage")
-def marriage_muhurat(body: MuhuratRequest):
+def marriage_muhurat(body: MuhuratRequest, request: Request):
     """
     Marriage muhurat:
     - Avoid Rahu Kaal, Gulika Kaal
@@ -416,6 +428,7 @@ def marriage_muhurat(body: MuhuratRequest):
     - Avoid Yoga: Atiganda, Shoola, Vyatipata, Ganda, Vishkambha
     - Favorable: Amrit/Shubh/Labh Choghadiya
     """
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     result = _evaluate_day_for_muhurat(
         date_str=body.dateOfBirth,
         tz_name=body.timezone,
@@ -437,16 +450,17 @@ def marriage_muhurat(body: MuhuratRequest):
     )
     result["muhuratType"] = "Marriage"
     result["description"] = "Auspicious time for marriage ceremonies. Rahu Kaal, Gulika, and Yamaganda are avoided. Only favorable Tithis, Nakshatras, and Choghadiya are recommended."
-    return _envelope(result)
+    return _envelope(translate_response(result, lang, _MUHURAT_FIELDS))
 
 
 @router.post("/muhurat/vehicle-purchase")
-def vehicle_purchase_muhurat(body: MuhuratRequest):
+def vehicle_purchase_muhurat(body: MuhuratRequest, request: Request):
     """
     Vehicle purchase muhurat:
     - Favorable: Shubh/Amrit/Labh Choghadiya
     - Avoid Rahu Kaal
     """
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     result = _evaluate_day_for_muhurat(
         date_str=body.dateOfBirth,
         tz_name=body.timezone,
@@ -465,11 +479,11 @@ def vehicle_purchase_muhurat(body: MuhuratRequest):
     )
     result["muhuratType"] = "Vehicle Purchase"
     result["description"] = "Auspicious time for purchasing vehicles. Shubh/Amrit/Labh Choghadiya are preferred. Rahu Kaal and Yamaganda are avoided."
-    return _envelope(result)
+    return _envelope(translate_response(result, lang, _MUHURAT_FIELDS))
 
 
 @router.post("/muhurat/house-warming")
-def house_warming_muhurat(body: MuhuratRequest):
+def house_warming_muhurat(body: MuhuratRequest, request: Request):
     """
     Griha Pravesh muhurat:
     - Favorable Tithis: 2,3,5,7,10,11,12 (both waxing/waning)
@@ -477,6 +491,7 @@ def house_warming_muhurat(body: MuhuratRequest):
     - Favorable Nakshatras: Pushya, Hasta, Swati, Anuradha, Uttarashada, Uttarabhadrapada
     - Favorable: Amrit/Shubh/Labh Choghadiya
     """
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     result = _evaluate_day_for_muhurat(
         date_str=body.dateOfBirth,
         tz_name=body.timezone,
@@ -496,17 +511,18 @@ def house_warming_muhurat(body: MuhuratRequest):
     )
     result["muhuratType"] = "House Warming (Griha Pravesh)"
     result["description"] = "Auspicious time for Griha Pravesh (house warming). Tithis 2,3,5,7,10,11,12 are favorable. Chaturthi, Ashtami, and Chaturdashi are strictly avoided."
-    return _envelope(result)
+    return _envelope(translate_response(result, lang, _MUHURAT_FIELDS))
 
 
 @router.post("/muhurat/property-purchase")
-def property_purchase_muhurat(body: MuhuratRequest):
+def property_purchase_muhurat(body: MuhuratRequest, request: Request):
     """
     Property purchase muhurat:
     - Favorable Nakshatras: Rohini, Mrigashira, Pushya, Hasta, Swati, Anuradha,
       Uttarashada, Uttarabhadrapada
     - Avoid Rahu Kaal, Gulika
     """
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     result = _evaluate_day_for_muhurat(
         date_str=body.dateOfBirth,
         tz_name=body.timezone,
@@ -524,17 +540,18 @@ def property_purchase_muhurat(body: MuhuratRequest):
     )
     result["muhuratType"] = "Property Purchase"
     result["description"] = "Auspicious time for buying property/land. Favorable Nakshatras include Rohini, Pushya, Hasta, Swati, Anuradha, Uttarashada, and Uttarabhadrapada."
-    return _envelope(result)
+    return _envelope(translate_response(result, lang, _MUHURAT_FIELDS))
 
 
 @router.post("/muhurat/business-opening")
-def business_opening_muhurat(body: MuhuratRequest):
+def business_opening_muhurat(body: MuhuratRequest, request: Request):
     """
     Business opening muhurat:
     - Favorable: Amrit/Shubh Choghadiya
     - Avoid Rahu Kaal and Yamaganda
     - Favorable Tithis: 2,3,5,7,10,11,12
     """
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     result = _evaluate_day_for_muhurat(
         date_str=body.dateOfBirth,
         tz_name=body.timezone,
@@ -553,17 +570,18 @@ def business_opening_muhurat(body: MuhuratRequest):
     )
     result["muhuratType"] = "Business Opening"
     result["description"] = "Auspicious time for starting a new business or venture. Amrit and Shubh Choghadiya are preferred. Rahu Kaal and Yamaganda are avoided."
-    return _envelope(result)
+    return _envelope(translate_response(result, lang, _MUHURAT_FIELDS))
 
 
 @router.post("/muhurat/naming-ceremony")
-def naming_ceremony_muhurat(body: MuhuratRequest):
+def naming_ceremony_muhurat(body: MuhuratRequest, request: Request):
     """
     Naming ceremony muhurat:
     - Favorable Nakshatras: Pushya, Hasta, Swati, Shravana, Revati
     - Favorable Tithis: 2,3,5,7,10,11,12
     - Favorable: Amrit/Shubh/Labh Choghadiya
     """
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     result = _evaluate_day_for_muhurat(
         date_str=body.dateOfBirth,
         tz_name=body.timezone,
@@ -581,11 +599,11 @@ def naming_ceremony_muhurat(body: MuhuratRequest):
     )
     result["muhuratType"] = "Naming Ceremony"
     result["description"] = "Auspicious time for naming ceremony (Namkaran). Pushya, Hasta, Swati, Shravana, and Revati nakshatras are especially favorable."
-    return _envelope(result)
+    return _envelope(translate_response(result, lang, _MUHURAT_FIELDS))
 
 
 @router.post("/muhurat/griha-pravesh")
-def griha_pravesh_muhurat(body: MuhuratRequest):
+def griha_pravesh_muhurat(body: MuhuratRequest, request: Request):
     """
     Griha Pravesh (extended) muhurat:
     - Extended rules similar to house-warming
@@ -596,6 +614,7 @@ def griha_pravesh_muhurat(body: MuhuratRequest):
     - Favorable: Amrit/Shubh/Labh Choghadiya
     - Avoid Rahu Kaal, Gulika, Yamaganda
     """
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     result = _evaluate_day_for_muhurat(
         date_str=body.dateOfBirth,
         tz_name=body.timezone,
@@ -615,11 +634,11 @@ def griha_pravesh_muhurat(body: MuhuratRequest):
     )
     result["muhuratType"] = "Griha Pravesh (Extended)"
     result["description"] = "Extended Griha Pravesh muhurat with comprehensive checks. Tithis 2,3,5,7,10,11,12 are favorable. Amavasya and Purnima tithis should also be avoided. Rahu Kaal, Gulika, and Yamaganda are all avoided."
-    return _envelope(result)
+    return _envelope(translate_response(result, lang, _MUHURAT_FIELDS))
 
 
 @router.post("/muhurat/engagement")
-def engagement_muhurat(body: MuhuratRequest):
+def engagement_muhurat(body: MuhuratRequest, request: Request):
     """
     Engagement muhurat:
     - Favorable Tithis: 2,3,5,7,10,11,12
@@ -628,6 +647,7 @@ def engagement_muhurat(body: MuhuratRequest):
       Uttarashada, Uttarabhadrapada, Ashwini, Revati
     - Favorable: Amrit/Shubh/Labh Choghadiya
     """
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     result = _evaluate_day_for_muhurat(
         date_str=body.dateOfBirth,
         tz_name=body.timezone,
@@ -646,4 +666,4 @@ def engagement_muhurat(body: MuhuratRequest):
     )
     result["muhuratType"] = "Engagement"
     result["description"] = "Auspicious time for engagement ceremony. Favorable tithis and nakshatras are checked. Rahu Kaal and Yamaganda are avoided."
-    return _envelope(result)
+    return _envelope(translate_response(result, lang, _MUHURAT_FIELDS))

@@ -1,11 +1,21 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 import swisseph as swe
 
 from ..utils import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, SIGN_LORDS, planet_status
+from ..i18n import detect_language, translate_response
 
 router = APIRouter()
+
+# Maps response field names -> translation categories (applies recursively)
+_FIELD_MAP = {
+    "sign": "zodiac",
+    "rashi": "zodiac",
+    "signLord": "planet",
+    "planet": "planet",
+    "dignity": "planet_status",
+}
 
 
 class CalculatorRequest(BaseModel):
@@ -16,6 +26,7 @@ class CalculatorRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     houseSystem: Optional[str] = Field("W", example="W")
     nodeMode: Optional[str] = Field("mean", example="mean")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class PlanetStrengthRequest(BaseModel):
@@ -26,6 +37,7 @@ class PlanetStrengthRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     houseSystem: Optional[str] = Field("W", example="W")
     nodeMode: Optional[str] = Field("mean", example="mean")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 def get_house_of_planet(planets: list, planet_name: str) -> int:
@@ -105,7 +117,8 @@ def calculate_ashtakavarga_points(planets: list, asc_sign_idx: int) -> List[Dict
 
 
 @router.post("/calculator/lagna")
-def calculate_lagna(req: CalculatorRequest):
+def calculate_lagna(req: CalculatorRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     jd = to_julian(req.dateOfBirth, req.timeOfBirth, req.timezone)
     swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     hsys = (req.houseSystem or 'W').encode('ascii')
@@ -114,22 +127,26 @@ def calculate_lagna(req: CalculatorRequest):
     asc_sign = ZODIAC_SIGNS[int(asc_lon // 30) % 12]
     asc_deg_in_sign = asc_lon % 30
 
+    data = {
+        "ascendant": {
+            "longitude": asc_lon,
+            "sign": asc_sign,
+            "signLord": SIGN_LORDS[asc_sign],
+            "degreeInSign": asc_deg_in_sign,
+            "degreeDMS": f"{int(asc_deg_in_sign)}°{int((asc_deg_in_sign % 1) * 60)}'{int(((asc_deg_in_sign * 60) % 1) * 60)}\""
+        }
+    }
+    data = translate_response(data, lang, _FIELD_MAP)
+
     return {
         "status": 200,
-        "data": {
-            "ascendant": {
-                "longitude": asc_lon,
-                "sign": asc_sign,
-                "signLord": SIGN_LORDS[asc_sign],
-                "degreeInSign": asc_deg_in_sign,
-                "degreeDMS": f"{int(asc_deg_in_sign)}°{int((asc_deg_in_sign % 1) * 60)}'{int(((asc_deg_in_sign * 60) % 1) * 60)}\""
-            }
-        }
+        "data": data
     }
 
 
 @router.post("/calculator/moon-sign")
-def calculate_moon_sign(req: CalculatorRequest):
+def calculate_moon_sign(req: CalculatorRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     jd = to_julian(req.dateOfBirth, req.timeOfBirth, req.timezone)
     swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     xx, _ = swe.calc_ut(jd, swe.MOON, swe.FLG_SIDEREAL | swe.FLG_SWIEPH | swe.FLG_SPEED)
@@ -137,22 +154,26 @@ def calculate_moon_sign(req: CalculatorRequest):
     moon_sign = ZODIAC_SIGNS[int(moon_lon // 30) % 12]
     moon_deg = moon_lon % 30
 
+    data = {
+        "moonSign": {
+            "longitude": moon_lon,
+            "sign": moon_sign,
+            "signLord": SIGN_LORDS[moon_sign],
+            "degreeInSign": moon_deg,
+            "rashi": moon_sign
+        }
+    }
+    data = translate_response(data, lang, _FIELD_MAP)
+
     return {
         "status": 200,
-        "data": {
-            "moonSign": {
-                "longitude": moon_lon,
-                "sign": moon_sign,
-                "signLord": SIGN_LORDS[moon_sign],
-                "degreeInSign": moon_deg,
-                "rashi": moon_sign
-            }
-        }
+        "data": data
     }
 
 
 @router.post("/calculator/sun-sign")
-def calculate_sun_sign(req: CalculatorRequest):
+def calculate_sun_sign(req: CalculatorRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     jd = to_julian(req.dateOfBirth, req.timeOfBirth, req.timezone)
     swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     xx, _ = swe.calc_ut(jd, swe.SUN, swe.FLG_SIDEREAL | swe.FLG_SWIEPH | swe.FLG_SPEED)
@@ -160,21 +181,25 @@ def calculate_sun_sign(req: CalculatorRequest):
     sun_sign = ZODIAC_SIGNS[int(sun_lon // 30) % 12]
     sun_deg = sun_lon % 30
 
+    data = {
+        "sunSign": {
+            "longitude": sun_lon,
+            "sign": sun_sign,
+            "signLord": SIGN_LORDS[sun_sign],
+            "degreeInSign": sun_deg
+        }
+    }
+    data = translate_response(data, lang, _FIELD_MAP)
+
     return {
         "status": 200,
-        "data": {
-            "sunSign": {
-                "longitude": sun_lon,
-                "sign": sun_sign,
-                "signLord": SIGN_LORDS[sun_sign],
-                "degreeInSign": sun_deg
-            }
-        }
+        "data": data
     }
 
 
 @router.post("/calculator/planet-strength")
-def calculate_planet_strength(req: PlanetStrengthRequest):
+def calculate_planet_strength(req: PlanetStrengthRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     jd = to_julian(req.dateOfBirth, req.timeOfBirth, req.timezone)
     planets = calc_planets(jd, None, req.nodeMode)
     hs_code = req.houseSystem or 'W'
@@ -217,17 +242,21 @@ def calculate_planet_strength(req: PlanetStrengthRequest):
             "overallStrength": total
         })
 
+    data = {
+        "planets": strength_results,
+        "methodology": "Dignity 40% + House 25% + Speed 20% + Avastha 15%"
+    }
+    data = translate_response(data, lang, _FIELD_MAP)
+
     return {
         "status": 200,
-        "data": {
-            "planets": strength_results,
-            "methodology": "Dignity 40% + House 25% + Speed 20% + Avastha 15%"
-        }
+        "data": data
     }
 
 
 @router.post("/calculator/shadbala")
-def calculate_shadbala(req: PlanetStrengthRequest):
+def calculate_shadbala(req: PlanetStrengthRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     jd = to_julian(req.dateOfBirth, req.timeOfBirth, req.timezone)
     planets = calc_planets(jd, None, req.nodeMode)
     hs_code = req.houseSystem or 'W'
@@ -276,18 +305,22 @@ def calculate_shadbala(req: PlanetStrengthRequest):
             "dignity": dignity
         })
 
+    data = {
+        "shadbala": shadbala_results,
+        "scale": "0-100 for each component, total is average",
+        "components": ["Positional (dignity)", "Temporal (house)", "Motional (speed)", "Aspect (mutual aspects)"]
+    }
+    data = translate_response(data, lang, _FIELD_MAP)
+
     return {
         "status": 200,
-        "data": {
-            "shadbala": shadbala_results,
-            "scale": "0-100 for each component, total is average",
-            "components": ["Positional (dignity)", "Temporal (house)", "Motional (speed)", "Aspect (mutual aspects)"]
-        }
+        "data": data
     }
 
 
 @router.post("/calculator/ashtakavarga")
-def calculate_ashtakavarga(req: PlanetStrengthRequest):
+def calculate_ashtakavarga(req: PlanetStrengthRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     jd = to_julian(req.dateOfBirth, req.timeOfBirth, req.timezone)
     planets = calc_planets(jd, None, req.nodeMode)
     hs_code = req.houseSystem or 'W'
@@ -301,17 +334,20 @@ def calculate_ashtakavarga(req: PlanetStrengthRequest):
     strong_houses = [h for h in av_points if h['points'] >= 4]
     weak_houses = [h for h in av_points if h['points'] <= 1]
 
+    data = {
+        "ashtakavarga": {
+            "houses": av_points,
+            "totalPoints": total_points,
+            "maxPossible": 56,
+            "strongHouses": [{"house": h['house'], "sign": h['sign'], "points": h['points']} for h in strong_houses],
+            "weakHouses": [{"house": h['house'], "sign": h['sign'], "points": h['points']} for h in weak_houses]
+        },
+        "methodology": "Count benefic aspects from Jupiter, Venus, Mercury, Moon to each house",
+        "note": "Simplified calculation - full Ashtakavarga considers individual planet benefic status based on sign lord relationships"
+    }
+    data = translate_response(data, lang, _FIELD_MAP)
+
     return {
         "status": 200,
-        "data": {
-            "ashtakavarga": {
-                "houses": av_points,
-                "totalPoints": total_points,
-                "maxPossible": 56,
-                "strongHouses": [{"house": h['house'], "sign": h['sign'], "points": h['points']} for h in strong_houses],
-                "weakHouses": [{"house": h['house'], "sign": h['sign'], "points": h['points']} for h in weak_houses]
-            },
-            "methodology": "Count benefic aspects from Jupiter, Venus, Mercury, Moon to each house",
-            "note": "Simplified calculation - full Ashtakavarga considers individual planet benefic status based on sign lord relationships"
-        }
+        "data": data
     }

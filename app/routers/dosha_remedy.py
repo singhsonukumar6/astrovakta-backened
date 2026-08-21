@@ -1,10 +1,22 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
 from ..utils import to_julian, calc_planets, calc_houses, get_sign, get_nakshatra, ZODIAC_SIGNS, SIGN_LORDS, PLANET_PROPS, planet_status
+from ..i18n import detect_language, translate_response, t as _t
 
 router = APIRouter()
+
+# Field → translation category mapping for dosha remedy responses
+_DOSHA_REMEDY_FIELDS = {
+    "name": "dosha",
+    "dosha": "dosha",
+    "severity": "dosha_severity",
+    "raw_severity": "dosha_severity",
+    "planet": "planet",
+    "sign": "zodiac",
+    "status": "planet_status",
+}
 
 # Compact remedy database: (causing_planets, life_areas, mantras, gems, charity, pujas, fasting_day, fasting_dur, fasting_notes, ausp_days, ausp_tithis, ausp_naks, temp, perm)
 _DB: Dict[str, Dict[str, Any]] = {
@@ -204,6 +216,7 @@ class DoshaRemedyRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     houseSystem: Optional[str] = Field('W')
     nodeMode: Optional[str] = Field('mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class DoshaCompatibilityRequest(DoshaRemedyRequest):
@@ -216,15 +229,18 @@ class DoshaCompatibilityRequest(DoshaRemedyRequest):
 
 # --- Endpoint 1: Detailed remedies ---
 @router.post('/dosha/remedies')
-def dosha_remedies(body: DoshaRemedyRequest):
+def dosha_remedies(body: DoshaRemedyRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     _, doshas = _calc(body)
     enriched = [_enrich(d) for d in doshas if d.get('present')]
-    return {'status': 200, 'data': {'doshas': enriched, 'total_present': len(enriched)}}
+    data = translate_response({'doshas': enriched, 'total_present': len(enriched)}, lang, _DOSHA_REMEDY_FIELDS)
+    return {'status': 200, 'data': data}
 
 
 # --- Endpoint 2: Severity analysis ---
 @router.post('/dosha/severity')
-def dosha_severity(body: DoshaRemedyRequest):
+def dosha_severity(body: DoshaRemedyRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     planets, doshas = _calc(body)
     pmap = {p['name']: p for p in planets}
     analysis = []
@@ -239,12 +255,14 @@ def dosha_severity(body: DoshaRemedyRequest):
                 affected.append({'planet': pname, 'house': p.get('house', 0), 'sign': p.get('sign', ''), 'status': planet_status(pname, p.get('sign', ''))})
         exc = EXCEPTIONS.get(d['name'], [])
         analysis.append({'name': d['name'], 'severity': level, 'raw_severity': d.get('severity', 'Medium'), 'description': d.get('description', ''), 'affected_planets': affected, 'exemptions': exc, 'exemption_available': bool(exc)})
-    return {'status': 200, 'data': {'analysis': analysis, 'total_active': len(analysis)}}
+    data = translate_response({'analysis': analysis, 'total_active': len(analysis)}, lang, _DOSHA_REMEDY_FIELDS)
+    return {'status': 200, 'data': data}
 
 
 # --- Endpoint 3: Compatibility impact ---
 @router.post('/dosha/compatibility-impact')
-def dosha_compatibility(body: DoshaCompatibilityRequest):
+def dosha_compatibility(body: DoshaCompatibilityRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import detect_doshas
     _, native_doshas = _calc(body)
     native_present = {d['name']: d for d in native_doshas if d.get('present')}
@@ -293,15 +311,14 @@ def dosha_compatibility(body: DoshaCompatibilityRequest):
                 continue
             penalty += {'High': 15, 'Medium': 8, 'Low': 3}.get(d.get('severity', 'Medium'), 5)
 
-    return {
-        'status': 200,
-        'data': {
-            'native_doshas': list(native_present.keys()),
-            'partner_doshas': list(partner_present.keys()),
-            'mangal_impact': mangal,
-            'sade_sati_impact': sade_sati,
-            'impact_items': items,
-            'compatibility_score': max(0, 100 - penalty),
-            'recommendation': 'Consult an experienced astrologer for personalised remedies' if penalty else 'Favourable match with minimal dosha conflicts',
-        },
+    data = {
+        'native_doshas': list(native_present.keys()),
+        'partner_doshas': list(partner_present.keys()),
+        'mangal_impact': mangal,
+        'sade_sati_impact': sade_sati,
+        'impact_items': items,
+        'compatibility_score': max(0, 100 - penalty),
+        'recommendation': 'Consult an experienced astrologer for personalised remedies' if penalty else 'Favourable match with minimal dosha conflicts',
     }
+    data = translate_response(data, lang, _DOSHA_REMEDY_FIELDS)
+    return {'status': 200, 'data': data}

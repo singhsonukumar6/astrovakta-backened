@@ -22,6 +22,7 @@ class ChartRequest(BaseModel):
     theme: Optional[str] = Field('light', example='light')  # 'light' (transparent) | 'dark' (transparent) | 'opaque-light' | 'opaque-dark'
     includeOuterPlanets: Optional[bool] = Field(True, example=True)
     stackIfCountAtLeast: Optional[int] = Field(3, example=3, description='If a house has >= this many planets, stack them vertically with degrees to the side')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 # North Indian Chart Generator using svgwrite
 # Proper polygon-based houses with gradient backgrounds
@@ -250,6 +251,7 @@ class DivisionalChartRequest(BaseModel):
     theme: Optional[str] = Field('light', example='light')
     includeOuterPlanets: Optional[bool] = Field(True, example=True)
     stackIfCountAtLeast: Optional[int] = Field(2, example=2)
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 def _parse_varga_name(name: str) -> Optional[int]:

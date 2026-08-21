@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 import swisseph as swe
@@ -7,8 +7,20 @@ from ..utils import (
     to_julian, calc_planets, calc_houses, get_sign, get_nakshatra,
     ZODIAC_SIGNS, SIGN_LORDS, PLANET_PROPS, planet_status,
 )
+from ..i18n import detect_language, translate_response
 
 router = APIRouter()
+
+# Maps response field names -> translation categories (applies recursively)
+_FIELD_MAP = {
+    "sign": "zodiac",
+    "rashi": "zodiac",
+    "signLord": "planet",
+    "nakshatra": "nakshatra",
+    "nakshatraLord": "planet",
+    "name": "planet",
+    "planet": "planet",
+}
 
 
 class BhavaChalitRequest(BaseModel):
@@ -19,6 +31,7 @@ class BhavaChalitRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     houseSystem: Optional[str] = Field("W", example="W")
     nodeMode: Optional[str] = Field("mean", example="mean")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 def _compute_both_systems(body: BhavaChalitRequest) -> Dict[str, Any]:
@@ -174,8 +187,10 @@ def _build_summary(diffs: list, ws_planets: list, pl_planets: list) -> str:
 
 
 @router.post("/horoscope/bhava-chalit")
-def bhava_chalit(body: BhavaChalitRequest):
+def bhava_chalit(body: BhavaChalitRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     result = _compute_both_systems(body)
+    result = translate_response(result, lang, _FIELD_MAP)
     return {
         "status": "success",
         "meta": {
@@ -192,7 +207,8 @@ def bhava_chalit(body: BhavaChalitRequest):
 
 
 @router.post("/horoscope/bhava-chalit/compare")
-def bhava_chalit_compare(body: BhavaChalitRequest):
+def bhava_chalit_compare(body: BhavaChalitRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     result = _compute_both_systems(body)
 
     ws_planets = result["wholeSign"]["planets"]
@@ -219,6 +235,22 @@ def bhava_chalit_compare(body: BhavaChalitRequest):
     ws_asc = result["wholeSign"]["ascendant"]
     pl_asc = result["cuspBased"]["ascendant"]
 
+    data = {
+        "comparisonTable": comparison_rows,
+        "ascendant": {
+            "wholeSign": ws_asc,
+            "cuspBased": pl_asc,
+            "sameSign": ws_asc["sign"] == pl_asc["sign"],
+        },
+        "differences": result["differences"],
+        "hasDifferences": result["hasDifferences"],
+        "summary": result["summary"],
+        "totalPlanets": len(comparison_rows),
+        "planetsWithShift": sum(1 for r in comparison_rows if not r["same"]),
+        "planetsSame": sum(1 for r in comparison_rows if r["same"]),
+    }
+    data = translate_response(data, lang, _FIELD_MAP)
+
     return {
         "status": "success",
         "meta": {
@@ -228,25 +260,13 @@ def bhava_chalit_compare(body: BhavaChalitRequest):
             "longitude": body.longitude,
             "timezone": body.timezone,
         },
-        "data": {
-            "comparisonTable": comparison_rows,
-            "ascendant": {
-                "wholeSign": ws_asc,
-                "cuspBased": pl_asc,
-                "sameSign": ws_asc["sign"] == pl_asc["sign"],
-            },
-            "differences": result["differences"],
-            "hasDifferences": result["hasDifferences"],
-            "summary": result["summary"],
-            "totalPlanets": len(comparison_rows),
-            "planetsWithShift": sum(1 for r in comparison_rows if not r["same"]),
-            "planetsSame": sum(1 for r in comparison_rows if r["same"]),
-        },
+        "data": data,
     }
 
 
 @router.post("/horoscope/bhava-chalit/cusps")
-def bhava_chalit_cusps(body: BhavaChalitRequest):
+def bhava_chalit_cusps(body: BhavaChalitRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     lat, lon = body.latitude, body.longitude
 
@@ -281,6 +301,37 @@ def bhava_chalit_cusps(body: BhavaChalitRequest):
     asc_sign = get_sign(asc_cusp)
     mc_sign = get_sign(mc_cusp)
 
+    data = {
+        "cusps": cusps,
+        "specialPoints": {
+            "ascendant": {
+                "degree": round(asc_cusp, 4),
+                "degreeDMS": _to_dms(asc_cusp),
+                "sign": asc_sign,
+                "signLord": SIGN_LORDS[asc_sign],
+            },
+            "midheaven": {
+                "degree": round(mc_cusp, 4),
+                "degreeDMS": _to_dms(mc_cusp),
+                "sign": mc_sign,
+                "signLord": SIGN_LORDS[mc_sign],
+            },
+            "armc": {
+                "degree": round(armc_cusp, 4),
+                "degreeDMS": _to_dms(armc_cusp),
+                "sign": get_sign(armc_cusp),
+                "signLord": SIGN_LORDS[get_sign(armc_cusp)],
+            },
+            "vertex": {
+                "degree": round(vertex_cusp, 4),
+                "degreeDMS": _to_dms(vertex_cusp),
+                "sign": get_sign(vertex_cusp),
+                "signLord": SIGN_LORDS[get_sign(vertex_cusp)],
+            },
+        },
+    }
+    data = translate_response(data, lang, _FIELD_MAP)
+
     return {
         "status": "success",
         "meta": {
@@ -290,33 +341,5 @@ def bhava_chalit_cusps(body: BhavaChalitRequest):
             "longitude": body.longitude,
             "timezone": body.timezone,
         },
-        "data": {
-            "cusps": cusps,
-            "specialPoints": {
-                "ascendant": {
-                    "degree": round(asc_cusp, 4),
-                    "degreeDMS": _to_dms(asc_cusp),
-                    "sign": asc_sign,
-                    "signLord": SIGN_LORDS[asc_sign],
-                },
-                "midheaven": {
-                    "degree": round(mc_cusp, 4),
-                    "degreeDMS": _to_dms(mc_cusp),
-                    "sign": mc_sign,
-                    "signLord": SIGN_LORDS[mc_sign],
-                },
-                "armc": {
-                    "degree": round(armc_cusp, 4),
-                    "degreeDMS": _to_dms(armc_cusp),
-                    "sign": get_sign(armc_cusp),
-                    "signLord": SIGN_LORDS[get_sign(armc_cusp)],
-                },
-                "vertex": {
-                    "degree": round(vertex_cusp, 4),
-                    "degreeDMS": _to_dms(vertex_cusp),
-                    "sign": get_sign(vertex_cusp),
-                    "signLord": SIGN_LORDS[get_sign(vertex_cusp)],
-                },
-            },
-        },
+        "data": data,
     }

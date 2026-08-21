@@ -15,6 +15,7 @@ class ChartRequest(BaseModel):
     nodeMode: Optional[str] = 'mean'
     width: int = 600
     height: int = 450
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 @router.post('/chart/generate')
 def generate_chart(body: ChartRequest):

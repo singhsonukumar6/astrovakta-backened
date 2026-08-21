@@ -1,9 +1,19 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 
+from ..i18n import detect_language, translate_response, t as _t
 
 router = APIRouter()
+
+FIELD_MAP = {
+    'system': 'dasha_name',
+    'planet': 'planet',
+    'startLord': 'planet',
+    'moonNakshatra': 'nakshatra',
+    'sign': 'zodiac',
+    'signLord': 'planet',
+}
 
 DASHA_PREDICTIONS = {
     'Sun': {
@@ -82,10 +92,12 @@ class DashaRequest(BaseModel):
     latitude: Optional[float] = Field(None, example=28.6139)
     longitude: Optional[float] = Field(None, example=77.2090)
     houseSystem: Optional[str] = Field(None, example='W')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 @router.post('/dasha/vimshottari')
-def vimshottari(body: DashaRequest):
+def vimshottari(body: DashaRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, parse_local_datetime, vimshottari_full, calc_planets, calc_houses, sunrise_sunset
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     birth_local = parse_local_datetime(body.dateOfBirth, body.timeOfBirth, body.timezone)
@@ -162,7 +174,7 @@ def vimshottari(body: DashaRequest):
         except Exception as e:
             context = {'warning': f'Location context unavailable: {e}'}
 
-    return {
+    data = {
         'status': 200,
         'system': 'Vimshottari',
         'data': res,
@@ -171,3 +183,4 @@ def vimshottari(body: DashaRequest):
         'context': context,
         'validation': validation
     }
+    return translate_response(data, lang, FIELD_MAP)

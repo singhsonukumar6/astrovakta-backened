@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime
@@ -6,8 +6,18 @@ import pytz
 import swisseph as swe
 
 from ..utils import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, SIGN_LORDS, NAKSHATRAS, get_nakshatra
+from ..i18n import detect_language, translate_response, t as _t
 
 router = APIRouter()
+
+# Field → translation category mapping for Dhaiya/Sade Sati response
+_DHAIYA_FIELDS = {
+    "moonSign": "zodiac",
+    "saturnSign": "zodiac",
+    "phase": "dosha",
+    "severity": "dosha_severity",
+    "dhaiyaType": "house",
+}
 
 class DhaiyaRequest(BaseModel):
     dateOfBirth: str = Field(..., example="1990-05-15")
@@ -15,6 +25,7 @@ class DhaiyaRequest(BaseModel):
     latitude: float = Field(..., example=28.6139)
     longitude: float = Field(..., example=77.2090)
     timezone: str = Field(..., example="Asia/Kolkata")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 _SADE_SATI_PHASES = {
@@ -25,7 +36,8 @@ _SADE_SATI_PHASES = {
 
 
 @router.post("/horoscope/dosha/dhaiya")
-def dhaiya_dosha(body: DhaiyaRequest) -> Dict[str, Any]:
+def dhaiya_dosha(body: DhaiyaRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     planets = calc_planets(jd, None, "mean")
     swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
@@ -136,19 +148,21 @@ def dhaiya_dosha(body: DhaiyaRequest) -> Dict[str, Any]:
     except Exception:
         pass
 
+    data = {
+        "moonSign": ZODIAC_SIGNS[moon_sign_idx],
+        "saturnSign": ZODIAC_SIGNS[saturn_sign_idx],
+        "signsFromMoon": diff,
+        "currentStatus": current_status,
+        "inSadeSati": in_sade_sati,
+        "inDhaiya": in_dhaiya,
+        "dhaiyaType": "4th House" if in_dhaiya_4th else ("8th House" if in_dhaiya_8th else None),
+        "allPhases": all_phases,
+        "sadeSatiCycleDates": sade_sati_dates if sade_sati_dates else None,
+        "dhaiyaNote": "Dhaiya (2.5-year period) occurs when Saturn transits the 4th or 8th house from natal Moon. Sade Sati (7.5-year period) spans 12th, 1st, and 2nd houses from Moon.",
+        "generalAdvice": "Challenging Saturn transits bring growth through hardship. Focus on discipline, service, and spiritual practice during these periods."
+    }
+    data = translate_response(data, lang, _DHAIYA_FIELDS)
     return {
         "success": True,
-        "data": {
-            "moonSign": ZODIAC_SIGNS[moon_sign_idx],
-            "saturnSign": ZODIAC_SIGNS[saturn_sign_idx],
-            "signsFromMoon": diff,
-            "currentStatus": current_status,
-            "inSadeSati": in_sade_sati,
-            "inDhaiya": in_dhaiya,
-            "dhaiyaType": "4th House" if in_dhaiya_4th else ("8th House" if in_dhaiya_8th else None),
-            "allPhases": all_phases,
-            "sadeSatiCycleDates": sade_sati_dates if sade_sati_dates else None,
-            "dhaiyaNote": "Dhaiya (2.5-year period) occurs when Saturn transits the 4th or 8th house from natal Moon. Sade Sati (7.5-year period) spans 12th, 1st, and 2nd houses from Moon.",
-            "generalAdvice": "Challenging Saturn transits bring growth through hardship. Focus on discipline, service, and spiritual practice during these periods."
-        }
+        "data": data
     }

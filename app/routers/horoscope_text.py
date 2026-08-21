@@ -18,6 +18,7 @@ class HoroscopeRequest(BaseModel):
     longitude: float = Field(..., example=77.2090)
     timezone: str = Field(..., example="Asia/Kolkata")
     zodiacSign: Optional[str] = Field(None, example="Aries")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 # ──────────────────────────────────────────────

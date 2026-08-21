@@ -1,10 +1,23 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import pytz
 
+from ..i18n import detect_language, translate_response, t as _t
+
 router = APIRouter()
+
+FIELD_MAP = {
+    'planet': 'planet',
+    'sign': 'zodiac',
+    'natalSign': 'zodiac',
+    'transitSign': 'zodiac',
+    'signLord': 'planet',
+    'nakshatra': 'nakshatra',
+    'aspect': 'transit_aspect',
+    'nature': 'transit_strength',
+}
 
 
 class TransitRequest(BaseModel):
@@ -16,6 +29,7 @@ class TransitRequest(BaseModel):
     transitDate: Optional[str] = Field(None, example="2025-07-15", description="Transit date (defaults to today)")
     houseSystem: Optional[str] = Field('W', example='W')
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class TransitPlanet:
@@ -88,7 +102,8 @@ def _transit_prediction(planet: str, transit_house: int, natal_house: int) -> st
 
 
 @router.post('/transit')
-def compute_transit(body: TransitRequest) -> Dict[str, Any]:
+def compute_transit(body: TransitRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import (to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, SIGN_LORDS,
                         get_nakshatra, to_dms)
 
@@ -142,16 +157,18 @@ def compute_transit(body: TransitRequest) -> Dict[str, Any]:
             'prediction': prediction,
         })
 
-    return {
+    data = {
         'status': 200,
         'transitDate': transit_dt.strftime('%Y-%m-%d'),
         'ascendant': house_data_birth['ascendant'],
         'transits': transit_results,
     }
+    return translate_response(data, lang, FIELD_MAP)
 
 
 @router.post('/transit/current')
-def current_transits(body: TransitRequest) -> Dict[str, Any]:
+def current_transits(body: TransitRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, ZODIAC_SIGNS, SIGN_LORDS
 
     jd_birth = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
@@ -180,9 +197,10 @@ def current_transits(body: TransitRequest) -> Dict[str, Any]:
                 'nakshatra': transit['nakshatra'],
             })
 
-    return {
+    data = {
         'status': 200,
         'date': now.strftime('%Y-%m-%d %H:%M'),
         'timezone': body.timezone,
         'transits': current,
     }
+    return translate_response(data, lang, FIELD_MAP)

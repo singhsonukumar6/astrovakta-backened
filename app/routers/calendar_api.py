@@ -33,6 +33,7 @@ class FestivalRequest(BaseModel):
     latitude: Optional[float] = Field(28.6139, example=28.6139)
     longitude: Optional[float] = Field(77.2090, example=77.2090)
     timezone: Optional[str] = Field("Asia/Kolkata", example="Asia/Kolkata")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class MuhuratRequest(CalendarPanchangRequest):

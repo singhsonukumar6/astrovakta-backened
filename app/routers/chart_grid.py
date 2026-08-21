@@ -18,6 +18,7 @@ class GridChartRequest(BaseModel):
     width: Optional[int] = Field(500, example=500)
     height: Optional[int] = Field(500, example=500)
     theme: Optional[str] = Field('light', example='light')  # currently used only for colors
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 def _line(x1, y1, x2, y2, color="#ff3366", w=3):

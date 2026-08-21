@@ -1,10 +1,46 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import pytz
 
+from ..i18n import detect_language, translate_response, t as _t
+
 router = APIRouter()
+
+# Field → translation category mappings for standalone dosha responses
+_GRAHAN_FIELDS = {
+    "sign": "zodiac",
+    "severity": "dosha_severity",
+}
+
+_SHRAPIT_FIELDS = {
+    "sign": "zodiac",
+    "severity": "dosha_severity",
+}
+
+_MANGLIK_FIELDS = {
+    "marsSign": "zodiac",
+    "severityLabel": "dosha_severity",
+}
+
+_NADI_DOSHA_FIELDS = {
+    "maleNakshatra": "nakshatra",
+    "femaleNakshatra": "nakshatra",
+    "maleNadi": "nadi",
+    "femaleNadi": "nadi",
+}
+
+_BHAKOOT_FIELDS = {
+    "maleMoonSign": "zodiac",
+    "femaleMoonSign": "zodiac",
+    "doshaType": "dosha",
+}
+
+_YONI_FIELDS = {
+    "maleNakshatra": "nakshatra",
+    "femaleNakshatra": "nakshatra",
+}
 
 
 class DoshaStandaloneRequest(BaseModel):
@@ -15,6 +51,7 @@ class DoshaStandaloneRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     houseSystem: Optional[str] = Field('W', example='W')
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class NadiDoshaRequest(BaseModel):
@@ -29,6 +66,7 @@ class NadiDoshaRequest(BaseModel):
     femaleLongitude: float = Field(..., example=72.8777)
     femaleTimezone: str = Field(..., example="Asia/Kolkata")
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 NAKSHATRAS_ORDER = [
@@ -105,7 +143,8 @@ def _get_moon_nakshatra(body: DoshaStandaloneRequest) -> Optional[str]:
 
 
 @router.post('/dosha/grahan')
-def grahan_dosha(body: DoshaStandaloneRequest) -> Dict[str, Any]:
+def grahan_dosha(body: DoshaStandaloneRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, SIGN_LORDS, get_nakshatra
     import swisseph as swe
 
@@ -179,17 +218,19 @@ def grahan_dosha(body: DoshaStandaloneRequest) -> Dict[str, Any]:
             })
 
     present = len(afflictions) > 0
-    return {
+    data = {
         'status': 200,
         'grahanPresent': present,
         'afflictionCount': len(afflictions),
         'afflictions': afflictions,
         'summary': 'Grahan Dosha present - significant karmic affliction' if present else 'No Grahan Dosha detected',
     }
+    return translate_response(data, lang, _GRAHAN_FIELDS)
 
 
 @router.post('/dosha/shrapit')
-def shrapit_dosha(body: DoshaStandaloneRequest) -> Dict[str, Any]:
+def shrapit_dosha(body: DoshaStandaloneRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, SIGN_LORDS, get_nakshatra
 
     planets = _get_planets_for(body)
@@ -231,16 +272,18 @@ def shrapit_dosha(body: DoshaStandaloneRequest) -> Dict[str, Any]:
                 ],
             }
 
-    return {
+    data = {
         'status': 200,
         'shrapitPresent': shrapit_present,
         'details': details if shrapit_present else None,
         'summary': 'Shrapit Dosha present - Saturn and Rahu in same sign' if shrapit_present else 'No Shrapit Dosha detected',
     }
+    return translate_response(data, lang, _SHRAPIT_FIELDS)
 
 
 @router.post('/dosha/manglik-detailed')
-def manglik_detailed(body: DoshaStandaloneRequest) -> Dict[str, Any]:
+def manglik_detailed(body: DoshaStandaloneRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, SIGN_LORDS, get_nakshatra
 
     planets = _get_planets_for(body)
@@ -348,11 +391,12 @@ def manglik_detailed(body: DoshaStandaloneRequest) -> Dict[str, Any]:
             'severityLabel': 'None',
         })
 
-    return {'status': 200, **result}
+    return translate_response({'status': 200, **result}, lang, _MANGLIK_FIELDS)
 
 
 @router.post('/dosha/nadi-dosha')
-def nadi_dosha(body: NadiDoshaRequest) -> Dict[str, Any]:
+def nadi_dosha(body: NadiDoshaRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, SIGN_LORDS, get_nakshatra
 
     jd_male = to_julian(body.maleDateOfBirth, body.maleTimeOfBirth, body.maleTimezone)
@@ -374,7 +418,7 @@ def nadi_dosha(body: NadiDoshaRequest) -> Dict[str, Any]:
     nadi_dosha_present = male_nadi == female_nadi
     score = 0 if nadi_dosha_present else 8
 
-    return {
+    data = {
         'status': 200,
         'nadiDoshaPresent': nadi_dosha_present,
         'maleNakshatra': male_nakshatra,
@@ -398,10 +442,12 @@ def nadi_dosha(body: NadiDoshaRequest) -> Dict[str, Any]:
             'Perform Nadi Dosha nivaran during auspicious muhurta',
         ] if nadi_dosha_present else [],
     }
+    return translate_response(data, lang, _NADI_DOSHA_FIELDS)
 
 
 @router.post('/dosha/bhakoot-dosha')
-def bhakoot_dosha(body: NadiDoshaRequest) -> Dict[str, Any]:
+def bhakoot_dosha(body: NadiDoshaRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, SIGN_LORDS, get_nakshatra
 
     jd_male = to_julian(body.maleDateOfBirth, body.maleTimeOfBirth, body.maleTimezone)
@@ -434,7 +480,7 @@ def bhakoot_dosha(body: NadiDoshaRequest) -> Dict[str, Any]:
     elif diff == 6:
         dosha_type = '6-8 Bhakoot Dosha'
 
-    return {
+    data = {
         'status': 200,
         'bhakootDoshaPresent': bhakoot_dosha_present,
         'maleMoonSign': male_moon['sign'],
@@ -458,10 +504,12 @@ def bhakoot_dosha(body: NadiDoshaRequest) -> Dict[str, Any]:
             'Visit Tirupati Balaji temple',
         ] if bhakoot_dosha_present else [],
     }
+    return translate_response(data, lang, _BHAKOOT_FIELDS)
 
 
 @router.post('/dosha/yoni-compatibility')
-def yoni_compatibility(body: NadiDoshaRequest) -> Dict[str, Any]:
+def yoni_compatibility(body: NadiDoshaRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, get_nakshatra
 
     jd_male = to_julian(body.maleDateOfBirth, body.maleTimeOfBirth, body.maleTimezone)
@@ -493,7 +541,7 @@ def yoni_compatibility(body: NadiDoshaRequest) -> Dict[str, Any]:
         nature = 'Friendly' if score >= 2 else ('Neutral' if score == 1 else 'Enemy')
         compatibility = 'Good' if score >= 2 else ('Average' if score == 1 else 'Poor')
 
-    return {
+    data = {
         'status': 200,
         'maleNakshatra': male_nakshatra,
         'femaleNakshatra': female_nakshatra,
@@ -507,3 +555,4 @@ def yoni_compatibility(body: NadiDoshaRequest) -> Dict[str, Any]:
         'compatibility': compatibility,
         'description': f"Male {male_animal} ({male_gender}), Female {female_animal} ({female_gender}) - {nature} - {compatibility} compatibility",
     }
+    return translate_response(data, lang, _YONI_FIELDS)

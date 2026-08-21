@@ -42,6 +42,7 @@ class RectifyRequest(BaseModel):
         example=[{"date": "2015-06-20", "event": "marriage"}],
         description="Known life events with dates for transit-based verification",
     )
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class AscendantScanRequest(BaseModel):
@@ -52,6 +53,7 @@ class AscendantScanRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     houseSystem: Optional[str] = Field("W", example="W")
     nodeMode: Optional[str] = Field("mean", example="mean")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class TransitVerifyRequest(BaseModel):
@@ -64,6 +66,7 @@ class TransitVerifyRequest(BaseModel):
     nodeMode: Optional[str] = Field("mean", example="mean")
     eventDate: str = Field(..., example="2015-06-20")
     eventType: str = Field(..., example="marriage")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 EVENT_TRANSIT_SIGNATURES: Dict[str, Dict[str, Any]] = {

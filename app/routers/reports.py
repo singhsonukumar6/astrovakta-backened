@@ -24,6 +24,7 @@ class BirthChartReportRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     houseSystem: Optional[str] = Field('W', example='W')
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 @router.post('/reports/birth-chart')
@@ -94,6 +95,7 @@ class PredictionsReportRequest(BaseModel):
         example=["career", "finance", "health", "love", "education", "family", "travel"],
         description="Specific aspects to predict. Leave empty for all."
     )
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 @router.post('/reports/predictions')
@@ -169,6 +171,7 @@ class CareerReportRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     houseSystem: Optional[str] = Field('W', example='W')
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 @router.post('/reports/career')
@@ -219,6 +222,7 @@ class ComprehensiveReportRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     houseSystem: Optional[str] = Field('W', example='W')
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 @router.post('/reports/comprehensive')
@@ -334,6 +338,7 @@ class FullPDFRequest(BaseModel):
     watermarkText: Optional[str] = Field(None, example="CONFIDENTIAL", description="Diagonal text watermark on every page (light/transparent)")
     watermarkImageUrl: Optional[str] = Field(None, description="URL or local path to watermark image (semi-transparent overlay)")
     watermarkOpacity: Optional[float] = Field(0.08, ge=0.0, le=0.3, description="Watermark opacity 0.0-0.3 (default 0.08, very light)")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 @router.post('/reports/full-pdf')

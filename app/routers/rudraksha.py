@@ -1,11 +1,20 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 import swisseph as swe
 
 from ..utils import to_julian, ZODIAC_SIGNS, SIGN_LORDS
+from ..i18n import detect_language, translate_response, t as _t
 
 router = APIRouter()
+
+# Field → translation category mapping for rudraksha responses
+_RUDRAKSHA_FIELDS = {
+    "moonSign": "zodiac",
+    "name": "rudraksha",
+    "planet": "planet",
+    "wearingDay": "weekday",
+}
 
 
 class RudrakshaRecommendRequest(BaseModel):
@@ -15,24 +24,29 @@ class RudrakshaRecommendRequest(BaseModel):
     longitude: float = Field(..., example=77.2090)
     timezone: str = Field(..., example="Asia/Kolkata")
     nodeMode: Optional[str] = Field("mean", example="mean")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class MukhiIdentificationRequest(BaseModel):
     description: str = Field(..., example="Round shaped rudraksha with 5 lines visible on surface")
     visualFeatures: Optional[str] = Field(None, example="Natural five faces visible, smooth surface")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class WearingMethodRequest(BaseModel):
     mukhiCount: int = Field(..., ge=1, le=14, example=5)
     gender: Optional[str] = Field("male", example="male")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class MantraRequest(BaseModel):
     mukhiCount: int = Field(..., ge=1, le=14, example=5)
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class BenefitsRequest(BaseModel):
     mukhiCount: int = Field(..., ge=1, le=14, example=5)
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 RUDRAKSHA_DATA: Dict[int, Dict[str, Any]] = {
@@ -358,7 +372,8 @@ def get_mukhi_from_description(description: str) -> Dict[str, Any]:
 
 
 @router.post("/rudraksha/recommendation")
-def recommend_rudraksha(req: RudrakshaRecommendRequest):
+def recommend_rudraksha(req: RudrakshaRecommendRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     jd = to_julian(req.dateOfBirth, req.timeOfBirth, req.timezone)
     swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     xx, _ = swe.calc_ut(jd, swe.MOON, swe.FLG_SIDEREAL | swe.FLG_SWIEPH)
@@ -375,18 +390,19 @@ def recommend_rudraksha(req: RudrakshaRecommendRequest):
 
     return {
         "status": 200,
-        "data": {
+        "data": translate_response({
             "moonSign": moon_sign,
             "primaryRecommendation": primary,
             "secondaryRecommendation": secondary,
             "allRecommended": all_recommended,
             "note": "Rudraksha recommendation based on Moon sign (Rashi) position. Consult a pandit for personalized guidance."
-        }
+        }, lang, _RUDRAKSHA_FIELDS)
     }
 
 
 @router.post("/rudraksha/mukhi-identification")
-def identify_mukhi(req: MukhiIdentificationRequest):
+def identify_mukhi(req: MukhiIdentificationRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     full_desc = req.description
     if req.visualFeatures:
         full_desc += " " + req.visualFeatures
@@ -395,17 +411,18 @@ def identify_mukhi(req: MukhiIdentificationRequest):
 
     return {
         "status": 200,
-        "data": {
+        "data": translate_response({
             "inputDescription": req.description,
             "identification": result,
             "availableMukhis": list(RUDRAKSHA_DATA.keys()),
             "note": "This is an automated identification. For accurate identification, please consult an expert or count the natural lines manually."
-        }
+        }, lang, _RUDRAKSHA_FIELDS)
     }
 
 
 @router.post("/rudraksha/wearing-method")
-def wearing_method(req: WearingMethodRequest):
+def wearing_method(req: WearingMethodRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     mukhi = req.mukhiCount
     data = RUDRAKSHA_DATA.get(mukhi, RUDRAKSHA_DATA[5])
 
@@ -449,11 +466,12 @@ def wearing_method(req: WearingMethodRequest):
         "genderNote": "Both men and women can wear rudraksha. " + ("Men can wear on neck or right hand. Women can wear on neck or left hand." if req.gender.lower() == "male" else "Men can wear on neck or right hand. Women can wear on neck or left hand.")
     }
 
-    return {"status": 200, "data": wearing_guide}
+    return {"status": 200, "data": translate_response(wearing_guide, lang, _RUDRAKSHA_FIELDS)}
 
 
 @router.post("/rudraksha/mantra")
-def rudraksha_mantra(req: MantraRequest):
+def rudraksha_mantra(req: MantraRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     mukhi = req.mukhiCount
     data = RUDRAKSHA_DATA.get(mukhi, RUDRAKSHA_DATA[5])
 
@@ -478,7 +496,7 @@ def rudraksha_mantra(req: MantraRequest):
 
     return {
         "status": 200,
-        "data": {
+        "data": translate_response({
             "mukhi": mukhi,
             "name": data["name"],
             "deity": data["deity"],
@@ -496,12 +514,13 @@ def rudraksha_mantra(req: MantraRequest):
                 "Complete 108 repetitions (one mala)",
                 "Meditate silently for a few minutes after completion"
             ]
-        }
+        }, lang, _RUDRAKSHA_FIELDS)
     }
 
 
 @router.post("/rudraksha/benefits")
-def rudraksha_benefits(req: BenefitsRequest):
+def rudraksha_benefits(req: BenefitsRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     mukhi = req.mukhiCount
     data = RUDRAKSHA_DATA.get(mukhi, RUDRAKSHA_DATA[5])
 
@@ -524,7 +543,7 @@ def rudraksha_benefits(req: BenefitsRequest):
 
     return {
         "status": 200,
-        "data": {
+        "data": translate_response({
             "mukhi": mukhi,
             "name": data["name"],
             "deity": data["deity"],
@@ -542,5 +561,5 @@ def rudraksha_benefits(req: BenefitsRequest):
                 "material": min(10, mukhi) if mukhi <= 7 else min(10, 14 - mukhi + 2),
                 "healing": min(10, 2 + mukhi) if mukhi <= 7 else min(10, 14 - mukhi + 4)
             }
-        }
+        }, lang, _RUDRAKSHA_FIELDS)
     }

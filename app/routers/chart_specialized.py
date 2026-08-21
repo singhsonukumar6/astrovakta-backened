@@ -131,6 +131,7 @@ class DedicatedChartRequest(BaseModel):
     width: Optional[int] = Field(800, example=800)
     height: Optional[int] = Field(600, example=600)
     theme: Optional[str] = Field('light', example='light')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 # ──────────────────── 1. NAVAMSA CHART (D9) ────────────────────
@@ -253,6 +254,7 @@ class SudarshanaRequest(BaseModel):
     width: Optional[int] = Field(800, example=800)
     height: Optional[int] = Field(600, example=600)
     theme: Optional[str] = Field('light', example='light')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 @router.post('/chart/sudarshana-svg',

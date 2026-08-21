@@ -1,8 +1,32 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
 from ..response import success, error
+from ..i18n import detect_language, translate_response, t as _t
+
+# Field → translation category mapping for KP astrology responses
+_KP_FIELDS = {
+    "planet": "planet",
+    "sign": "zodiac",
+    "signLord": "planet",
+    "cuspalLord": "planet",
+    "starLord": "planet",
+    "subLord": "planet",
+    "lord": "planet",
+    "ascendantSign": "zodiac",
+    "ascendantLord": "planet",
+    "ascendantStarLord": "planet",
+    "ascendantSubLord": "planet",
+    "targetHouseSign": "zodiac",
+    "targetHouseLord": "planet",
+    "moonStarLord": "planet",
+    "startSign": "zodiac",
+    "midPointSign": "zodiac",
+    "houseStatus": "planet_status",
+    "weekday": "weekday",
+    "nakshatra": "nakshatra",
+}
 
 router = APIRouter()
 
@@ -15,6 +39,7 @@ class BirthRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     houseSystem: Optional[str] = Field('P', example='P')
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class HoraryRequest(BaseModel):
@@ -26,6 +51,7 @@ class HoraryRequest(BaseModel):
     question: str = Field(..., example="Will I get a job this year?")
     houseSystem: Optional[str] = Field('P', example='P')
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 KP_SIGNIFICATORS = {
@@ -74,7 +100,8 @@ def _get_star_lord(lon: float) -> str:
 
 
 @router.post('/kp/planet-details')
-def kp_planet_details(body: BirthRequest):
+def kp_planet_details(body: BirthRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, SIGN_LORDS
 
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
@@ -105,14 +132,15 @@ def kp_planet_details(body: BirthRequest):
             'isRetrograde': p.get('isRetrograde', False),
         })
 
-    return success({
+    return success(translate_response({
         'system': 'KP Astrology',
         'planetDetails': planet_details,
-    })
+    }, lang, _KP_FIELDS))
 
 
 @router.post('/kp/cuspal-lords')
-def kp_cuspal_lords(body: BirthRequest):
+def kp_cuspal_lords(body: BirthRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS
 
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
@@ -140,14 +168,15 @@ def kp_cuspal_lords(body: BirthRequest):
             'planets': h.get('planets', []),
         })
 
-    return success({
+    return success(translate_response({
         'system': 'KP Astrology',
         'cusps': cusp_details,
-    })
+    }, lang, _KP_FIELDS))
 
 
 @router.post('/kp/bhav-chalit')
-def kp_bhav_chalit(body: BirthRequest):
+def kp_bhav_chalit(body: BirthRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS
 
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
@@ -175,14 +204,15 @@ def kp_bhav_chalit(body: BirthRequest):
             'planets': h.get('planets', []),
         })
 
-    return success({
+    return success(translate_response({
         'system': 'KP Astrology',
         'bhavChalit': bhav_chalit,
-    })
+    }, lang, _KP_FIELDS))
 
 
 @router.post('/kp/ruling-planets')
-def kp_ruling_planets(body: BirthRequest):
+def kp_ruling_planets(body: BirthRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, NAKSHATRAS, SIGN_LORDS
     from ..utils import planet_status
     from datetime import datetime
@@ -291,7 +321,7 @@ def kp_ruling_planets(body: BirthRequest):
             seen.add(key)
             deduped.append(rp)
 
-    return success({
+    return success(translate_response({
         'system': 'KP Astrology',
         'ascendant': {
             'sign': asc_sign,
@@ -313,11 +343,12 @@ def kp_ruling_planets(body: BirthRequest):
         },
         'rulingPlanets': deduped,
         'note': 'The 6+1 classical KP ruling planets: Lagna Lord, Lagna Star Lord, Lagna Sub Lord, Moon Sign Lord, Moon Star Lord, Moon Sub Lord, and Day Lord. Used for KP electional (muhurat) and horary (prashna) astrology.',
-    })
+    }, lang, _KP_FIELDS))
 
 
 @router.post('/kp/horary')
-def kp_horary(body: HoraryRequest):
+def kp_horary(body: HoraryRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, NAKSHATRAS
     from datetime import datetime
     import pytz
@@ -396,7 +427,7 @@ def kp_horary(body: HoraryRequest):
 
     favorable = len(significators) >= 3 or (moon_star in [s['planet'] for s in significators])
 
-    return success({
+    return success(translate_response({
         'system': 'KP Horary',
         'question': body.question,
         'questionHouse': house_to_analyze,
@@ -414,11 +445,12 @@ def kp_horary(body: HoraryRequest):
             'The significators indicate a favorable outcome for your question.' if favorable
             else 'The significators suggest challenges. Consider waiting for a more favorable time.'
         ),
-    })
+    }, lang, _KP_FIELDS))
 
 
 @router.post('/kp/star-lords')
-def kp_star_lords(body: BirthRequest):
+def kp_star_lords(body: BirthRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets
 
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
@@ -440,7 +472,7 @@ def kp_star_lords(body: BirthRequest):
             'subLord': sub_lord,
         })
 
-    return success({
+    return success(translate_response({
         'system': 'KP Astrology',
         'starLordDetails': result,
-    })
+    }, lang, _KP_FIELDS))

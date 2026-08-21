@@ -1,8 +1,17 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Dict, Any, List, Optional
 
+from ..i18n import detect_language, translate_response, t as _t
+
 router = APIRouter()
+
+FIELD_MAP = {
+    'system': 'dasha_name',
+    'sign': 'zodiac',
+    'lordSign': 'zodiac',
+    'lord': 'planet',
+}
 
 
 class CharaDashaRequest(BaseModel):
@@ -12,6 +21,7 @@ class CharaDashaRequest(BaseModel):
     latitude: float = Field(..., example=28.6139)
     longitude: float = Field(..., example=77.2090)
     houseSystem: Optional[str] = Field(None, example='W')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 def _sign_index(sign: str) -> int:
@@ -37,7 +47,7 @@ def _build_chara_sequence(lagna_sign: str) -> List[str]:
 
 
 @router.post('/dasha/chara')
-def chara_dasha(body: CharaDashaRequest) -> Dict[str, Any]:
+def chara_dasha(body: CharaDashaRequest, request: Request) -> Dict[str, Any]:
     """
     Simplified Jaimini Chara Dasha implementation (sign-based):
     - Requires location to compute Lagna (ascendant)
@@ -46,6 +56,7 @@ def chara_dasha(body: CharaDashaRequest) -> Dict[str, Any]:
     - PD inside an AD: similarly proportional.
     Note: Schools vary (K.N. Rao, Sanjay Rath, etc.). This is a basic, consistent variant for productization.
     """
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import (
         to_julian, parse_local_datetime, calc_planets, calc_houses, SIGN_LORDS,
     )
@@ -196,7 +207,7 @@ def chara_dasha(body: CharaDashaRequest) -> Dict[str, Any]:
         'mahadashas': [ser_md(m) for m in md_list]
     }
 
-    return {
+    data = {
         'status': 200,
         'system': 'Chara Dasha (Jaimini)',
         'data': schedule,
@@ -206,3 +217,4 @@ def chara_dasha(body: CharaDashaRequest) -> Dict[str, Any]:
             'houseSystem': (body.houseSystem or 'W')
         }
     }
+    return translate_response(data, lang, FIELD_MAP)

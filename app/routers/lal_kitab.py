@@ -1,8 +1,23 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional
 
 from ..response import success
+from ..i18n import detect_language, translate_response, t as _t
+
+# Field → translation category mapping for Lal Kitab responses
+_LAL_KITAB_HOUSE_FIELDS = {
+    "name": "house_meaning",
+}
+
+_LAL_KITAB_CHART_FIELDS = {
+    "name": "house_meaning",
+    "houseSignification": "house_meaning",
+    "planet": "planet",
+    "sign": "zodiac",
+    "signLord": "planet",
+    "status": "planet_status",
+}
 
 router = APIRouter()
 
@@ -15,6 +30,7 @@ class BirthRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     houseSystem: Optional[str] = Field('W', example='W')
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 LAL_KITAB_HOUSE_SIGNIFICATIONS = {
@@ -177,8 +193,9 @@ def _get_lal_kitab_planet_analysis(planet_name, house, sign, is_retrograde, is_c
 
 
 @router.post('/lal-kitab/house-significations')
-def lal_kitab_houses():
-    return success({
+def lal_kitab_houses(request: Request):
+    lang = detect_language(header_lang=request.headers.get("accept-language"))
+    return success(translate_response({
         'houses': [
             {
                 'number': num,
@@ -189,12 +206,13 @@ def lal_kitab_houses():
             }
             for num, info in LAL_KITAB_HOUSE_SIGNIFICATIONS.items()
         ]
-    })
+    }, lang, _LAL_KITAB_HOUSE_FIELDS))
 
 
 @router.post('/lal-kitab/planet-interpretations')
-def lal_kitab_planet_interpretations():
-    return success({
+def lal_kitab_planet_interpretations(request: Request):
+    lang = detect_language(header_lang=request.headers.get("accept-language"))
+    return success(translate_response({
             'planets': [
                 {
                     'name': name,
@@ -205,12 +223,13 @@ def lal_kitab_planet_interpretations():
                 }
                 for name, info in LAL_KITAB_PLANET_INTERPRETATIONS.items()
             ]
-        }
+        }, lang, {"name": "planet"})
     )
 
 
 @router.post('/lal-kitab/chart-analysis')
-def lal_kitab_chart_analysis(body: BirthRequest):
+def lal_kitab_chart_analysis(body: BirthRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, SIGN_LORDS
     from datetime import datetime
     import pytz
@@ -262,7 +281,7 @@ def lal_kitab_chart_analysis(body: BirthRequest):
             'signLord': h.get('signLord', ''),
         })
 
-    return success({
+    return success(translate_response({
         'ascendant': {
             'sign': asc_sign,
             'degree': round(houses.get('ascendant', {}).get('degree', 0), 2),
@@ -270,4 +289,4 @@ def lal_kitab_chart_analysis(body: BirthRequest):
         'planets': planet_analyses,
         'houses': house_analyses,
         'note': 'Lal Kitab analysis based on house placement, retrograde/combust status, and classical Lal Kitab significations'
-    })
+    }, lang, _LAL_KITAB_CHART_FIELDS))

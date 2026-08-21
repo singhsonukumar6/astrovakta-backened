@@ -1,11 +1,28 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import pytz
 from dateutil import parser
 
+from ..i18n import detect_language, translate_response, t as _t
+
 router = APIRouter()
+
+FIELD_MAP = {
+    'planet': 'planet',
+    'transitingPlanet': 'planet',
+    'natalPlanet': 'planet',
+    'sign': 'zodiac',
+    'natalSign': 'zodiac',
+    'transitSign': 'zodiac',
+    'signLord': 'planet',
+    'nakshatraLord': 'planet',
+    'nakshatra': 'nakshatra',
+    'dignity': 'planet_status',
+    'aspect': 'transit_aspect',
+    'nature': 'transit_strength',
+}
 
 
 class TransitDetailRequest(BaseModel):
@@ -17,6 +34,7 @@ class TransitDetailRequest(BaseModel):
     transitDate: Optional[str] = Field(None, example="2025-07-15")
     houseSystem: Optional[str] = Field('W', example='W')
     nodeMode: Optional[str] = Field('mean', example='mean')
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 class PlanetTransitRequest(TransitDetailRequest):
@@ -98,7 +116,8 @@ def _transit_prediction(planet: str, transit_house: int, natal_house: int) -> st
 
 
 @router.post('/transit/planet-transit')
-def planet_transit(body: PlanetTransitRequest) -> Dict[str, Any]:
+def planet_transit(body: PlanetTransitRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import (to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, SIGN_LORDS,
                         planet_status, is_combust, COMBUSTION_DIST)
 
@@ -130,7 +149,7 @@ def planet_transit(body: PlanetTransitRequest) -> Dict[str, Any]:
     natal_status = planet_status(planet_name, natal_p['sign'])
     transit_status = planet_status(planet_name, transit_p['sign'])
 
-    return {
+    data = {
         'status': 200,
         'transitDate': transit_dt.strftime('%Y-%m-%d'),
         'planet': planet_name,
@@ -163,10 +182,12 @@ def planet_transit(body: PlanetTransitRequest) -> Dict[str, Any]:
         'aspects': aspects,
         'prediction': prediction,
     }
+    return translate_response(data, lang, FIELD_MAP)
 
 
 @router.post('/transit/retrograde')
-def retrograde_planets(body: TransitDetailRequest) -> Dict[str, Any]:
+def retrograde_planets(body: TransitDetailRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import (to_julian, calc_planets, ZODIAC_SIGNS, SIGN_LORDS)
 
     transit_dt = _resolve_transit_date(body)
@@ -188,16 +209,18 @@ def retrograde_planets(body: TransitDetailRequest) -> Dict[str, Any]:
                 'note': f"{p['name']} is retrograde in {p['sign']} at {p['degreeDMS']}",
             })
 
-    return {
+    data = {
         'status': 200,
         'transitDate': transit_dt.strftime('%Y-%m-%d'),
         'retrogradeCount': len(retrograde_list),
         'retrogradePlanets': retrograde_list,
     }
+    return translate_response(data, lang, FIELD_MAP)
 
 
 @router.post('/transit/combust')
-def combust_planets(body: TransitDetailRequest) -> Dict[str, Any]:
+def combust_planets(body: TransitDetailRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import (to_julian, calc_planets, ZODIAC_SIGNS, SIGN_LORDS,
                         is_combust, COMBUSTION_DIST)
 
@@ -227,16 +250,18 @@ def combust_planets(body: TransitDetailRequest) -> Dict[str, Any]:
                 'severity': 'Deep Combust' if dist < max_dist * 0.5 else 'Mild Combust',
             })
 
-    return {
+    data = {
         'status': 200,
         'transitDate': transit_dt.strftime('%Y-%m-%d'),
         'combustCount': len(combust_list),
         'combustPlanets': combust_list,
     }
+    return translate_response(data, lang, FIELD_MAP)
 
 
 @router.post('/transit/exalted')
-def exalted_planets(body: TransitDetailRequest) -> Dict[str, Any]:
+def exalted_planets(body: TransitDetailRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import (to_julian, calc_planets, ZODIAC_SIGNS, SIGN_LORDS, planet_status)
 
     transit_dt = _resolve_transit_date(body)
@@ -261,16 +286,18 @@ def exalted_planets(body: TransitDetailRequest) -> Dict[str, Any]:
                 'note': f"{p['name']} is exalted in {p['sign']} at {p['degreeDMS']}",
             })
 
-    return {
+    data = {
         'status': 200,
         'transitDate': transit_dt.strftime('%Y-%m-%d'),
         'exaltedCount': len(exalted_list),
         'exaltedPlanets': exalted_list,
     }
+    return translate_response(data, lang, FIELD_MAP)
 
 
 @router.post('/transit/debilitated')
-def debilitated_planets(body: TransitDetailRequest) -> Dict[str, Any]:
+def debilitated_planets(body: TransitDetailRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import (to_julian, calc_planets, ZODIAC_SIGNS, SIGN_LORDS, planet_status)
 
     transit_dt = _resolve_transit_date(body)
@@ -295,16 +322,18 @@ def debilitated_planets(body: TransitDetailRequest) -> Dict[str, Any]:
                 'note': f"{p['name']} is debilitated in {p['sign']} at {p['degreeDMS']}",
             })
 
-    return {
+    data = {
         'status': 200,
         'transitDate': transit_dt.strftime('%Y-%m-%d'),
         'debilitatedCount': len(debilitated_list),
         'debilitatedPlanets': debilitated_list,
     }
+    return translate_response(data, lang, FIELD_MAP)
 
 
 @router.post('/transit/aspect')
-def transit_aspects(body: AspectRequest) -> Dict[str, Any]:
+def transit_aspects(body: AspectRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import (to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, SIGN_LORDS)
 
     jd_birth = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
@@ -344,10 +373,11 @@ def transit_aspects(body: AspectRequest) -> Dict[str, Any]:
                         'prediction': f"{t_planet['name']} transiting house {t_house} ({transit_themes}) aspects natal {n_planet['name']} in house {n_house} ({natal_themes}) - {base_effect}",
                     })
 
-    return {
+    data = {
         'status': 200,
         'transitDate': transit_dt.strftime('%Y-%m-%d'),
         'ascendant': house_data_birth['ascendant'],
         'aspectCount': len(transit_aspect_results),
         'aspects': transit_aspect_results,
     }
+    return translate_response(data, lang, FIELD_MAP)

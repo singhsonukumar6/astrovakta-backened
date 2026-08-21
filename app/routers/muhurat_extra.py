@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
@@ -6,6 +6,14 @@ import pytz
 import swisseph as swe
 
 from ..utils import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, SIGN_LORDS, NAKSHATRAS, planet_status, sunrise_sunset
+from ..i18n import detect_language, translate_response, t as _t
+
+# Field → translation category mapping for extended muhurat responses
+_MUHURAT_EXTRA_FIELDS = {
+    "quality": "muhurat_rating",
+    "nakshatra": "nakshatra",
+    "ascendant": "zodiac",
+}
 
 router = APIRouter()
 
@@ -17,6 +25,7 @@ class CesareanRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     preferredDate: Optional[str] = Field(None, example="2026-08-15", description="Preferred date for C-section")
     preferredTime: Optional[str] = Field(None, example="09:00", description="Preferred time window")
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 _AUSPICIOUS_NAKSHATRAS = ['Ashwini', 'Pushya', 'Hasta', 'Swati', 'Anuradha', 'Mrigashira', 'Revati', 'Shatabhisha']
@@ -134,7 +143,8 @@ def _check_muhurat(jd, latitude, longitude, tz_name):
 
 
 @router.post("/horoscope/muhurat/cesarean")
-def cesarean_muhurat(body: CesareanRequest) -> Dict[str, Any]:
+def cesarean_muhurat(body: CesareanRequest, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     tz = pytz.timezone(body.timezone)
 
@@ -163,11 +173,11 @@ def cesarean_muhurat(body: CesareanRequest) -> Dict[str, Any]:
 
     return {
         "success": True,
-        "data": {
+        "data": translate_response({
             "searchPeriod": {"from": target_date.isoformat(), "to": (target_date + timedelta(days=4)).isoformat()},
             "bestWindows": top_windows,
             "overallBest": top_windows[0] if top_windows else None,
             "note": "This muhurat is based on Vedic astrological principles. Always consult your medical team for medical decisions.",
             "factors": ["Nakshatra", "Tithi", "Ascendant", "Day Lord", "Rahu Kaal avoidance"]
-        }
+        }, lang, _MUHURAT_EXTRA_FIELDS)
     }
