@@ -130,9 +130,14 @@ class HoroscopeRequest(BaseModel):
 
 _HOROSCOPE_FIELDS = {
     "sign": "zodiac",
-    "luckyColor": "weekday",
-    "luckyDirection": "weekday",
+    "luckyColor": "color",
+    "luckyDirection": "direction",
     "rulingPlanet": "planet",
+    "sunDignity": "dignity",
+    "venusDignity": "dignity",
+    "jupiterDignity": "dignity",
+    "marsDignity": "dignity",
+    "saturnDignity": "dignity",
 }
 
 

@@ -17,6 +17,7 @@ _UTILITY_FIELDS = {
     "motion": "planet_status",
     "paksha": "paksha",
     "phaseName": "moon_phase",
+    "description": "eclipse_description",
 }
 
 router = APIRouter()
@@ -265,7 +266,8 @@ def lunar_phase(req: LunarPhaseRequest, request: Request):
 
 
 @router.post("/utility/eclipse")
-def check_eclipse(req: EclipseRequest):
+def check_eclipse(req: EclipseRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     try:
         jd = to_julian(req.date, req.time or "12:00", req.timezone or "Asia/Kolkata")
         swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
@@ -311,7 +313,7 @@ def check_eclipse(req: EclipseRequest):
 
         return {
             "status": 200,
-            "data": {
+            "data": translate_response({
                 "date": req.date,
                 "time": req.time or "12:00",
                 "julianDay": jd,
@@ -321,7 +323,7 @@ def check_eclipse(req: EclipseRequest):
                 "eclipses": eclipses,
                 "checkRange": f"{range_days} days",
                 "note": "This is a simplified check based on angular alignment. Precise eclipse predictions require Besselian elements and topocentric calculations."
-            }
+            }, lang, _UTILITY_FIELDS)
         }
     except Exception as e:
         return {"status": 500, "error": str(e), "message": "Error checking eclipse"}

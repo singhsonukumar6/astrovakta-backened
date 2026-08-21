@@ -1,5 +1,5 @@
 """Full Year Calendar router – panchang, muhurat, festivals, auspicious dates."""
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
@@ -13,6 +13,7 @@ from ..utils import (
     ZODIAC_SIGNS, SIGN_LORDS, planet_status, panchang_at_jd,
     sunrise_sunset, compute_panchang,
 )
+from ..i18n import detect_language, translate_response, t as _t
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -21,6 +22,23 @@ WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday
 RAHU_POS = [4, 2, 7, 5, 6, 3, 1]
 YAMAGANDA_POS = [2, 7, 5, 6, 3, 1, 4]
 GULIKA_POS = [6, 5, 4, 3, 2, 1, 7]
+
+# Field → translation category mapping for year calendar responses
+_YEAR_FIELDS = {
+    "weekday": "weekday",
+    "tithi": "tithi",
+    "nakshatra": "nakshatra",
+    "yoga": "yoga",
+    "karana": "karana",
+    "paksha": "paksha",
+    "moonPhase": "moon_phase",
+    "monthName": "month_name",
+    "sankranti": "zodiac",
+    "sign": "zodiac",
+    "name": "festival",
+    "type": "festival_type",
+    "detail": "moon_phase",
+}
 
 # Pre-computed festival dates (key = year). Add more years as needed.
 HINDU_FESTIVALS: Dict[int, Dict[str, str]] = {
@@ -124,7 +142,7 @@ def _prev_sun_lon(year: int, month: int, timezone: str, lat: float, lon: float) 
 # ── Core day computation ─────────────────────────────────────────────────────
 
 def _compute_day(date_str: str, tz: str, lat: float, lon: float,
-                 prev_sun_lon: Optional[float] = None) -> Optional[Dict[str, Any]]:
+                 prev_sun_lon: Optional[float] = None, lang: str = 'en') -> Optional[Dict[str, Any]]:
     try:
         sr, ss, sr_jd, _ = sunrise_sunset(date_str, tz, lat, lon)
         if sr is None:
@@ -139,14 +157,14 @@ def _compute_day(date_str: str, tz: str, lat: float, lon: float,
         sankranti = _detect_sankranti(prev_sun_lon, sun_lon) if prev_sun_lon is not None else None
 
         year = parser.parse(date_str).year
-        festivals = [fn for fn, fd in HINDU_FESTIVALS.get(year, {}).items() if fd == date_str]
+        festivals = [_t(lang, "festival", fn) for fn, fd in HINDU_FESTIVALS.get(year, {}).items() if fd == date_str]
         t = panch["tithiNumber"]
         if t == 11:
-            festivals.append(f"{panch['paksha']} Ekadashi")
+            festivals.append(f"{_t(lang, 'paksha', panch['paksha'])} {_t(lang, 'tithi', 'Ekadashi')}")
         if t == 15:
-            festivals.append("Purnima")
+            festivals.append(_t(lang, "tithi", "Purnima"))
         elif t == 30:
-            festivals.append("Amavasya")
+            festivals.append(_t(lang, "tithi", "Amavasya"))
 
         rahu_s = _kaal(sr_min, ss_min, RAHU_POS[wk])
         rahu_e = _kaal(sr_min + part, ss_min, RAHU_POS[wk])
@@ -157,9 +175,9 @@ def _compute_day(date_str: str, tz: str, lat: float, lon: float,
 
         abh_s = _ft(sr_min + day_dur * 0.5 - 24)
         abh_e = _ft(sr_min + day_dur * 0.5 + 24)
-        shubh = [{"name": "Abhijit", "startTime": abh_s, "endTime": abh_e}]
+        shubh = [{"name": _t(lang, "muhurat_name", "Abhijit Muhurta"), "startTime": abh_s, "endTime": abh_e}]
         if panch["nakshatra"] in GOOD_NAKSHATRAS_AMRIT:
-            shubh.append({"name": "Amrit", "startTime": _ft(sr_min + day_dur * 0.75), "endTime": ss})
+            shubh.append({"name": _t(lang, "choghadiya", "Amrit"), "startTime": _ft(sr_min + day_dur * 0.75), "endTime": ss})
 
         return {
             "date": date_str, "weekday": WEEKDAY_NAMES[wk],
@@ -173,7 +191,8 @@ def _compute_day(date_str: str, tz: str, lat: float, lon: float,
             "rahuKaal": {"startTime": rahu_s, "endTime": rahu_e},
             "yamaganda": {"startTime": yama_s, "endTime": yama_e},
             "gulikaKaal": {"startTime": guli_s, "endTime": guli_e},
-            "shubhMuhurats": shubh, "festivals": festivals, "sankranti": sankranti,
+            "shubhMuhurats": shubh, "festivals": festivals,
+            "sankranti": _t(lang, "zodiac", sankranti) if sankranti else sankranti,
             "sunLongitude": round(sun_lon, 4),
         }
     except Exception as e:
@@ -184,7 +203,8 @@ def _compute_day(date_str: str, tz: str, lat: float, lon: float,
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.post("/api/calendar/year")
-def year_calendar(body: YearCalendarRequest):
+def year_calendar(body: YearCalendarRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     months = [body.month] if body.month else list(range(1, 13))
     out: Dict[str, Any] = {}
     for m in months:
@@ -194,7 +214,7 @@ def year_calendar(body: YearCalendarRequest):
         days, cur = [], first
         while cur <= end:
             ds = cur.strftime("%Y-%m-%d")
-            d = _compute_day(ds, body.timezone, body.latitude, body.longitude, prev_lon)
+            d = _compute_day(ds, body.timezone, body.latitude, body.longitude, prev_lon, lang)
             if d:
                 days.append(d)
                 prev_lon = d.get("sunLongitude")
@@ -204,11 +224,12 @@ def year_calendar(body: YearCalendarRequest):
             "monthName": first.strftime("%B"),
             "totalDays": len(days), "days": days,
         }
-    return {"status": 200, "data": out}
+    return {"status": 200, "data": translate_response(out, lang, _YEAR_FIELDS)}
 
 
 @router.post("/api/calendar/year/monthly-summary")
-def monthly_summary(body: MonthlySummaryRequest):
+def monthly_summary(body: MonthlySummaryRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     if body.month < 1 or body.month > 12:
         return {"status": 400, "data": {"error": "Invalid month"}}
     end = _month_end(body.year, body.month)
@@ -217,8 +238,17 @@ def monthly_summary(body: MonthlySummaryRequest):
     key_dates, ekadashi, purnima, amavasya, sankranti = [], [], [], [], []
 
     # Festival lookup for this month
-    fests = [{"name": fn, "date": fd} for fn, fd in HINDU_FESTIVALS.get(body.year, {}).items()
+    fests = [{"name": _t(lang, "festival", fn), "date": fd}
+             for fn, fd in HINDU_FESTIVALS.get(body.year, {}).items()
              if parser.parse(fd).month == body.month]
+
+    def _ktype(val: str) -> str:
+        tr = _t(lang, "festival_type", val)
+        return tr if tr != val else _t(lang, "tithi", val)
+
+    def _sk_detail(sk: str) -> str:
+        tr = _t(lang, "festival", f"{sk} Sankranti")
+        return tr if tr != f"{sk} Sankranti" else _t(lang, "festival_type", "Sankranti")
 
     cur = first
     while cur <= end:
@@ -234,32 +264,36 @@ def monthly_summary(body: MonthlySummaryRequest):
             prev_lon = s_lon
 
             if t == 11:
-                ekadashi.append({"date": ds, "name": f"{panch['paksha']} Ekadashi", "paksha": panch["paksha"]})
-                key_dates.append({"date": ds, "type": "Ekadashi", "detail": f"{panch['paksha']} Ekadashi"})
+                ek_name = f"{_t(lang, 'paksha', panch['paksha'])} {_t(lang, 'tithi', 'Ekadashi')}"
+                ekadashi.append({"date": ds, "name": ek_name, "paksha": panch["paksha"]})
+                key_dates.append({"date": ds, "type": _ktype("Ekadashi"), "detail": ek_name})
             if t == 15:
-                purnima.append({"date": ds}); key_dates.append({"date": ds, "type": "Purnima", "detail": "Full Moon"})
+                purnima.append({"date": ds})
+                key_dates.append({"date": ds, "type": _ktype("Purnima"), "detail": _t(lang, "moon_phase", "Full Moon")})
             elif t == 30:
-                amavasya.append({"date": ds}); key_dates.append({"date": ds, "type": "Amavasya", "detail": "New Moon"})
+                amavasya.append({"date": ds})
+                key_dates.append({"date": ds, "type": _ktype("Amavasya"), "detail": _t(lang, "tithi", "Amavasya")})
             if sk:
-                sankranti.append({"date": ds, "sign": sk, "detail": f"{sk} Sankranti"})
-                key_dates.append({"date": ds, "type": "Sankranti", "detail": f"Sun enters {sk}"})
+                sankranti.append({"date": ds, "sign": sk, "detail": _sk_detail(sk)})
+                key_dates.append({"date": ds, "type": _ktype("Sankranti"), "detail": _sk_detail(sk)})
         except Exception as e:
             logger.error(f"Monthly summary error {ds}: {e}")
         cur += timedelta(days=1)
 
     key_dates.sort(key=lambda x: x["date"])
-    return {"status": 200, "data": {
+    return {"status": 200, "data": translate_response({
         "year": body.year, "month": body.month, "monthName": first.strftime("%B"),
         "summary": {"totalDays": (end - first).days + 1, "totalEkadashi": len(ekadashi),
                      "totalPurnima": len(purnima), "totalAmavasya": len(amavasya),
                      "totalSankranti": len(sankranti), "totalFestivals": len(fests)},
         "keyDates": key_dates, "ekadashi": ekadashi, "purnima": purnima,
         "amavasya": amavasya, "sankranti": sankranti, "festivals": fests,
-    }}
+    }, lang, _YEAR_FIELDS)}
 
 
 @router.post("/api/calendar/year/auspicious-dates")
-def auspicious_dates(body: AuspiciousDatesRequest):
+def auspicious_dates(body: AuspiciousDatesRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     rules = PURPOSE_RULES.get(body.purpose.lower().strip(), PURPOSE_RULES["general"])
     months = [body.month] if body.month else list(range(1, 13))
     results: List[Dict[str, Any]] = []
@@ -303,4 +337,6 @@ def auspicious_dates(body: AuspiciousDatesRequest):
             cur += timedelta(days=1)
 
     results.sort(key=lambda x: (-x["score"], x["date"]))
-    return {"status": 200, "data": {"purpose": body.purpose, "totalFound": len(results), "dates": results[:50]}}
+    return {"status": 200, "data": translate_response(
+        {"purpose": body.purpose, "totalFound": len(results), "dates": results[:50]},
+        lang, _YEAR_FIELDS)}

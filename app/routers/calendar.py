@@ -19,6 +19,8 @@ _PANCHANG_FIELDS = {
     "paksha": "paksha",
     "moonPhase": "moon_phase",
     "weekday": "weekday",
+    "name": "muhurat_name",
+    "description": "muhurat_name",
 }
 
 

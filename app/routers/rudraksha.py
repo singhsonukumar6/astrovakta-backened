@@ -14,6 +14,7 @@ _RUDRAKSHA_FIELDS = {
     "name": "rudraksha",
     "planet": "planet",
     "wearingDay": "weekday",
+    "description": "rudraksha_description",
 }
 
 

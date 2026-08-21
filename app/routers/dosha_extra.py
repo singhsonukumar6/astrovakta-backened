@@ -14,9 +14,10 @@ router = APIRouter()
 _DHAIYA_FIELDS = {
     "moonSign": "zodiac",
     "saturnSign": "zodiac",
-    "phase": "dosha",
+    "phase": "sade_sati_phase",
     "severity": "dosha_severity",
     "dhaiyaType": "house",
+    "description": "dosha_description",
 }
 
 class DhaiyaRequest(BaseModel):

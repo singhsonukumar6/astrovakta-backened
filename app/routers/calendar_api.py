@@ -17,6 +17,14 @@ _PANCHANG_FIELDS = {
     "paksha": "paksha",
     "moonPhase": "moon_phase",
     "weekday": "weekday",
+    "hinduMonth": "hindu_month",
+    "monthName": "month_name",
+}
+
+_FESTIVAL_API_FIELDS = {
+    "name": "festival",
+    "type": "festival_type",
+    "significance": "festival_type",
 }
 
 
@@ -107,13 +115,13 @@ def hindu_calendar(body: HinduCalendarRequest, request: Request):
 
     return {
         'status': 200,
-        'data': {
+        'data': translate_response({
             'year': body.year,
             'month': body.month,
             'monthName': MONTH_NAMES[body.month],
             'totalDays': days,
             'calendar': calendar_days,
-        },
+        }, lang, _PANCHANG_FIELDS),
     }
 
 
@@ -140,7 +148,7 @@ def panchang_month(body: PanchangRequest, request: Request):
 
     return {
         'status': 200,
-        'data': {
+        'data': translate_response({
             'year': body.year,
             'month': body.month,
             'monthName': MONTH_NAMES[body.month],
@@ -150,12 +158,13 @@ def panchang_month(body: PanchangRequest, request: Request):
                 'tithiDistribution': tithi_summary,
                 'nakshatraDistribution': nakshatra_summary,
             },
-        },
+        }, lang, _PANCHANG_FIELDS),
     }
 
 
 @router.post('/calendar-api/festival')
-def festival_list(body: FestivalRequest):
+def festival_list(body: FestivalRequest, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     festivals_by_month = {
         1: [
             {'name': 'Makar Sankranti', 'date': f'{body.year}-01-14', 'type': 'Sankranti', 'significance': 'Sun enters Capricorn'},
@@ -214,18 +223,19 @@ def festival_list(body: FestivalRequest):
 
     return {
         'status': 200,
-        'data': {
+        'data': translate_response({
             'year': body.year,
             'totalFestivals': len(all_festivals),
             'festivals': all_festivals,
             'festivalsByMonth': {m: fests for m, fests in festivals_by_month.items()},
-        },
+        }, lang, _FESTIVAL_API_FIELDS),
     }
 
 
 @router.post('/calendar-api/muhurat')
-def muhurat_month(body: MuhuratRequest):
+def muhurat_month(body: MuhuratRequest, request: Request):
     from ..main import to_julian, sunrise_sunset
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     days = _days_in_month(body.year, body.month)
 
     MUHURAT_TYPES = {
@@ -263,7 +273,7 @@ def muhurat_month(body: MuhuratRequest):
 
     return {
         'status': 200,
-        'data': {
+        'data': translate_response({
             'year': body.year,
             'month': body.month,
             'monthName': MONTH_NAMES[body.month],
@@ -273,5 +283,5 @@ def muhurat_month(body: MuhuratRequest):
             'auspiciousDays': len(auspicious_days),
             'calendar': muhurat_data,
             'bestDays': [{'date': m['date'], 'tithi': m['tithi'], 'nakshatra': m['nakshatra']} for m in auspicious_days[:5]],
-        },
+        }, lang, _PANCHANG_FIELDS),
     }

@@ -8,6 +8,11 @@ from ..i18n import detect_language, translate_response, t as _t
 _LUCKY_FIELDS = {
     "luckyDay": "weekday",
     "luckyGemstone": "gemstone",
+    "color": "lucky_color",
+    "metal": "lucky_metal",
+    "element": "lucky_element",
+    "luckyColors": "lucky_color",
+    "luckyMetal": "lucky_metal",
 }
 
 router = APIRouter()

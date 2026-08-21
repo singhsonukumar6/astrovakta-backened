@@ -11,6 +11,8 @@ _YOGA_FIELDS = {
     "sign": "zodiac",
     "dignity": "planet_status",
     "level": "yoga_strength",
+    "description": "yoga_description",
+    "prediction": "prediction_label",
 }
 
 from ..utils import (

@@ -5,6 +5,8 @@ import svgwrite
 import math
 from io import StringIO
 
+from ..i18n import t as _t, detect_language, translate_response
+
 router = APIRouter()
 
 class ChartRequest(BaseModel):
@@ -272,7 +274,8 @@ def render_svg(width: int, height: int, asc: dict, planets: list, theme: str = '
     # Add ascendant marker (small, only visible on standard charts)
     asc_deg_global = asc.get('degree', 0)
     asc_deg_local = (asc_deg_global % 30) if isinstance(asc_deg_global, (int, float)) else 0
-    asc_text = f"Asc {asc_deg_local:.1f}°"
+    asc_label = _t(lang, 'chart_title', 'Asc')
+    asc_text = f"{asc_label} {asc_deg_local:.1f}°"
     asc_pos = scale_point((200, 18), scale_x, scale_y)
     dwg.add(dwg.text(asc_text, insert=asc_pos, font_size='9px', fill='#666', font_weight='normal', text_anchor='middle'))
     
@@ -333,6 +336,7 @@ def _parse_varga_name(name: str) -> Optional[int]:
              description="Generate any of the 60 divisional charts as SVG. Classical vargas: D1 (Rasi), D2 (Hora), D3 (Drekkana), D4 (Chaturthamsa), D7 (Saptamsa), D9 (Navamsa), D10 (Dashamamsa), D12 (Dwadasamsa), D16 (Shodasamsa), D20 (Vimsamsa), D24 (Siddhamsa), D27 (Nakshatramsa), D30 (Trimshamsa), D40 (Khavedamsa), D45 (Akshavedamsa), D60 (Shashtiamsa).")
 def divisional_chart_svg(req: DivisionalChartRequest):
     from ..main import to_julian, calc_planets, calc_houses, varga_sign, ZODIAC_SIGNS
+    lang = detect_language(query_lang=req.lang)
 
     d = _parse_varga_name(req.name)
     # Allow any Dn using generic fallback if not classical
@@ -407,15 +411,15 @@ def divisional_chart_svg(req: DivisionalChartRequest):
         'chart': {
             'name': f'{chart_name} (D{d})',
             'varga': d,
-            'focus': focus,
+            'focus': _t(lang, 'varga_focus', focus) if focus else focus,
             'mappingMode': mode,
             'ascendant': {
-                'sign': asc['sign'],
+                'sign': _t(lang, 'zodiac', asc['sign']),
                 'degreeLocal': float(asc['degree']) % 30.0 if isinstance(asc['degree'], (int, float)) else 0.0,
                 'degreeGlobal': asc['degree']
             }
         },
-        'planets': pdetails,
+        'planets': translate_response(pdetails, lang, {'name': 'planet', 'sign': 'zodiac'}),
         'svg': svg
     }
 

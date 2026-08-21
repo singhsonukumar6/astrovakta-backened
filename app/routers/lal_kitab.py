@@ -8,6 +8,9 @@ from ..i18n import detect_language, translate_response, t as _t
 # Field → translation category mapping for Lal Kitab responses
 _LAL_KITAB_HOUSE_FIELDS = {
     "name": "house_meaning",
+    "description": "label",
+    "elements": "element",
+    "remedies": "lal_kitab_remedy",
 }
 
 _LAL_KITAB_CHART_FIELDS = {
@@ -17,6 +20,9 @@ _LAL_KITAB_CHART_FIELDS = {
     "sign": "zodiac",
     "signLord": "planet",
     "status": "planet_status",
+    "description": "label",
+    "elements": "element",
+    "generalRemedies": "lal_kitab_remedy",
 }
 
 router = APIRouter()

@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
@@ -11,12 +11,29 @@ from ..utils import (
     to_julian, calc_planets, calc_houses, get_sign, get_nakshatra,
     ZODIAC_SIGNS, SIGN_LORDS, planet_status,
 )
+from ..i18n import detect_language, translate_response
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 SCAN_STEP_MINUTES = 5
 ASC_TRANSIT_DEGREES_PER_MIN = 360.0 / (24.0 * 60)
+
+# Field → translation category mapping for rectification responses
+_RECTIFY_FIELDS = {
+    "ascendantSign": "zodiac",
+    "fromSign": "zodiac",
+    "toSign": "zodiac",
+    "sign": "zodiac",
+    "transitSign": "zodiac",
+    "natalSign": "zodiac",
+    "nakshatra": "nakshatra",
+    "nakshatraLord": "planet",
+    "planet": "planet",
+    "houseStatus": "planet_status",
+    "natalDignity": "planet_status",
+    "dignity": "dignity",
+}
 
 
 class LifeEvent(BaseModel):
@@ -398,7 +415,8 @@ def _score_event_transits(
 
 
 @router.post("/utility/rectify")
-def rectify_birth_time(req: RectifyRequest):
+def rectify_birth_time(req: RectifyRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     try:
         swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
 
@@ -512,7 +530,7 @@ def rectify_birth_time(req: RectifyRequest):
 
         return {
             "status": 200,
-            "data": {
+            "data": translate_response({
                 "originalInput": {
                     "dateOfBirth": req.dateOfBirth,
                     "timeOfBirth": req.timeOfBirth,
@@ -534,7 +552,7 @@ def rectify_birth_time(req: RectifyRequest):
                     "of provided life events and known ascendant. For precise rectification, "
                     "consult an experienced astrologer."
                 ),
-            },
+            }, lang, _RECTIFY_FIELDS)
         }
     except Exception as e:
         logger.error(f"Error in birth time rectification: {e}", exc_info=True)
@@ -542,7 +560,8 @@ def rectify_birth_time(req: RectifyRequest):
 
 
 @router.post("/utility/ascendant-scan")
-def ascendant_scan(req: AscendantScanRequest):
+def ascendant_scan(req: AscendantScanRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     try:
         swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
 
@@ -591,7 +610,7 @@ def ascendant_scan(req: AscendantScanRequest):
 
         return {
             "status": 200,
-            "data": {
+            "data": translate_response({
                 "originalInput": {
                     "dateOfBirth": req.dateOfBirth,
                     "timeOfBirth": req.timeOfBirth,
@@ -614,7 +633,7 @@ def ascendant_scan(req: AscendantScanRequest):
                     "Each sign occupies 30 degrees, so a sign typically rises for ~2 hours. "
                     "Exact durations vary with latitude and time of year."
                 ),
-            },
+            }, lang, _RECTIFY_FIELDS)
         }
     except Exception as e:
         logger.error(f"Error in ascendant scan: {e}", exc_info=True)
@@ -622,7 +641,8 @@ def ascendant_scan(req: AscendantScanRequest):
 
 
 @router.post("/utility/transit-verify")
-def transit_verify(req: TransitVerifyRequest):
+def transit_verify(req: TransitVerifyRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     try:
         swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
 
@@ -678,7 +698,7 @@ def transit_verify(req: TransitVerifyRequest):
 
         return {
             "status": 200,
-            "data": {
+            "data": translate_response({
                 "input": {
                     "dateOfBirth": req.dateOfBirth,
                     "timeOfBirth": req.timeOfBirth,
@@ -714,7 +734,7 @@ def transit_verify(req: TransitVerifyRequest):
                     "method of birth time verification; multiple events should be checked for "
                     "higher confidence."
                 ),
-            },
+            }, lang, _RECTIFY_FIELDS)
         }
     except Exception as e:
         logger.error(f"Error in transit verification: {e}", exc_info=True)

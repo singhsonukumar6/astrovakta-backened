@@ -8,11 +8,34 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from ..response import error as _error
+from ..i18n import detect_language, translate_response
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Reports"])
+
+# Field → translation category mapping for report responses (applies recursively)
+_REPORT_FIELDS = {
+    "name": "planet",
+    "sign": "zodiac",
+    "rashi": "zodiac",
+    "signLord": "planet",
+    "nakshatra": "nakshatra",
+    "nakshatraLord": "planet",
+    "planet": "planet",
+    "houseStatus": "planet_status",
+    "dignity": "dignity",
+    "severity": "dosha_severity",
+    "description": "dosha_description",
+    "remedies": "dosha_remedy",
+    "tithi": "tithi",
+    "yoga": "yoga",
+    "karana": "karana",
+    "paksha": "paksha",
+    "weekday": "weekday",
+    "moonPhase": "moon_phase",
+}
 
 
 # ──────────────── BIRTH CHART REPORT ────────────────
@@ -28,7 +51,7 @@ class BirthChartReportRequest(BaseModel):
 
 
 @router.post('/reports/birth-chart')
-def birth_chart_report(body: BirthChartReportRequest) -> Dict[str, Any]:
+def birth_chart_report(body: BirthChartReportRequest, request: Request) -> Dict[str, Any]:
     """Generate comprehensive birth chart report with all planetary positions, houses, and analysis."""
     from ..main import (
         to_julian, calc_planets, calc_houses, detect_yogas, detect_doshas,
@@ -36,6 +59,7 @@ def birth_chart_report(body: BirthChartReportRequest) -> Dict[str, Any]:
     )
     from ..utils import ayanamsa_value, planet_status
 
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     planets = calc_planets(jd, None, body.nodeMode or 'mean')
     for p in planets:
@@ -51,7 +75,7 @@ def birth_chart_report(body: BirthChartReportRequest) -> Dict[str, Any]:
     birth_local = parse_local_datetime(body.dateOfBirth, body.timeOfBirth, body.timezone)
     dasha = vimshottari_full(jd, birth_local)
 
-    return {
+    return translate_response({
         'success': True,
         'birthData': {
             'date': body.dateOfBirth,
@@ -78,7 +102,7 @@ def birth_chart_report(body: BirthChartReportRequest) -> Dict[str, Any]:
             'activeYogas': len(yogas),
             'activeDoshas': len([d for d in doshas if d.get('present')]),
         }
-    }
+    }, lang, _REPORT_FIELDS)
 
 
 # ──────────────── PREDICTIONS REPORT ────────────────
@@ -99,7 +123,7 @@ class PredictionsReportRequest(BaseModel):
 
 
 @router.post('/reports/predictions')
-def predictions_report(body: PredictionsReportRequest) -> Dict[str, Any]:
+def predictions_report(body: PredictionsReportRequest, request: Request) -> Dict[str, Any]:
     """Generate detailed life predictions across all areas from birth chart data."""
     from ..main import (
         to_julian, calc_planets, calc_houses, detect_yogas, detect_doshas,
@@ -111,6 +135,7 @@ def predictions_report(body: PredictionsReportRequest) -> Dict[str, Any]:
     )
     from ..utils import ayanamsa_value, planet_status
 
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     planets = calc_planets(jd, None, body.nodeMode or 'mean')
     for p in planets:
@@ -149,7 +174,7 @@ def predictions_report(body: PredictionsReportRequest) -> Dict[str, Any]:
             except Exception as e:
                 predictions[aspect] = {'title': title, 'data': {'summary': str(e), 'points': [], 'score': 5}}
 
-    return {
+    return translate_response({
         'success': True,
         'predictions': predictions,
         'meta': {
@@ -159,7 +184,7 @@ def predictions_report(body: PredictionsReportRequest) -> Dict[str, Any]:
             'moonSign': pmap.get('Moon', {}).get('sign', ''),
             'sunSign': pmap.get('Sun', {}).get('sign', ''),
         }
-    }
+    }, lang, _REPORT_FIELDS)
 
 
 # ──────────────── CAREER REPORT ────────────────
@@ -175,7 +200,7 @@ class CareerReportRequest(BaseModel):
 
 
 @router.post('/reports/career')
-def career_report(body: CareerReportRequest) -> Dict[str, Any]:
+def career_report(body: CareerReportRequest, request: Request) -> Dict[str, Any]:
     """Detailed career analysis report with profession suggestions, timing, and growth periods."""
     from ..main import (
         to_julian, calc_planets, calc_houses, detect_yogas, detect_doshas,
@@ -184,6 +209,7 @@ def career_report(body: CareerReportRequest) -> Dict[str, Any]:
     from ..pdf_sections import _predict_career
     from ..utils import ayanamsa_value, planet_status
 
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     planets = calc_planets(jd, None, body.nodeMode or 'mean')
     for p in planets:
@@ -201,7 +227,7 @@ def career_report(body: CareerReportRequest) -> Dict[str, Any]:
 
     career = _predict_career(planets, house_data['houses'], pmap, yogas, doshas, dasha)
 
-    return {
+    return translate_response({
         'success': True,
         'career': career,
         'meta': {
@@ -210,7 +236,7 @@ def career_report(body: CareerReportRequest) -> Dict[str, Any]:
             'moonSign': pmap.get('Moon', {}).get('sign', ''),
             'sunSign': pmap.get('Sun', {}).get('sign', ''),
         }
-    }
+    }, lang, _REPORT_FIELDS)
 
 
 # ──────────────── COMPREHENSIVE REPORT ────────────────
@@ -226,7 +252,7 @@ class ComprehensiveReportRequest(BaseModel):
 
 
 @router.post('/reports/comprehensive')
-def comprehensive_report(body: ComprehensiveReportRequest) -> Dict[str, Any]:
+def comprehensive_report(body: ComprehensiveReportRequest, request: Request) -> Dict[str, Any]:
     """Generate a complete life report combining birth chart, predictions, dasha, yogas, doshas, and remedies."""
     from ..main import (
         to_julian, calc_planets, calc_houses, detect_yogas, detect_doshas,
@@ -237,6 +263,7 @@ def comprehensive_report(body: ComprehensiveReportRequest) -> Dict[str, Any]:
         _predict_education, _predict_love_marriage, _predict_family, _predict_travel,
     )
     from ..utils import ayanamsa_value, planet_status
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     planets = calc_planets(jd, None, body.nodeMode or 'mean')
     for p in planets:
@@ -264,7 +291,7 @@ def comprehensive_report(body: ComprehensiveReportRequest) -> Dict[str, Any]:
 
     active_doshas = [d for d in doshas if d.get('present')]
 
-    return {
+    return translate_response({
         'success': True,
         'report': {
             'birthChart': {
@@ -303,7 +330,7 @@ def comprehensive_report(body: ComprehensiveReportRequest) -> Dict[str, Any]:
             'yogasFound': len(yogas),
             'doshasFound': len(active_doshas),
         }
-    }
+    }, lang, _REPORT_FIELDS)
 
 
 # ──────────────── FULL PDF REPORT ────────────────

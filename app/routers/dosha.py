@@ -10,6 +10,8 @@ router = APIRouter()
 _DOSHA_FIELDS = {
     "name": "dosha",
     "severity": "dosha_severity",
+    "description": "dosha_description",
+    "remedies": "dosha_remedy",
 }
 
 

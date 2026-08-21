@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any
 import svgwrite
 from io import StringIO
 
+from ..i18n import t as _t
 
 router = APIRouter()
 
@@ -139,7 +140,7 @@ def _render_east_svg(width: int, height: int, asc: dict, planets: list, theme: s
                              font_size='12px', fill=color, font_weight='bold'))
 
     # Title
-    dwg.add(dwg.text(f"East Indian Chart",
+    dwg.add(dwg.text(_t(lang, 'chart_title', 'East Indian Chart'),
                      insert=(width / 2, 18), font_size='14px', fill='#333',
                      font_weight='bold', text_anchor='middle'))
 
@@ -239,7 +240,7 @@ def _render_moon_svg(width: int, height: int, asc: dict, moon_sign: str, planets
             label = f"{abbr}{'®' if retro else ''}"
             dwg.add(dwg.text(label, insert=(px, py), font_size='14px', fill=color, font_weight='bold', text_anchor='middle'))
 
-    dwg.add(dwg.text(f"Moon Chart ({moon_sign})",
+    dwg.add(dwg.text(f"{_t(lang, 'chart_title', 'Moon Chart')} ({_t(lang, 'zodiac', moon_sign)})",
                      insert=(width / 2, 18), font_size='14px', fill='#333',
                      font_weight='bold', text_anchor='middle'))
 

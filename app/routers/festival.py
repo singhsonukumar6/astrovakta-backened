@@ -7,6 +7,8 @@ from ..i18n import detect_language, translate_response, t as _t
 _FESTIVAL_FIELDS = {
     "name": "festival",
     "paksha": "paksha",
+    "type": "festival_type",
+    "description": "festival_type",
 }
 from typing import Optional, List, Dict, Any
 

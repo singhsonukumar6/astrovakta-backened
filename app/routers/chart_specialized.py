@@ -9,7 +9,16 @@ import svgwrite
 import math
 from io import StringIO
 
+from ..i18n import t as _t, detect_language, translate_response
+
 router = APIRouter()
+
+# Field map for specialized chart JSON responses
+_CHART_FIELDS = {
+    'name': 'planet',
+    'sign': 'zodiac',
+    'focus': 'varga_focus',
+}
 
 from .chart_svg import _ABBR_BY_LANG, PLANET_ABBR as _BASE_PLANET_ABBR
 PLANET_COLORS = {
@@ -137,6 +146,7 @@ class DedicatedChartRequest(BaseModel):
              description="Generate the Navamsa chart — the most important divisional chart, showing marriage, dharma, and spiritual strength. Each sign is divided into 9 equal parts (10° each).")
 def navamsa_chart_svg(req: DedicatedChartRequest):
     from ..main import to_julian, calc_planets, calc_houses, varga_sign, ZODIAC_SIGNS
+    lang = detect_language(query_lang=req.lang)
 
     jd = to_julian(req.dateOfBirth, req.timeOfBirth, req.timezone)
     planets = calc_planets(jd, None, req.nodeMode or 'mean')
@@ -170,9 +180,9 @@ def navamsa_chart_svg(req: DedicatedChartRequest):
     w = req.width or 800
     h = req.height or 600
     svg = _render_diamond_svg(w, h, asc_sign, by_house,
-                               f"Navamsa Chart (D9) | Asc: {asc_sign}", req.theme or 'light', req.lang or 'en')
+                               f"{_t(lang, 'chart_title', 'Navamsa Chart')} (D9) | {_t(lang, 'chart_title', 'Asc')}: {asc_sign}", req.theme or 'light', req.lang or 'en')
 
-    return {
+    return translate_response({
         'status': 200,
         'chart': {
             'name': 'Navamsa (D9)',
@@ -182,7 +192,7 @@ def navamsa_chart_svg(req: DedicatedChartRequest):
         },
         'planets': planet_details,
         'svg': svg,
-    }
+    }, lang, _CHART_FIELDS)
 
 
 # ──────────────────── 2. HORA CHART (D2) ────────────────────
@@ -191,6 +201,7 @@ def navamsa_chart_svg(req: DedicatedChartRequest):
              description="Generate the Hora chart — used for analyzing wealth and financial prospects. Each sign is divided into 2 equal parts (15° each): odd signs get Sun's hora (Leo), even signs get Moon's hora (Cancer).")
 def hora_chart_svg(req: DedicatedChartRequest):
     from ..main import to_julian, calc_planets, calc_houses, varga_sign, ZODIAC_SIGNS
+    lang = detect_language(query_lang=req.lang)
 
     jd = to_julian(req.dateOfBirth, req.timeOfBirth, req.timezone)
     planets = calc_planets(jd, None, req.nodeMode or 'mean')
@@ -222,9 +233,9 @@ def hora_chart_svg(req: DedicatedChartRequest):
     w = req.width or 800
     h = req.height or 600
     svg = _render_diamond_svg(w, h, asc_sign, by_house,
-                               f"Hora Chart (D2) | Asc: {asc_sign}", req.theme or 'light', req.lang or 'en')
+                               f"{_t(lang, 'chart_title', 'Hora Chart')} (D2) | {_t(lang, 'chart_title', 'Asc')}: {asc_sign}", req.theme or 'light', req.lang or 'en')
 
-    return {
+    return translate_response({
         'status': 200,
         'chart': {
             'name': 'Hora (D2)',
@@ -234,7 +245,7 @@ def hora_chart_svg(req: DedicatedChartRequest):
         },
         'planets': planet_details,
         'svg': svg,
-    }
+    }, lang, _CHART_FIELDS)
 
 
 # ──────────────────── 3. SUDARSHANA CHAKRA ────────────────────
@@ -261,6 +272,8 @@ def sudarshana_chakra_svg(req: SudarshanaRequest):
     from ..main import to_julian, calc_planets, calc_houses, varga_sign, ZODIAC_SIGNS
     import pytz
     from datetime import datetime
+
+    lang = detect_language(query_lang=req.lang)
 
     # Natal chart
     jd_natal = to_julian(req.dateOfBirth, req.timeOfBirth, req.timezone)
@@ -382,7 +395,7 @@ def sudarshana_chakra_svg(req: SudarshanaRequest):
         dwg.add(dwg.text(transit_label, insert=(px, py + 14), font_size='9px', fill='#FF6600', text_anchor='middle'))
 
     # Title and legend
-    dwg.add(dwg.text(f"Sudarshana Chakra | {req.dateOfBirth} → {transit_date}",
+    dwg.add(dwg.text(f"{_t(lang, 'chart_title', 'Sudarshana Chakra')} | {req.dateOfBirth} → {transit_date}",
                      insert=(w / 2, 20), font_size='14px', fill='#8B008B',
                      font_weight='bold', text_anchor='middle'))
 
@@ -395,7 +408,7 @@ def sudarshana_chakra_svg(req: SudarshanaRequest):
     dwg.write(output)
     svg = output.getvalue()
 
-    return {
+    return translate_response({
         'status': 200,
         'chart': {
             'name': 'Sudarshana Chakra',
@@ -407,4 +420,4 @@ def sudarshana_chakra_svg(req: SudarshanaRequest):
         'navamsaAscendant': asc_navamsa_sign,
         'layers': layers,
         'svg': svg,
-    }
+    }, lang, _CHART_FIELDS)
