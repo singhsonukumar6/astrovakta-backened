@@ -1,9 +1,11 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 import pytz
 import hashlib
+
+from ..i18n import detect_language, translate_response
 
 router = APIRouter()
 
@@ -19,6 +21,14 @@ class HoroscopeRequest(BaseModel):
     timezone: str = Field(..., example="Asia/Kolkata")
     zodiacSign: Optional[str] = Field(None, example="Aries")
     lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
+
+
+_HOROSCOPE_FIELDS = {
+    "sign": "zodiac",
+    "luckyColor": "weekday",
+    "luckyDirection": "weekday",
+    "rulingPlanet": "planet",
+}
 
 
 # ──────────────────────────────────────────────
@@ -677,7 +687,7 @@ def _period_label(period: str, req: HoroscopeRequest) -> str:
 
 
 def _build_full_response(req: HoroscopeRequest, chart: dict, overview_bank: dict,
-                         extra_bank: dict, period: str) -> dict:
+                         extra_bank: dict, period: str, lang: str = 'en') -> dict:
     
     from ..main import SIGN_LORDS
     sign = _determine_sign(req, chart)
@@ -716,6 +726,7 @@ def _build_full_response(req: HoroscopeRequest, chart: dict, overview_bank: dict
     }
 
     result = _build_response(sign, period_lbl, overview_tmpl, extra, chart, req)
+    result = translate_response(result, lang, _HOROSCOPE_FIELDS)
     return {'status': 200, 'data': result}
 
 
@@ -724,31 +735,36 @@ def _build_full_response(req: HoroscopeRequest, chart: dict, overview_bank: dict
 # ──────────────────────────────────────────────
 
 @router.post('/horoscope/daily')
-def daily_horoscope(req: HoroscopeRequest):
+def daily_horoscope(req: HoroscopeRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     chart = _build_chart(req.dateOfBirth, req.timeOfBirth, req.latitude, req.longitude, req.timezone)
-    return _build_full_response(req, chart, DAILY_OVERVIEW, {}, 'daily')
+    return _build_full_response(req, chart, DAILY_OVERVIEW, {}, 'daily', lang)
 
 
 @router.post('/horoscope/weekly')
-def weekly_horoscope(req: HoroscopeRequest):
+def weekly_horoscope(req: HoroscopeRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     chart = _build_chart(req.dateOfBirth, req.timeOfBirth, req.latitude, req.longitude, req.timezone)
-    return _build_full_response(req, chart, WEEKLY_OVERVIEW, {}, 'weekly')
+    return _build_full_response(req, chart, WEEKLY_OVERVIEW, {}, 'weekly', lang)
 
 
 @router.post('/horoscope/monthly')
-def monthly_horoscope(req: HoroscopeRequest):
+def monthly_horoscope(req: HoroscopeRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     chart = _build_chart(req.dateOfBirth, req.timeOfBirth, req.latitude, req.longitude, req.timezone)
-    return _build_full_response(req, chart, MONTHLY_OVERVIEW, {}, 'monthly')
+    return _build_full_response(req, chart, MONTHLY_OVERVIEW, {}, 'monthly', lang)
 
 
 @router.post('/horoscope/yearly')
-def yearly_horoscope(req: HoroscopeRequest):
+def yearly_horoscope(req: HoroscopeRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     chart = _build_chart(req.dateOfBirth, req.timeOfBirth, req.latitude, req.longitude, req.timezone)
-    return _build_full_response(req, chart, YEARLY_OVERVIEW, {}, 'yearly')
+    return _build_full_response(req, chart, YEARLY_OVERVIEW, {}, 'yearly', lang)
 
 
 @router.post('/horoscope/career')
-def career_horoscope(req: HoroscopeRequest):
+def career_horoscope(req: HoroscopeRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     from ..main import SIGN_LORDS
     chart = _build_chart(req.dateOfBirth, req.timeOfBirth, req.latitude, req.longitude, req.timezone)
     sign = _determine_sign(req, chart)
@@ -764,9 +780,7 @@ def career_horoscope(req: HoroscopeRequest):
     sun_info = _get_planet_info(chart['planets'], 'Sun')
     saturn_info = _get_planet_info(chart['planets'], 'Saturn')
 
-    return {
-        'status': 200,
-        'data': {
+    data = {
             'sign': sign,
             'period': period_lbl,
             'overview': f"{career_tmpl['positive']} {career_tmpl['challenging']}",
@@ -788,11 +802,13 @@ def career_horoscope(req: HoroscopeRequest):
             'luckyDirection': lucky_dir,
             'remedy': _dpick(remedies, chart, req),
         }
-    }
+    data = translate_response(data, lang, _HOROSCOPE_FIELDS)
+    return {'status': 200, 'data': data}
 
 
 @router.post('/horoscope/love')
-def love_horoscope(req: HoroscopeRequest):
+def love_horoscope(req: HoroscopeRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     from ..main import SIGN_LORDS
     chart = _build_chart(req.dateOfBirth, req.timeOfBirth, req.latitude, req.longitude, req.timezone)
     sign = _determine_sign(req, chart)
@@ -808,9 +824,7 @@ def love_horoscope(req: HoroscopeRequest):
     venus_info = _get_planet_info(chart['planets'], 'Venus')
     moon_info = _get_planet_info(chart['planets'], 'Moon')
 
-    return {
-        'status': 200,
-        'data': {
+    data = {
             'sign': sign,
             'period': period_lbl,
             'overview': f"{love_tmpl['positive']} {love_tmpl['challenging']}",
@@ -831,11 +845,13 @@ def love_horoscope(req: HoroscopeRequest):
             'luckyDirection': lucky_dir,
             'remedy': _dpick(remedies, chart, req),
         }
-    }
+    data = translate_response(data, lang, _HOROSCOPE_FIELDS)
+    return {'status': 200, 'data': data}
 
 
 @router.post('/horoscope/finance')
-def finance_horoscope(req: HoroscopeRequest):
+def finance_horoscope(req: HoroscopeRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     from ..main import SIGN_LORDS
     chart = _build_chart(req.dateOfBirth, req.timeOfBirth, req.latitude, req.longitude, req.timezone)
     sign = _determine_sign(req, chart)
@@ -852,9 +868,7 @@ def finance_horoscope(req: HoroscopeRequest):
     jupiter_info = _get_planet_info(chart['planets'], 'Jupiter')
     venus_info = _get_planet_info(chart['planets'], 'Venus')
 
-    return {
-        'status': 200,
-        'data': {
+    data = {
             'sign': sign,
             'period': period_lbl,
             'overview': f"{finance_tmpl['positive']} {finance_tmpl['challenging']}",
@@ -877,11 +891,13 @@ def finance_horoscope(req: HoroscopeRequest):
             'luckyDirection': lucky_dir,
             'remedy': _dpick(remedies, chart, req),
         }
-    }
+    data = translate_response(data, lang, _HOROSCOPE_FIELDS)
+    return {'status': 200, 'data': data}
 
 
 @router.post('/horoscope/health')
-def health_horoscope(req: HoroscopeRequest):
+def health_horoscope(req: HoroscopeRequest, request: Request):
+    lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     chart = _build_chart(req.dateOfBirth, req.timeOfBirth, req.latitude, req.longitude, req.timezone)
     sign = _determine_sign(req, chart)
     period_lbl = _period_label('monthly', req)
@@ -897,9 +913,7 @@ def health_horoscope(req: HoroscopeRequest):
     mars_info = _get_planet_info(chart['planets'], 'Mars')
     saturn_info = _get_planet_info(chart['planets'], 'Saturn')
 
-    return {
-        'status': 200,
-        'data': {
+    data = {
             'sign': sign,
             'period': period_lbl,
             'overview': f"{health_tmpl['positive']} {health_tmpl['challenging']}",
@@ -922,4 +936,5 @@ def health_horoscope(req: HoroscopeRequest):
             'luckyDirection': lucky_dir,
             'remedy': _dpick(remedies, chart, req),
         }
-    }
+    data = translate_response(data, lang, _HOROSCOPE_FIELDS)
+    return {'status': 200, 'data': data}

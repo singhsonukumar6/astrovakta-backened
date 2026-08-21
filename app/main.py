@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Body
+from fastapi import FastAPI, Body, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -21,6 +21,7 @@ from .utils import (
 )
 
 from .response import success, error
+from .i18n import detect_language, translate_response
 
 from .database import init_db
 
@@ -618,6 +619,16 @@ class BirthDetails(BaseModel):
     nodeMode: Optional[Literal['mean','true']] = Field('mean', example='mean')
     debug: Optional[bool] = Field(False, example=False)
     tropical: Optional[bool] = Field(False, example=False)
+    lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
+
+
+_KUNDLI_FIELDS = {
+    "sign": "zodiac", "signLord": "planet", "nakshatra": "nakshatra",
+    "nakshatraLord": "planet", "sunSign": "zodiac", "moonSign": "zodiac",
+    "name": "planet", "lagnaSign": "zodiac", "lagnaLord": "planet",
+    "planet": "planet", "houseSign": "zodiac", "rulingPlanet": "planet",
+    "currentDashaLord": "planet", "mahadasha": "planet", "antardasha": "planet",
+}
 
 
 def pd_years(years: float) -> timedelta:
@@ -1445,7 +1456,8 @@ def get_vedic_properties(sign: str, nakshatra: str, pada: int) -> Dict[str, str]
 
 
 @app.post('/api/kundli', tags=['Birth Chart'])
-def generate_kundli(body: BirthDetails) -> Dict[str, Any]:
+def generate_kundli(body: BirthDetails, request: Request) -> Dict[str, Any]:
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     tropical = bool(body.tropical)
     ayan = ayanamsa_value(jd)
@@ -1561,7 +1573,7 @@ def generate_kundli(body: BirthDetails) -> Dict[str, Any]:
             'houseStatus': p['houseStatus'],
         })
 
-    return success({
+    data = {
         'basicDetails': basic,
         'planets': clean_planets,
         'houses': house_data['houses'],
@@ -1580,7 +1592,9 @@ def generate_kundli(body: BirthDetails) -> Dict[str, Any]:
             'values': vedic_props
         },
         'panchang': panch,
-    })
+    }
+    data = translate_response(data, lang, _KUNDLI_FIELDS)
+    return success(data)
 
 # --------------------- New endpoint: /horoscope/planet-details ---------------------
 
@@ -1682,7 +1696,8 @@ PLANET_DEFS = {
 }
 
 @app.post('/horoscope/planet-details')
-def planet_details(body: BirthDetails):
+def planet_details(body: BirthDetails, request: Request):
+    lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     import math
     # Compute base data
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
@@ -1804,8 +1819,10 @@ def planet_details(body: BirthDetails):
     else:
         report = {}
 
-    return success({
+    data = {
         'response': result_indexed,
         'personal_characteristics': personal,
         'planet_report': report,
-    })
+    }
+    data = translate_response(data, lang, _KUNDLI_FIELDS)
+    return success(data)
