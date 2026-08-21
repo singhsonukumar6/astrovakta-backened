@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional
 
-from ..i18n import detect_language, translate_response, t as _t
+from ..i18n import detect_language, translate_response, translate_paragraphs, t as _t
 
 # Field → translation category mapping for yoga prediction responses
 _YOGA_FIELDS = {
@@ -666,13 +666,16 @@ def yoga_predictions(body: YogaPredRequest, request: Request):
         entry = _enrich_yoga(name, {}, dy, planets)
         enriched.append(entry)
 
+    data = translate_response({
+        'ascendant': houses_data.get('ascendant', {}),
+        'totalYogasDetected': len(enriched),
+        'yogas': enriched,
+    }, lang, _YOGA_FIELDS)
+    data = translate_paragraphs(data, lang, request)
+
     return {
         'status': 200,
-        'data': translate_response({
-            'ascendant': houses_data.get('ascendant', {}),
-            'totalYogasDetected': len(enriched),
-            'yogas': enriched,
-        }, lang, _YOGA_FIELDS),
+        'data': data,
     }
 
 
@@ -706,9 +709,12 @@ def yoga_detailed(body: YogaDetailedRequest, request: Request):
     enriched = _enrich_yoga(matched['name'], {}, matched, planets)
     enriched['detailedAnalysis'] = True
 
+    data = translate_response(enriched, lang, _YOGA_FIELDS)
+    data = translate_paragraphs(data, lang, request)
+
     return {
         'status': 200,
-        'data': translate_response(enriched, lang, _YOGA_FIELDS),
+        'data': data,
     }
 
 
@@ -803,10 +809,13 @@ def yoga_score(body: YogaPredRequest, request: Request):
     planets, houses_data, asc_sign, detected = _compute_chart(body)
     score_data = _compute_score(planets, detected)
 
+    data = translate_response({
+        'ascendant': houses_data.get('ascendant', {}),
+        **score_data,
+    }, lang, _YOGA_FIELDS)
+    data = translate_paragraphs(data, lang, request)
+
     return {
         'status': 200,
-        'data': translate_response({
-            'ascendant': houses_data.get('ascendant', {}),
-            **score_data,
-        }, lang, _YOGA_FIELDS),
+        'data': data,
     }

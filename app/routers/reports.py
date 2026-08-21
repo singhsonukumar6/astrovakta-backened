@@ -8,7 +8,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from ..response import error as _error
-from ..i18n import detect_language, translate_response
+from ..i18n import detect_language, translate_response, translate_paragraphs
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -75,7 +75,7 @@ def birth_chart_report(body: BirthChartReportRequest, request: Request) -> Dict[
     birth_local = parse_local_datetime(body.dateOfBirth, body.timeOfBirth, body.timezone)
     dasha = vimshottari_full(jd, birth_local)
 
-    return translate_response({
+    result = translate_response({
         'success': True,
         'birthData': {
             'date': body.dateOfBirth,
@@ -103,6 +103,8 @@ def birth_chart_report(body: BirthChartReportRequest, request: Request) -> Dict[
             'activeDoshas': len([d for d in doshas if d.get('present')]),
         }
     }, lang, _REPORT_FIELDS)
+    result = translate_paragraphs(result, lang, request)
+    return result
 
 
 # ──────────────── PREDICTIONS REPORT ────────────────
@@ -174,7 +176,7 @@ def predictions_report(body: PredictionsReportRequest, request: Request) -> Dict
             except Exception as e:
                 predictions[aspect] = {'title': title, 'data': {'summary': str(e), 'points': [], 'score': 5}}
 
-    return translate_response({
+    result = translate_response({
         'success': True,
         'predictions': predictions,
         'meta': {
@@ -185,6 +187,8 @@ def predictions_report(body: PredictionsReportRequest, request: Request) -> Dict
             'sunSign': pmap.get('Sun', {}).get('sign', ''),
         }
     }, lang, _REPORT_FIELDS)
+    result = translate_paragraphs(result, lang, request)
+    return result
 
 
 # ──────────────── CAREER REPORT ────────────────
@@ -227,7 +231,7 @@ def career_report(body: CareerReportRequest, request: Request) -> Dict[str, Any]
 
     career = _predict_career(planets, house_data['houses'], pmap, yogas, doshas, dasha)
 
-    return translate_response({
+    result = translate_response({
         'success': True,
         'career': career,
         'meta': {
@@ -237,6 +241,8 @@ def career_report(body: CareerReportRequest, request: Request) -> Dict[str, Any]
             'sunSign': pmap.get('Sun', {}).get('sign', ''),
         }
     }, lang, _REPORT_FIELDS)
+    result = translate_paragraphs(result, lang, request)
+    return result
 
 
 # ──────────────── COMPREHENSIVE REPORT ────────────────
@@ -291,7 +297,7 @@ def comprehensive_report(body: ComprehensiveReportRequest, request: Request) -> 
 
     active_doshas = [d for d in doshas if d.get('present')]
 
-    return translate_response({
+    result = translate_response({
         'success': True,
         'report': {
             'birthChart': {
@@ -331,6 +337,8 @@ def comprehensive_report(body: ComprehensiveReportRequest, request: Request) -> 
             'doshasFound': len(active_doshas),
         }
     }, lang, _REPORT_FIELDS)
+    result = translate_paragraphs(result, lang, request)
+    return result
 
 
 # ──────────────── FULL PDF REPORT ────────────────

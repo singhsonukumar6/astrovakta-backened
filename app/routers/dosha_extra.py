@@ -6,7 +6,7 @@ import pytz
 import swisseph as swe
 
 from ..utils import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, SIGN_LORDS, NAKSHATRAS, get_nakshatra
-from ..i18n import detect_language, translate_response, t as _t
+from ..i18n import detect_language, translate_response, translate_paragraphs, t as _t
 
 router = APIRouter()
 
@@ -163,6 +163,7 @@ def dhaiya_dosha(body: DhaiyaRequest, request: Request) -> Dict[str, Any]:
         "generalAdvice": "Challenging Saturn transits bring growth through hardship. Focus on discipline, service, and spiritual practice during these periods."
     }
     data = translate_response(data, lang, _DHAIYA_FIELDS)
+    data = translate_paragraphs(data, lang, request)
     return {
         "success": True,
         "data": data

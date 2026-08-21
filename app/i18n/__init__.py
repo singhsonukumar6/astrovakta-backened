@@ -7,10 +7,13 @@ Usage:
     lang = detect_language(query_lang=body.lang, header_lang=accept_lang)
     response_data["tithi"] = t("tithi", raw_tithi, lang)
 """
-from typing import Optional, Dict, Any, Union
+import logging
+from typing import Optional, Dict, Any, Union, List
 from .languages import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 from .registry import translate_value, get_category_translations
+from .ai_translate import translate_texts
 
+logger = logging.getLogger(__name__)
 
 # Alias for convenience
 t = translate_value
@@ -66,10 +69,98 @@ def translate_response(data: Any, lang: str, field_map: Dict[str, str]) -> Any:
     return data
 
 
+def _get_ai_credentials(request=None):
+    """Get AI provider credentials from the request's API key info.
+
+    Returns (api_key, provider, model) or (None, None, None) if unavailable.
+    """
+    if not request:
+        return None, None, None
+
+    try:
+        key_info = getattr(getattr(request, 'state', None), 'api_key_info', None)
+        user_id = key_info.get('user_id') if key_info else None
+        if not user_id:
+            return None, None, None
+
+        from ..auth import get_active_ai_provider
+        from ..crypto import decrypt_api_key
+
+        provider_config = get_active_ai_provider(user_id)
+        if not provider_config:
+            return None, None, None
+
+        api_key = decrypt_api_key(provider_config["api_key_encrypted"])
+        provider = provider_config["provider"]
+        model = provider_config.get("model") or {
+            "openai": "gpt-4o-mini", "anthropic": "claude-3-haiku-20240307",
+            "groq": "llama-3.3-70b-versatile",
+            "together": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+        }.get(provider, "gpt-4o-mini")
+
+        return api_key, provider, model
+    except Exception as e:
+        logger.debug("Could not get AI credentials: %s", e)
+        return None, None, None
+
+
+def translate_paragraphs(data: Any, lang: str, request=None,
+                         min_length: int = 30) -> Any:
+    """Translate all long string values in a nested response using AI.
+
+    Recursively walks the response, collects all string values longer than
+    min_length, batch-translates them via AI, and writes them back.
+    Dictionary-based translation (translate_response) should run FIRST
+    to handle short terms; this handles the remaining long free-text.
+    """
+    if lang == "en":
+        return data
+
+    api_key, provider, model = _get_ai_credentials(request)
+    if not api_key:
+        return data
+
+    # Phase 1: collect long strings and their locations
+    texts: List[str] = []
+    locations: List[tuple] = []
+
+    def _collect(obj):
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                if isinstance(v, str) and len(v) >= min_length:
+                    texts.append(v)
+                    locations.append((obj, k))
+                elif isinstance(v, (dict, list)):
+                    _collect(v)
+        elif isinstance(obj, list):
+            for i, v in enumerate(obj):
+                if isinstance(v, str) and len(v) >= min_length:
+                    texts.append(v)
+                    locations.append((obj, i))
+                elif isinstance(v, (dict, list)):
+                    _collect(v)
+
+    _collect(data)
+
+    if not texts:
+        return data
+
+    # Phase 2: AI translate in batch
+    translated = translate_texts(texts, lang, api_key, provider, model)
+
+    # Phase 3: write back
+    for (parent, key), new_text in zip(locations, translated):
+        parent[key] = new_text
+
+    return data
+
+
 __all__ = [
     "t",
     "detect_language",
     "translate_response",
+    "translate_paragraphs",
+    "translate_texts",
     "translate_value",
     "get_category_translations",
     "SUPPORTED_LANGUAGES",

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 
-from ..i18n import detect_language, translate_response, t as _t
+from ..i18n import detect_language, translate_response, translate_paragraphs, t as _t
 
 # Field → translation category mapping for lucky responses
 _LUCKY_FIELDS = {
@@ -61,15 +61,17 @@ def lucky_color(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
     day = int(parts[2])
     life_path = _reduce_to_single(int(parts[0]) + int(parts[1]) + day)
     root = _LUCKY_DATA.get(life_path, _LUCKY_DATA[1])
+    data = translate_response({
+        "birthDate": body.dateOfBirth,
+        "lifePathNumber": life_path,
+        "luckyColors": root["color"],
+        "description": f"Colors aligned with your life path number {life_path} resonate with {root['element']} energy and enhance your natural strengths.",
+        "avoidColors": "Black and dark grey can dampen your energy" if life_path in [1, 3, 9] else "Bright reds and oranges may overstimulate" if life_path in [2, 7] else "Neutral palette works best",
+    }, lang, _LUCKY_FIELDS)
+    data = translate_paragraphs(data, lang, request)
     return {
         "success": True,
-        "data": translate_response({
-            "birthDate": body.dateOfBirth,
-            "lifePathNumber": life_path,
-            "luckyColors": root["color"],
-            "description": f"Colors aligned with your life path number {life_path} resonate with {root['element']} energy and enhance your natural strengths.",
-            "avoidColors": "Black and dark grey can dampen your energy" if life_path in [1, 3, 9] else "Bright reds and oranges may overstimulate" if life_path in [2, 7] else "Neutral palette works best",
-        }, lang, _LUCKY_FIELDS)
+        "data": data
     }
 
 
@@ -80,15 +82,17 @@ def lucky_number(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
     day = int(parts[2])
     life_path = _reduce_to_single(int(parts[0]) + int(parts[1]) + day)
     root = _LUCKY_DATA.get(life_path, _LUCKY_DATA[1])
+    data = translate_response({
+        "birthDate": body.dateOfBirth,
+        "lifePathNumber": life_path,
+        "luckyNumbers": root["number"],
+        "description": f"Numbers {root['number']} carry vibrations aligned with your life path {life_path}. Use them for important decisions, addresses, and dates.",
+        "tip": "Single-digit root number is most powerful. Compound numbers add secondary influences.",
+    }, lang, _LUCKY_FIELDS)
+    data = translate_paragraphs(data, lang, request)
     return {
         "success": True,
-        "data": translate_response({
-            "birthDate": body.dateOfBirth,
-            "lifePathNumber": life_path,
-            "luckyNumbers": root["number"],
-            "description": f"Numbers {root['number']} carry vibrations aligned with your life path {life_path}. Use them for important decisions, addresses, and dates.",
-            "tip": "Single-digit root number is most powerful. Compound numbers add secondary influences.",
-        }, lang, _LUCKY_FIELDS)
+        "data": data
     }
 
 
@@ -99,18 +103,20 @@ def lucky_day(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
     day = int(parts[2])
     life_path = _reduce_to_single(int(parts[0]) + int(parts[1]) + day)
     root = _LUCKY_DATA.get(life_path, _LUCKY_DATA[1])
+    data = translate_response({
+        "birthDate": body.dateOfBirth,
+        "lifePathNumber": life_path,
+        "luckyDay": root["day"],
+        "description": f"{root['day']} is your most powerful day of the week. Schedule important meetings, interviews, and beginnings on this day for maximum cosmic support.",
+        "planetaryRuler": {
+            "Sunday": "Sun", "Monday": "Moon", "Tuesday": "Mars", "Wednesday": "Mercury",
+            "Thursday": "Jupiter", "Friday": "Venus", "Saturday": "Saturn"
+        }.get(root["day"], "Unknown"),
+    }, lang, _LUCKY_FIELDS)
+    data = translate_paragraphs(data, lang, request)
     return {
         "success": True,
-        "data": translate_response({
-            "birthDate": body.dateOfBirth,
-            "lifePathNumber": life_path,
-            "luckyDay": root["day"],
-            "description": f"{root['day']} is your most powerful day of the week. Schedule important meetings, interviews, and beginnings on this day for maximum cosmic support.",
-            "planetaryRuler": {
-                "Sunday": "Sun", "Monday": "Moon", "Tuesday": "Mars", "Wednesday": "Mercury",
-                "Thursday": "Jupiter", "Friday": "Venus", "Saturday": "Saturn"
-            }.get(root["day"], "Unknown"),
-        }, lang, _LUCKY_FIELDS)
+        "data": data
     }
 
 
@@ -121,15 +127,17 @@ def lucky_metal(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
     day = int(parts[2])
     life_path = _reduce_to_single(int(parts[0]) + int(parts[1]) + day)
     root = _LUCKY_DATA.get(life_path, _LUCKY_DATA[1])
+    data = translate_response({
+        "birthDate": body.dateOfBirth,
+        "lifePathNumber": life_path,
+        "luckyMetal": root["metal"],
+        "luckyGemstone": root["gem"],
+        "element": root["element"],
+        "description": f"Wearing {root['metal']} jewelry or carrying {root['metal']} items strengthens your planetary alignment. {root['gem']} is your birth-chart-aligned gemstone.",
+        "wearAdvice": f"Wear {root['gem']} on the appropriate finger during {root['day']} {root['metal']} hora for maximum benefit.",
+    }, lang, _LUCKY_FIELDS)
+    data = translate_paragraphs(data, lang, request)
     return {
         "success": True,
-        "data": translate_response({
-            "birthDate": body.dateOfBirth,
-            "lifePathNumber": life_path,
-            "luckyMetal": root["metal"],
-            "luckyGemstone": root["gem"],
-            "element": root["element"],
-            "description": f"Wearing {root['metal']} jewelry or carrying {root['metal']} items strengthens your planetary alignment. {root['gem']} is your birth-chart-aligned gemstone.",
-            "wearAdvice": f"Wear {root['gem']} on the appropriate finger during {root['day']} {root['metal']} hora for maximum benefit.",
-        }, lang, _LUCKY_FIELDS)
+        "data": data
     }

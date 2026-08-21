@@ -8,7 +8,7 @@ import pytz
 from ..utils import to_julian, calc_planets, sunrise_sunset, ZODIAC_SIGNS
 import swisseph as swe
 
-from ..i18n import detect_language, translate_response, t as _t
+from ..i18n import detect_language, translate_response, translate_paragraphs, t as _t
 
 # Field → translation category mapping for utility responses
 _UTILITY_FIELDS = {
@@ -163,7 +163,7 @@ def ephemeris_positions(req: EphemerisRequest, request: Request):
 
         ayan = swe.get_ayanamsa(jd)
 
-        return translate_response({
+        data = translate_response({
             "status": 200,
             "data": {
                 "date": req.date,
@@ -176,6 +176,8 @@ def ephemeris_positions(req: EphemerisRequest, request: Request):
                 "totalPlanets": len([p for p in planets if 'error' not in p])
             }
         }, lang, _UTILITY_FIELDS)
+        data = translate_paragraphs(data, lang, request)
+        return data
     except Exception as e:
         return {"status": 500, "error": str(e), "message": "Error calculating ephemeris"}
 
@@ -208,7 +210,7 @@ def planet_speed(req: PlanetSpeedRequest, request: Request):
             except Exception as ex:
                 speeds.append({"name": name, "error": str(ex)})
 
-        return translate_response({
+        data = translate_response({
             "status": 200,
             "data": {
                 "date": req.date,
@@ -218,6 +220,8 @@ def planet_speed(req: PlanetSpeedRequest, request: Request):
                 "unit": "degrees per day"
             }
         }, lang, _UTILITY_FIELDS)
+        data = translate_paragraphs(data, lang, request)
+        return data
     except Exception as e:
         return {"status": 500, "error": str(e), "message": "Error calculating planet speeds"}
 
@@ -242,7 +246,7 @@ def lunar_phase(req: LunarPhaseRequest, request: Request):
         tithi_num = int(diff // 12) + 1
         paksha = 'Shukla' if tithi_num <= 15 else 'Krishna'
 
-        return translate_response({
+        data = translate_response({
             "status": 200,
             "data": {
                 "date": req.date,
@@ -261,6 +265,8 @@ def lunar_phase(req: LunarPhaseRequest, request: Request):
                 "nextNewMoon": "Approximately when moon reaches 0°/360° from Sun"
             }
         }, lang, _UTILITY_FIELDS)
+        data = translate_paragraphs(data, lang, request)
+        return data
     except Exception as e:
         return {"status": 500, "error": str(e), "message": "Error calculating lunar phase"}
 
@@ -311,19 +317,21 @@ def check_eclipse(req: EclipseRequest, request: Request):
                 "description": "No solar or lunar eclipse alignment detected near this date"
             })
 
+        data = translate_response({
+            "date": req.date,
+            "time": req.time or "12:00",
+            "julianDay": jd,
+            "sunLongitude": round(sun_lon, 6),
+            "moonLongitude": round(moon_lon, 6),
+            "sunMoonDifference": round(sun_moon_diff, 2),
+            "eclipses": eclipses,
+            "checkRange": f"{range_days} days",
+            "note": "This is a simplified check based on angular alignment. Precise eclipse predictions require Besselian elements and topocentric calculations."
+        }, lang, _UTILITY_FIELDS)
+        data = translate_paragraphs(data, lang, request)
         return {
             "status": 200,
-            "data": translate_response({
-                "date": req.date,
-                "time": req.time or "12:00",
-                "julianDay": jd,
-                "sunLongitude": round(sun_lon, 6),
-                "moonLongitude": round(moon_lon, 6),
-                "sunMoonDifference": round(sun_moon_diff, 2),
-                "eclipses": eclipses,
-                "checkRange": f"{range_days} days",
-                "note": "This is a simplified check based on angular alignment. Precise eclipse predictions require Besselian elements and topocentric calculations."
-            }, lang, _UTILITY_FIELDS)
+            "data": data
         }
     except Exception as e:
         return {"status": 500, "error": str(e), "message": "Error checking eclipse"}

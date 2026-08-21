@@ -6,7 +6,7 @@ import calendar
 
 from ..utils import to_julian, panchang_at_jd, sunrise_sunset, TITHI_NAMES
 from ..models import CalendarPanchangRequest
-from ..i18n import detect_language, translate_response
+from ..i18n import detect_language, translate_response, translate_paragraphs
 
 router = APIRouter()
 
@@ -168,6 +168,7 @@ def hindu_calendar(req: HinduCalendarRequest, request: Request):
 
     # Translate all daily entries
     daily_data = translate_response(daily_data, lang, _PANCHANG_FIELDS)
+    daily_data = translate_paragraphs(daily_data, lang, request)
 
     month_names = ["", "Chaitra", "Vaishakha", "Jyeshtha", "Ashadha", "Shravana", "Bhadrapada",
                    "Ashwin", "Kartik", "Margashirsha", "Pausha", "Magha", "Phalguna"]
@@ -226,6 +227,7 @@ def panchang_calendar(req: PanchangRequest, request: Request):
 
     # Translate all entries
     panchang_data = translate_response(panchang_data, lang, _PANCHANG_FIELDS)
+    panchang_data = translate_paragraphs(panchang_data, lang, request)
 
     return {
         "status": 200,

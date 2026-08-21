@@ -4,7 +4,7 @@ from typing import Optional, List, Dict, Any
 import swisseph as swe
 
 from ..utils import to_julian, ZODIAC_SIGNS, SIGN_LORDS
-from ..i18n import detect_language, translate_response, t as _t
+from ..i18n import detect_language, translate_response, translate_paragraphs, t as _t
 
 router = APIRouter()
 
@@ -389,15 +389,18 @@ def recommend_rudraksha(req: RudrakshaRecommendRequest, request: Request):
     for mk in primary_mukhis:
         all_recommended.append(RUDRAKSHA_DATA.get(mk, RUDRAKSHA_DATA[5]))
 
+    data = translate_response({
+        "moonSign": moon_sign,
+        "primaryRecommendation": primary,
+        "secondaryRecommendation": secondary,
+        "allRecommended": all_recommended,
+        "note": "Rudraksha recommendation based on Moon sign (Rashi) position. Consult a pandit for personalized guidance."
+    }, lang, _RUDRAKSHA_FIELDS)
+    data = translate_paragraphs(data, lang, request)
+
     return {
         "status": 200,
-        "data": translate_response({
-            "moonSign": moon_sign,
-            "primaryRecommendation": primary,
-            "secondaryRecommendation": secondary,
-            "allRecommended": all_recommended,
-            "note": "Rudraksha recommendation based on Moon sign (Rashi) position. Consult a pandit for personalized guidance."
-        }, lang, _RUDRAKSHA_FIELDS)
+        "data": data
     }
 
 
@@ -410,14 +413,17 @@ def identify_mukhi(req: MukhiIdentificationRequest, request: Request):
 
     result = get_mukhi_from_description(full_desc)
 
+    data = translate_response({
+        "inputDescription": req.description,
+        "identification": result,
+        "availableMukhis": list(RUDRAKSHA_DATA.keys()),
+        "note": "This is an automated identification. For accurate identification, please consult an expert or count the natural lines manually."
+    }, lang, _RUDRAKSHA_FIELDS)
+    data = translate_paragraphs(data, lang, request)
+
     return {
         "status": 200,
-        "data": translate_response({
-            "inputDescription": req.description,
-            "identification": result,
-            "availableMukhis": list(RUDRAKSHA_DATA.keys()),
-            "note": "This is an automated identification. For accurate identification, please consult an expert or count the natural lines manually."
-        }, lang, _RUDRAKSHA_FIELDS)
+        "data": data
     }
 
 
@@ -467,7 +473,9 @@ def wearing_method(req: WearingMethodRequest, request: Request):
         "genderNote": "Both men and women can wear rudraksha. " + ("Men can wear on neck or right hand. Women can wear on neck or left hand." if req.gender.lower() == "male" else "Men can wear on neck or right hand. Women can wear on neck or left hand.")
     }
 
-    return {"status": 200, "data": translate_response(wearing_guide, lang, _RUDRAKSHA_FIELDS)}
+    data = translate_response(wearing_guide, lang, _RUDRAKSHA_FIELDS)
+    data = translate_paragraphs(data, lang, request)
+    return {"status": 200, "data": data}
 
 
 @router.post("/rudraksha/mantra")
@@ -495,27 +503,30 @@ def rudraksha_mantra(req: MantraRequest, request: Request):
 
     mantra_data = mantras.get(mukhi, mantras[5])
 
+    data = translate_response({
+        "mukhi": mukhi,
+        "name": data["name"],
+        "deity": data["deity"],
+        "planet": data["planet"],
+        "mainMantra": mantra_data["main"],
+        "alternateMantra": mantra_data["alternate"],
+        "purpose": mantra_data["purpose"],
+        "japaCount": "108 times (one mala) daily",
+        "bestTime": "Brahma Muhurta (4:00 AM - 5:30 AM)",
+        "instructions": [
+            "Sit in clean, quiet place facing East",
+            "Hold rudraksha in right hand",
+            "Close eyes and focus on deity",
+            "Chant mantra with faith and devotion",
+            "Complete 108 repetitions (one mala)",
+            "Meditate silently for a few minutes after completion"
+        ]
+    }, lang, _RUDRAKSHA_FIELDS)
+    data = translate_paragraphs(data, lang, request)
+
     return {
         "status": 200,
-        "data": translate_response({
-            "mukhi": mukhi,
-            "name": data["name"],
-            "deity": data["deity"],
-            "planet": data["planet"],
-            "mainMantra": mantra_data["main"],
-            "alternateMantra": mantra_data["alternate"],
-            "purpose": mantra_data["purpose"],
-            "japaCount": "108 times (one mala) daily",
-            "bestTime": "Brahma Muhurta (4:00 AM - 5:30 AM)",
-            "instructions": [
-                "Sit in clean, quiet place facing East",
-                "Hold rudraksha in right hand",
-                "Close eyes and focus on deity",
-                "Chant mantra with faith and devotion",
-                "Complete 108 repetitions (one mala)",
-                "Meditate silently for a few minutes after completion"
-            ]
-        }, lang, _RUDRAKSHA_FIELDS)
+        "data": data
     }
 
 
@@ -542,25 +553,28 @@ def rudraksha_benefits(req: BenefitsRequest, request: Request):
         14: ["Saturn disease cure", "Court case victory", "Courage boost"],
     }
 
+    data = translate_response({
+        "mukhi": mukhi,
+        "name": data["name"],
+        "deity": data["deity"],
+        "planet": data["planet"],
+        "description": data["description"],
+        "spiritualBenefits": data["benefits"],
+        "healthBenefits": health_benefits.get(mukhi, ["General well-being"]),
+        "materialBenefits": data["benefits"][:3],
+        "color": data["color"],
+        "shape": data["shape"],
+        "origin": data["origin"],
+        "rarity": data["rarity"],
+        "overallRating": {
+            "spiritual": min(10, 3 + mukhi) if mukhi <= 7 else min(10, 14 - mukhi + 3),
+            "material": min(10, mukhi) if mukhi <= 7 else min(10, 14 - mukhi + 2),
+            "healing": min(10, 2 + mukhi) if mukhi <= 7 else min(10, 14 - mukhi + 4)
+        }
+    }, lang, _RUDRAKSHA_FIELDS)
+    data = translate_paragraphs(data, lang, request)
+
     return {
         "status": 200,
-        "data": translate_response({
-            "mukhi": mukhi,
-            "name": data["name"],
-            "deity": data["deity"],
-            "planet": data["planet"],
-            "description": data["description"],
-            "spiritualBenefits": data["benefits"],
-            "healthBenefits": health_benefits.get(mukhi, ["General well-being"]),
-            "materialBenefits": data["benefits"][:3],
-            "color": data["color"],
-            "shape": data["shape"],
-            "origin": data["origin"],
-            "rarity": data["rarity"],
-            "overallRating": {
-                "spiritual": min(10, 3 + mukhi) if mukhi <= 7 else min(10, 14 - mukhi + 3),
-                "material": min(10, mukhi) if mukhi <= 7 else min(10, 14 - mukhi + 2),
-                "healing": min(10, 2 + mukhi) if mukhi <= 7 else min(10, 14 - mukhi + 4)
-            }
-        }, lang, _RUDRAKSHA_FIELDS)
+        "data": data
     }

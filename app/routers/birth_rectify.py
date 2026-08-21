@@ -11,7 +11,7 @@ from ..utils import (
     to_julian, calc_planets, calc_houses, get_sign, get_nakshatra,
     ZODIAC_SIGNS, SIGN_LORDS, planet_status,
 )
-from ..i18n import detect_language, translate_response
+from ..i18n import detect_language, translate_response, translate_paragraphs
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -528,31 +528,33 @@ def rectify_birth_time(req: RectifyRequest, request: Request):
             "transitions": transitions,
         }
 
+        data = translate_response({
+            "originalInput": {
+                "dateOfBirth": req.dateOfBirth,
+                "timeOfBirth": req.timeOfBirth,
+                "latitude": req.latitude,
+                "longitude": req.longitude,
+                "timezone": req.timezone,
+            },
+            "originalChart": original_chart,
+            "rectification": {
+                "suggestedTime": suggested_time,
+                "confidence": round(confidence, 1),
+                "confidenceFactors": confidence_factors,
+                "knownAscendantMatch": ascendant_match,
+            },
+            "lifeEventAnalyses": event_analyses if event_analyses else None,
+            "scanSummary": scan_summary,
+            "note": (
+                "Birth time rectification is advisory. Results depend on the accuracy "
+                "of provided life events and known ascendant. For precise rectification, "
+                "consult an experienced astrologer."
+            ),
+        }, lang, _RECTIFY_FIELDS)
+        data = translate_paragraphs(data, lang, request)
         return {
             "status": 200,
-            "data": translate_response({
-                "originalInput": {
-                    "dateOfBirth": req.dateOfBirth,
-                    "timeOfBirth": req.timeOfBirth,
-                    "latitude": req.latitude,
-                    "longitude": req.longitude,
-                    "timezone": req.timezone,
-                },
-                "originalChart": original_chart,
-                "rectification": {
-                    "suggestedTime": suggested_time,
-                    "confidence": round(confidence, 1),
-                    "confidenceFactors": confidence_factors,
-                    "knownAscendantMatch": ascendant_match,
-                },
-                "lifeEventAnalyses": event_analyses if event_analyses else None,
-                "scanSummary": scan_summary,
-                "note": (
-                    "Birth time rectification is advisory. Results depend on the accuracy "
-                    "of provided life events and known ascendant. For precise rectification, "
-                    "consult an experienced astrologer."
-                ),
-            }, lang, _RECTIFY_FIELDS)
+            "data": data
         }
     except Exception as e:
         logger.error(f"Error in birth time rectification: {e}", exc_info=True)
@@ -608,32 +610,34 @@ def ascendant_scan(req: AscendantScanRequest, request: Request):
                     "samplePoints": len(entries),
                 })
 
+        data = translate_response({
+            "originalInput": {
+                "dateOfBirth": req.dateOfBirth,
+                "timeOfBirth": req.timeOfBirth,
+                "latitude": req.latitude,
+                "longitude": req.longitude,
+                "timezone": req.timezone,
+            },
+            "originalAscendant": original_asc,
+            "scanRange": {
+                "from": f"{'+' if False else ''}{-180} minutes",
+                "to": "+180 minutes",
+                "totalMinutes": 360,
+                "stepMinutes": SCAN_STEP_MINUTES,
+            },
+            "signTransitions": transitions,
+            "signDurations": sign_durations,
+            "fullScan": scan_results,
+            "note": (
+                "Ascendant changes approximately 1 degree every 4 minutes. "
+                "Each sign occupies 30 degrees, so a sign typically rises for ~2 hours. "
+                "Exact durations vary with latitude and time of year."
+            ),
+        }, lang, _RECTIFY_FIELDS)
+        data = translate_paragraphs(data, lang, request)
         return {
             "status": 200,
-            "data": translate_response({
-                "originalInput": {
-                    "dateOfBirth": req.dateOfBirth,
-                    "timeOfBirth": req.timeOfBirth,
-                    "latitude": req.latitude,
-                    "longitude": req.longitude,
-                    "timezone": req.timezone,
-                },
-                "originalAscendant": original_asc,
-                "scanRange": {
-                    "from": f"{'+' if False else ''}{-180} minutes",
-                    "to": "+180 minutes",
-                    "totalMinutes": 360,
-                    "stepMinutes": SCAN_STEP_MINUTES,
-                },
-                "signTransitions": transitions,
-                "signDurations": sign_durations,
-                "fullScan": scan_results,
-                "note": (
-                    "Ascendant changes approximately 1 degree every 4 minutes. "
-                    "Each sign occupies 30 degrees, so a sign typically rises for ~2 hours. "
-                    "Exact durations vary with latitude and time of year."
-                ),
-            }, lang, _RECTIFY_FIELDS)
+            "data": data
         }
     except Exception as e:
         logger.error(f"Error in ascendant scan: {e}", exc_info=True)
@@ -696,45 +700,47 @@ def transit_verify(req: TransitVerifyRequest, request: Request):
 
         confirms = event_analysis["score"] >= 30
 
+        data = translate_response({
+            "input": {
+                "dateOfBirth": req.dateOfBirth,
+                "timeOfBirth": req.timeOfBirth,
+                "eventDate": req.eventDate,
+                "eventType": req.eventType,
+                "latitude": req.latitude,
+                "longitude": req.longitude,
+                "timezone": req.timezone,
+            },
+            "natalChart": {
+                "ascendant": natal_house_data["ascendant"],
+                "keyPlanets": natal_significance,
+            },
+            "transitChart": {
+                "eventDate": req.eventDate,
+                "ascendant": transit_house_data["ascendant"],
+                "keyTransits": transit_significance,
+            },
+            "transitVerification": event_analysis,
+            "confirmation": {
+                "birthTimeConfirmed": confirms,
+                "confidence": event_analysis["score"],
+                "verdict": event_analysis["verdict"],
+                "explanation": (
+                    f"The transits at the event date ({req.eventDate}) for event type "
+                    f"'{req.eventType}' {event_analysis['verdict'].lower()} for the given "
+                    f"birth time. Score: {event_analysis['score']}/100."
+                ),
+            },
+            "note": (
+                "Transit verification checks if key planetary transits at the event date "
+                "align with the expected patterns for the given event type. This is one "
+                "method of birth time verification; multiple events should be checked for "
+                "higher confidence."
+            ),
+        }, lang, _RECTIFY_FIELDS)
+        data = translate_paragraphs(data, lang, request)
         return {
             "status": 200,
-            "data": translate_response({
-                "input": {
-                    "dateOfBirth": req.dateOfBirth,
-                    "timeOfBirth": req.timeOfBirth,
-                    "eventDate": req.eventDate,
-                    "eventType": req.eventType,
-                    "latitude": req.latitude,
-                    "longitude": req.longitude,
-                    "timezone": req.timezone,
-                },
-                "natalChart": {
-                    "ascendant": natal_house_data["ascendant"],
-                    "keyPlanets": natal_significance,
-                },
-                "transitChart": {
-                    "eventDate": req.eventDate,
-                    "ascendant": transit_house_data["ascendant"],
-                    "keyTransits": transit_significance,
-                },
-                "transitVerification": event_analysis,
-                "confirmation": {
-                    "birthTimeConfirmed": confirms,
-                    "confidence": event_analysis["score"],
-                    "verdict": event_analysis["verdict"],
-                    "explanation": (
-                        f"The transits at the event date ({req.eventDate}) for event type "
-                        f"'{req.eventType}' {event_analysis['verdict'].lower()} for the given "
-                        f"birth time. Score: {event_analysis['score']}/100."
-                    ),
-                },
-                "note": (
-                    "Transit verification checks if key planetary transits at the event date "
-                    "align with the expected patterns for the given event type. This is one "
-                    "method of birth time verification; multiple events should be checked for "
-                    "higher confidence."
-                ),
-            }, lang, _RECTIFY_FIELDS)
+            "data": data
         }
     except Exception as e:
         logger.error(f"Error in transit verification: {e}", exc_info=True)

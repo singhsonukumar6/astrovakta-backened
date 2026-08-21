@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 from ..response import success
-from ..i18n import detect_language, translate_response, t as _t
+from ..i18n import detect_language, translate_response, translate_paragraphs, t as _t
 
 # Field → translation category mapping for Lal Kitab responses
 _LAL_KITAB_HOUSE_FIELDS = {
@@ -201,7 +201,7 @@ def _get_lal_kitab_planet_analysis(planet_name, house, sign, is_retrograde, is_c
 @router.post('/lal-kitab/house-significations')
 def lal_kitab_houses(request: Request):
     lang = detect_language(header_lang=request.headers.get("accept-language"))
-    return success(translate_response({
+    data = translate_response({
         'houses': [
             {
                 'number': num,
@@ -212,13 +212,15 @@ def lal_kitab_houses(request: Request):
             }
             for num, info in LAL_KITAB_HOUSE_SIGNIFICATIONS.items()
         ]
-    }, lang, _LAL_KITAB_HOUSE_FIELDS))
+    }, lang, _LAL_KITAB_HOUSE_FIELDS)
+    data = translate_paragraphs(data, lang, request)
+    return success(data)
 
 
 @router.post('/lal-kitab/planet-interpretations')
 def lal_kitab_planet_interpretations(request: Request):
     lang = detect_language(header_lang=request.headers.get("accept-language"))
-    return success(translate_response({
+    data = translate_response({
             'planets': [
                 {
                     'name': name,
@@ -230,7 +232,8 @@ def lal_kitab_planet_interpretations(request: Request):
                 for name, info in LAL_KITAB_PLANET_INTERPRETATIONS.items()
             ]
         }, lang, {"name": "planet"})
-    )
+    data = translate_paragraphs(data, lang, request)
+    return success(data)
 
 
 @router.post('/lal-kitab/chart-analysis')
@@ -287,7 +290,7 @@ def lal_kitab_chart_analysis(body: BirthRequest, request: Request):
             'signLord': h.get('signLord', ''),
         })
 
-    return success(translate_response({
+    data = translate_response({
         'ascendant': {
             'sign': asc_sign,
             'degree': round(houses.get('ascendant', {}).get('degree', 0), 2),
@@ -295,4 +298,6 @@ def lal_kitab_chart_analysis(body: BirthRequest, request: Request):
         'planets': planet_analyses,
         'houses': house_analyses,
         'note': 'Lal Kitab analysis based on house placement, retrograde/combust status, and classical Lal Kitab significations'
-    }, lang, _LAL_KITAB_CHART_FIELDS))
+    }, lang, _LAL_KITAB_CHART_FIELDS)
+    data = translate_paragraphs(data, lang, request)
+    return success(data)

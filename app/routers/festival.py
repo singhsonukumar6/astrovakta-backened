@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
-from ..i18n import detect_language, translate_response, t as _t
+from ..i18n import detect_language, translate_response, translate_paragraphs, t as _t
 
 # Field → translation category mapping for festival responses
 _FESTIVAL_FIELDS = {
@@ -297,7 +297,9 @@ def ekadashi_dates(req: EkadashiRequest, request: Request):
         dates = []
         for m in range(1, 13):
             dates.extend(get_ekadashi_for_month(year, m))
-    return {"status": 200, "data": {"year": year, "month": req.month, "ekadashi": translate_response(dates, lang, _FESTIVAL_FIELDS), "total": len(dates)}}
+    ekadashi = translate_response(dates, lang, _FESTIVAL_FIELDS)
+    ekadashi = translate_paragraphs(ekadashi, lang, request)
+    return {"status": 200, "data": {"year": year, "month": req.month, "ekadashi": ekadashi, "total": len(dates)}}
 
 
 @router.post("/festival/sankranti")
@@ -311,7 +313,9 @@ def sankranti_dates(req: FestivalRequest, request: Request):
         if req.month and month != req.month:
             continue
         result.append({"date": d, "name": SANKRANTI_NAMES[i], "month": month})
-    return {"status": 200, "data": {"year": year, "sankranti": translate_response(result, lang, _FESTIVAL_FIELDS), "total": len(result)}}
+    sankranti = translate_response(result, lang, _FESTIVAL_FIELDS)
+    sankranti = translate_paragraphs(sankranti, lang, request)
+    return {"status": 200, "data": {"year": year, "sankranti": sankranti, "total": len(result)}}
 
 
 @router.post("/festival/purnima")
@@ -321,7 +325,9 @@ def purnima_dates(req: FestivalRequest, request: Request):
     dates = PURNIMA_DATES.get(year, PURNIMA_DATES.get(2025, []))
     if req.month:
         dates = [d for d in dates if d.startswith(f"{year}-{req.month:02d}")]
-    return {"status": 200, "data": {"year": year, "month": req.month, "purnima": translate_response(dates, lang, _FESTIVAL_FIELDS), "total": len(dates)}}
+    purnima = translate_response(dates, lang, _FESTIVAL_FIELDS)
+    purnima = translate_paragraphs(purnima, lang, request)
+    return {"status": 200, "data": {"year": year, "month": req.month, "purnima": purnima, "total": len(dates)}}
 
 
 @router.post("/festival/amavasya")
@@ -331,7 +337,9 @@ def amavasya_dates(req: FestivalRequest, request: Request):
     dates = AMAVASYA_DATES.get(year, AMAVASYA_DATES.get(2025, []))
     if req.month:
         dates = [d for d in dates if d.startswith(f"{year}-{req.month:02d}")]
-    return {"status": 200, "data": {"year": year, "month": req.month, "amavasya": translate_response(dates, lang, _FESTIVAL_FIELDS), "total": len(dates)}}
+    amavasya = translate_response(dates, lang, _FESTIVAL_FIELDS)
+    amavasya = translate_paragraphs(amavasya, lang, request)
+    return {"status": 200, "data": {"year": year, "month": req.month, "amavasya": amavasya, "total": len(dates)}}
 
 
 @router.post("/festival/chaturthi")
@@ -339,17 +347,19 @@ def chaturthi_dates(req: FestivalRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     year = req.year
     date = CHATURTHI_DATES.get(year, CHATURTHI_DATES.get(2025))
+    data = translate_response({
+        "year": year,
+        "ganesh_chaturthi": {
+            "date": date,
+            "name": "Ganesh Chaturthi",
+            "tithi": "Chaturthi, Shukla Paksha, Bhadrapada",
+            "description": "Birthday of Lord Ganesha, celebrated on the 4th day of Shukla Paksha in Bhadrapada month"
+        }
+    }, lang, _FESTIVAL_FIELDS)
+    data = translate_paragraphs(data, lang, request)
     return {
         "status": 200,
-        "data": translate_response({
-            "year": year,
-            "ganesh_chaturthi": {
-                "date": date,
-                "name": "Ganesh Chaturthi",
-                "tithi": "Chaturthi, Shukla Paksha, Bhadrapada",
-                "description": "Birthday of Lord Ganesha, celebrated on the 4th day of Shukla Paksha in Bhadrapada month"
-            }
-        }, lang, _FESTIVAL_FIELDS)
+        "data": data
     }
 
 
@@ -362,17 +372,19 @@ def navratri_dates(req: FestivalRequest, request: Request):
         start_month = int(dates.get("start", "2025-09-22").split("-")[1])
         if req.month != start_month:
             return {"status": 200, "data": {"year": year, "month": req.month, "navratri": None, "message": "Navratri not in this month"}}
+    data = translate_response({
+        "year": year,
+        "navratri": {
+            "start": dates.get("start"),
+            "end": dates.get("end"),
+            "name": "Shardiya Navratri",
+            "description": "Nine nights of Goddess Durga worship, Shukla Paksha, Ashwin month"
+        }
+    }, lang, _FESTIVAL_FIELDS)
+    data = translate_paragraphs(data, lang, request)
     return {
         "status": 200,
-        "data": translate_response({
-            "year": year,
-            "navratri": {
-                "start": dates.get("start"),
-                "end": dates.get("end"),
-                "name": "Shardiya Navratri",
-                "description": "Nine nights of Goddess Durga worship, Shukla Paksha, Ashwin month"
-            }
-        }, lang, _FESTIVAL_FIELDS)
+        "data": data
     }
 
 
@@ -381,17 +393,19 @@ def diwali_date(req: FestivalRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     year = req.year
     date = DIWALI_DATES.get(year, DIWALI_DATES.get(2025))
+    data = translate_response({
+        "year": year,
+        "diwali": {
+            "date": date,
+            "name": "Diwali",
+            "tithi": "Krishna Amavasya, Kartik month",
+            "description": "Festival of lights, celebrating the return of Lord Rama and victory of light over darkness"
+        }
+    }, lang, _FESTIVAL_FIELDS)
+    data = translate_paragraphs(data, lang, request)
     return {
         "status": 200,
-        "data": translate_response({
-            "year": year,
-            "diwali": {
-                "date": date,
-                "name": "Diwali",
-                "tithi": "Krishna Amavasya, Kartik month",
-                "description": "Festival of lights, celebrating the return of Lord Rama and victory of light over darkness"
-            }
-        }, lang, _FESTIVAL_FIELDS)
+        "data": data
     }
 
 
@@ -400,15 +414,17 @@ def holi_date(req: FestivalRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     year = req.year
     date = HOLI_DATES.get(year, HOLI_DATES.get(2025))
+    data = translate_response({
+        "year": year,
+        "holi": {
+            "date": date,
+            "name": "Holi",
+            "tithi": "Full Moon (Purnima), Phalguna month",
+            "description": "Festival of colors celebrating the burning of demoness Holika and victory of good over evil"
+        }
+    }, lang, _FESTIVAL_FIELDS)
+    data = translate_paragraphs(data, lang, request)
     return {
         "status": 200,
-        "data": translate_response({
-            "year": year,
-            "holi": {
-                "date": date,
-                "name": "Holi",
-                "tithi": "Full Moon (Purnima), Phalguna month",
-                "description": "Festival of colors celebrating the burning of demoness Holika and victory of good over evil"
-            }
-        }, lang, _FESTIVAL_FIELDS)
+        "data": data
     }

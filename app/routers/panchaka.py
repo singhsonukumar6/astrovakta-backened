@@ -22,7 +22,7 @@ import pytz
 from dateutil import parser as dtparser
 from typing import Optional
 
-from ..i18n import detect_language, translate_response, t as _t
+from ..i18n import detect_language, translate_response, translate_paragraphs, t as _t
 
 # Field → translation category mapping for panchaka responses
 _PANCHAKA_FIELDS = {
@@ -427,7 +427,7 @@ def panchaka_analysis(body: PanchakaRequest, request: Request):
     moon_nak_idx = next((i for i, n in enumerate(NAKSHATRAS) if n == moon_nak), 0)
     dasha_lord = _get_dasha_lord(moon_nak_idx)
 
-    return translate_response({
+    data = translate_response({
         "status": "success",
         "input": {
             "dateOfBirth": body.dateOfBirth,
@@ -465,6 +465,8 @@ def panchaka_analysis(body: PanchakaRequest, request: Request):
         },
         "panchang": panchang,
     }, lang, _PANCHAKA_FIELDS)
+    data = translate_paragraphs(data, lang, request)
+    return data
 
 
 # ──────────────────────────── Gulika Position ────────────────────────────
@@ -534,7 +536,7 @@ def gulika_position(body: PanchakaRequest, request: Request):
     elif gulika_house == 12:
         severity = "Medium (expenditure and hospitalisation)"
 
-    return translate_response({
+    data = translate_response({
         "status": "success",
         "input": {
             "dateOfBirth": body.dateOfBirth,
@@ -563,6 +565,8 @@ def gulika_position(body: PanchakaRequest, request: Request):
             "ascendant_longitude": round(asc_long, 4),
         },
     }, lang, _PANCHAKA_FIELDS)
+    data = translate_paragraphs(data, lang, request)
+    return data
 
 
 # ──────────────────────────── Roga Nidana ────────────────────────────
@@ -781,7 +785,7 @@ def roga_nidana(body: PanchakaRequest, request: Request):
             "house": _house_from_long(plon, cusps),
         }
 
-    return translate_response({
+    data = translate_response({
         "status": "success",
         "input": {
             "dateOfBirth": body.dateOfBirth,
@@ -804,3 +808,5 @@ def roga_nidana(body: PanchakaRequest, request: Request):
         "planet_positions": planet_positions,
         "remedies": remedies,
     }, lang, _PANCHAKA_FIELDS)
+    data = translate_paragraphs(data, lang, request)
+    return data

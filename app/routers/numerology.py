@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
-from ..i18n import detect_language, translate_response, t as _t
+from ..i18n import detect_language, translate_response, translate_paragraphs, t as _t
 
 # Field → translation category mapping for numerology responses
 _NUMEROLOGY_FIELDS = {
@@ -276,7 +276,9 @@ def life_path_number(body: LifePathRequest, request: Request):
         f"{interp['overall']}"
     )
 
-    return translate_response(format_interpretation_response(life_path, description), lang, _NUMEROLOGY_FIELDS)
+    result = translate_response(format_interpretation_response(life_path, description), lang, _NUMEROLOGY_FIELDS)
+    result = translate_paragraphs(result, lang, request)
+    return result
 
 
 @router.post('/numerology/destiny')
@@ -294,7 +296,9 @@ def destiny_number(body: DestinyRequest, request: Request):
         f"{interp['overall']}"
     )
 
-    return translate_response(format_interpretation_response(destiny, description), lang, _NUMEROLOGY_FIELDS)
+    result = translate_response(format_interpretation_response(destiny, description), lang, _NUMEROLOGY_FIELDS)
+    result = translate_paragraphs(result, lang, request)
+    return result
 
 
 @router.post('/numerology/soul')
@@ -312,7 +316,9 @@ def soul_number(body: SoulRequest, request: Request):
         f"{interp['overall']}"
     )
 
-    return translate_response(format_interpretation_response(soul, description), lang, _NUMEROLOGY_FIELDS)
+    result = translate_response(format_interpretation_response(soul, description), lang, _NUMEROLOGY_FIELDS)
+    result = translate_paragraphs(result, lang, request)
+    return result
 
 
 @router.post('/numerology/expression')
@@ -330,7 +336,9 @@ def expression_number(body: ExpressionRequest, request: Request):
         f"{interp['overall']}"
     )
 
-    return translate_response(format_interpretation_response(expression, description), lang, _NUMEROLOGY_FIELDS)
+    result = translate_response(format_interpretation_response(expression, description), lang, _NUMEROLOGY_FIELDS)
+    result = translate_paragraphs(result, lang, request)
+    return result
 
 
 @router.post('/numerology/mobile')
@@ -348,13 +356,15 @@ def mobile_number(body: MobileRequest, request: Request):
         f"{interp['overall']}"
     )
 
-    return translate_response({
+    result = translate_response({
         "status": 200,
         "number": mobile_num,
         "rating": rating,
         "interpretation": interp,
         "description": description
     }, lang, _NUMEROLOGY_FIELDS)
+    result = translate_paragraphs(result, lang, request)
+    return result
 
 
 @router.post('/numerology/vehicle')
@@ -373,13 +383,15 @@ def vehicle_number(body: VehicleRequest, request: Request):
         f"{interp['overall']}"
     )
 
-    return translate_response({
+    result = translate_response({
         "status": 200,
         "number": vehicle_num,
         "rating": rating,
         "interpretation": interp,
         "description": description
     }, lang, _NUMEROLOGY_FIELDS)
+    result = translate_paragraphs(result, lang, request)
+    return result
 
 
 
