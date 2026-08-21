@@ -22,6 +22,7 @@ const partnerBirthFields = (extra = []) => [
   { key: '_partnerLocation', label: 'Partner Location', type: 'location', group: 'Partner Data' },
   { key: 'partnerLatitude', label: 'Partner Latitude', type: 'number', group: 'Partner Data', placeholder: '28.6139', step: 0.0001 },
   { key: 'partnerLongitude', label: 'Partner Longitude', type: 'number', group: 'Partner Data', placeholder: '77.2090', step: 0.0001 },
+  langField,
   ...extra,
 ]
 
@@ -32,18 +33,21 @@ const coupleBirthFields = (extra = []) => [
   { key: 'femaleDateOfBirth', label: 'Female Date of Birth', type: 'date', group: 'Female Data' },
   { key: 'femaleTimeOfBirth', label: 'Female Time of Birth', type: 'time', group: 'Female Data' },
   { key: '_femaleLocation', label: 'Female Location', type: 'location', group: 'Female Data' },
+  langField,
   ...extra,
 ]
 
 const muhuratFields = (extra = []) => [
   { key: 'dateOfBirth', label: 'Date', type: 'date', group: 'Date' },
   { key: '_location', label: 'Location', type: 'location', group: 'Location' },
+  langField,
   ...extra,
 ]
 
 const yearFields = (extra = []) => [
   { key: 'year', label: 'Year', type: 'number', group: 'Year' },
   { key: '_location', label: 'Location', type: 'location', group: 'Location', optional: true },
+  langField,
   ...extra,
 ]
 

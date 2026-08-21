@@ -40,7 +40,7 @@ from .middleware import APIKeyMiddleware
 
 app = FastAPI(
     title="Vedic Astrology API",
-    version="2.1.0",
+    version="2.2.0",
     description="Complete Vedic Astrology API with 180+ endpoints for birth charts, panchang, horoscopes, dasha, transits, compatibility, doshas, yogas, numerology, gemstones, rudraksha, muhurats, festivals, reports, AI interpretations, and more. Supports 9 Indian languages (Hindi, Tamil, Telugu, Kannada, Malayalam, Bengali, Marathi, Gujarati, Punjabi) via the `lang` parameter or `Accept-Language` header.",
     openapi_tags=[
         {"name": "Charts - Visual", "description": "SVG chart generation: South Indian, North Indian, Grid, East Indian, Moon"},
@@ -211,7 +211,7 @@ def on_startup():
 
 @app.get("/health")
 def health_check():
-    return success({"status": "ok", "version": "2.0.0", "service": "Vedic Astrology API"})
+    return success({"status": "ok", "version": app.version, "service": "Vedic Astrology API"})
 
 # Routers
 try:

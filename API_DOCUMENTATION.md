@@ -1,7 +1,7 @@
 # AstroVakta Vedic Astrology API — Developer Documentation
 
-> **Version 2.0** | **Base URL:** `http://localhost:5000` (or your deployed URL)  
-> **226+ endpoints** | **PDF Report Generation** | **AI-Powered Insights** | **North Indian Diamond Charts**
+> **Version 2.2** | **Base URL:** `http://localhost:5000` (or your deployed URL)  
+> **226+ endpoints** | **PDF Report Generation** | **AI-Powered Insights** | **North Indian Diamond Charts** | **9 Indian Languages**
 
 ---
 
@@ -58,6 +58,51 @@ curl -X POST http://localhost:5000/api/kundli \
   }
 }
 ```
+
+---
+
+## Multi-Language Support (i18n)
+
+All endpoints support multi-language output in **9 Indian languages**. Add the `lang` parameter to any request body, or use the `Accept-Language` header.
+
+| Language | Code | Script |
+|----------|------|--------|
+| English (default) | `en` | Latin |
+| Hindi | `hi` | Devanagari |
+| Tamil | `ta` | Tamil |
+| Telugu | `te` | Telugu |
+| Kannada | `kn` | Kannada |
+| Malayalam | `ml` | Malayalam |
+| Bengali | `bn` | Bengali |
+| Marathi | `mr` | Devanagari |
+| Gujarati | `gu` | Gujarati |
+| Punjabi | `pa` | Gurmukhi |
+
+### Usage
+
+**Option 1: Request body parameter**
+```json
+{
+  "dateOfBirth": "1990-05-15",
+  "latitude": 28.6139,
+  "longitude": 77.209,
+  "timezone": "Asia/Kolkata",
+  "lang": "hi"
+}
+```
+
+**Option 2: Accept-Language header**
+```bash
+curl -X POST https://api.astrovakta.com/horoscope/panchang \
+  -H "Content-Type: application/json" \
+  -H "Accept-Language: hi" \
+  -H "X-API-Key: avk_xxxxxxxx" \
+  -d '{"dateOfBirth":"1990-05-15","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata"}'
+```
+
+**What gets translated:** Planet names, zodiac signs, nakshatras, doshas, yogas, gemstones, festivals, compatibility terms, house names, weekdays, muhurat ratings, and more (38 categories total).
+
+**What stays in English:** Long prediction text, numerical values, URLs, API status codes.
 
 ---
 
@@ -198,20 +243,7 @@ POST /horoscope/panchang
 
 Returns: Tithi, Nakshatra, Yoga, Karana, Vara, Rahu Kaal, Gulika Kaal, Yamaganda, Choghadiya, Hora, Moonrise/Moonset.
 
-**Multi-language support:** Add `"lang"` to the request body to get results in your language. Also accepts `Accept-Language` header.
-
-| Language | Code |
-|----------|------|
-| English (default) | `en` |
-| Hindi | `hi` |
-| Tamil | `ta` |
-| Telugu | `te` |
-| Kannada | `kn` |
-| Malayalam | `ml` |
-| Bengali | `bn` |
-| Marathi | `mr` |
-| Gujarati | `gu` |
-| Punjabi | `pa` |
+**Multi-language support:** Add `"lang":"hi"` to the request body. See [Multi-Language Support](#multi-language-support-i18n) for all available languages.
 
 Example with Hindi:
 ```bash
