@@ -96,11 +96,10 @@ def render_grid_svg(width: int, height: int, cell_lines: list[list[str]]) -> str
 def chart_grid_svg(body: GridChartRequest):
     # Import locally to avoid circulars at module import time
     from ..main import to_julian, calc_planets, calc_houses
+    from .chart_svg import _ABBR_BY_LANG, PLANET_ABBR
 
     SIGNS = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
-    ABR = {
-        'Ascendant':'As','Sun':'Su','Moon':'Mo','Mars':'Ma','Mercury':'Me','Jupiter':'Ju','Venus':'Ve','Saturn':'Sa','Rahu':'Ra','Ketu':'Ke','Uranus':'Ur','Neptune':'Ne','Pluto':'Pl'
-    }
+    ABR = _ABBR_BY_LANG.get(body.lang or 'en', PLANET_ABBR)
 
     # Compute planets and ascendant
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)

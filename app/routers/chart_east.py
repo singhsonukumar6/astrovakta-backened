@@ -22,11 +22,7 @@ class EastChartRequest(BaseModel):
     lang: str = Field("en", example="hi", description="Response language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
-PLANET_ABBR = {
-    'Sun': 'Su', 'Moon': 'Mo', 'Mars': 'Ma', 'Mercury': 'Me',
-    'Jupiter': 'Ju', 'Venus': 'Ve', 'Saturn': 'Sa',
-    'Rahu': 'Ra', 'Ketu': 'Ke',
-}
+from .chart_svg import _ABBR_BY_LANG, PLANET_ABBR as _BASE_PLANET_ABBR
 
 PLANET_COLORS = {
     'Sun': '#FFD700', 'Moon': '#C0C0C0', 'Mars': '#FF0000', 'Mercury': '#008000',
@@ -60,7 +56,7 @@ def _east_house_from_asc(asc_sign: str):
     return [(i + 1, ZODIAC_SIGNS[(asc_idx + i) % 12]) for i in range(12)]
 
 
-def _render_east_svg(width: int, height: int, asc: dict, planets: list, theme: str = 'light') -> str:
+def _render_east_svg(width: int, height: int, asc: dict, planets: list, theme: str = 'light', lang: str = 'en') -> str:
     from ..main import ZODIAC_SIGNS, SIGN_LORDS
 
     dwg = svgwrite.Drawing(size=(width, height), profile='full')
@@ -118,6 +114,8 @@ def _render_east_svg(width: int, height: int, asc: dict, planets: list, theme: s
         if cell_idx is not None:
             cell_planets[cell_idx].append(p)
 
+    abbr_map = _ABBR_BY_LANG.get(lang, _BASE_PLANET_ABBR)
+
     for cell_idx, plist in cell_planets.items():
         if not plist:
             continue
@@ -133,7 +131,7 @@ def _render_east_svg(width: int, height: int, asc: dict, planets: list, theme: s
         start_y = cy - ((n - 1) * step) / 2 + 8
         for j, planet in enumerate(plist):
             py = start_y + j * step
-            abbr = PLANET_ABBR.get(planet['name'], planet['name'][:2])
+            abbr = abbr_map.get(planet['name'], _BASE_PLANET_ABBR.get(planet['name'], planet['name'][:2]))
             color = PLANET_COLORS.get(planet['name'], '#000000')
             retro = planet.get('isRetrograde', False)
             label = f"{abbr}{'R' if retro else ''}"
@@ -150,7 +148,7 @@ def _render_east_svg(width: int, height: int, asc: dict, planets: list, theme: s
     return output.getvalue()
 
 
-def _render_moon_svg(width: int, height: int, asc: dict, moon_sign: str, planets: list, theme: str = 'light') -> str:
+def _render_moon_svg(width: int, height: int, asc: dict, moon_sign: str, planets: list, theme: str = 'light', lang: str = 'en') -> str:
     """Render a diamond North-Indian style chart but with Moon's sign as house 1."""
     from ..main import ZODIAC_SIGNS
 
@@ -221,6 +219,8 @@ def _render_moon_svg(width: int, height: int, asc: dict, moon_sign: str, planets
         p['_moon_house'] = h
         by_house[h].append(p)
 
+    abbr_map = _ABBR_BY_LANG.get(lang, _BASE_PLANET_ABBR)
+
     import math
     radius = 20 * min(scale_x, scale_y)
     for h in range(1, 13):
@@ -233,7 +233,7 @@ def _render_moon_svg(width: int, height: int, asc: dict, moon_sign: str, planets
                 angle = 2 * math.pi * j / len(hplanets)
                 px = center[0] + radius * math.cos(angle)
                 py = center[1] + radius * math.sin(angle)
-            abbr = PLANET_ABBR.get(planet['name'], planet['name'][:2])
+            abbr = abbr_map.get(planet['name'], _BASE_PLANET_ABBR.get(planet['name'], planet['name'][:2]))
             color = PLANET_COLORS.get(planet['name'], '#000000')
             retro = planet.get('isRetrograde', False)
             label = f"{abbr}{'®' if retro else ''}"
@@ -257,7 +257,7 @@ async def east_svg(req: EastChartRequest):
     asc = house_data['ascendant']
     w = req.width or 800
     h = req.height or 600
-    svg = _render_east_svg(w, h, asc, planets, req.theme or 'light')
+    svg = _render_east_svg(w, h, asc, planets, req.theme or 'light', req.lang or 'en')
     return Response(content=svg, media_type='image/svg+xml')
 
 
@@ -271,5 +271,5 @@ async def moon_svg(req: EastChartRequest):
     moon_sign = moon_p['sign'] if moon_p else house_data['ascendant']['sign']
     w = req.width or 800
     h = req.height or 600
-    svg = _render_moon_svg(w, h, house_data['ascendant'], moon_sign, planets, req.theme or 'light')
+    svg = _render_moon_svg(w, h, house_data['ascendant'], moon_sign, planets, req.theme or 'light', req.lang or 'en')
     return Response(content=svg, media_type='image/svg+xml')

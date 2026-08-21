@@ -11,11 +11,7 @@ from io import StringIO
 
 router = APIRouter()
 
-PLANET_ABBR = {
-    'Sun': 'Su', 'Moon': 'Mo', 'Mars': 'Ma', 'Mercury': 'Me',
-    'Jupiter': 'Ju', 'Venus': 'Ve', 'Saturn': 'Sa',
-    'Rahu': 'Ra', 'Ketu': 'Ke',
-}
+from .chart_svg import _ABBR_BY_LANG, PLANET_ABBR as _BASE_PLANET_ABBR
 PLANET_COLORS = {
     'Sun': '#FFD700', 'Moon': '#C0C0C0', 'Mars': '#FF0000', 'Mercury': '#008000',
     'Jupiter': '#0000FF', 'Venus': '#FF1493', 'Saturn': '#000000',
@@ -50,7 +46,7 @@ HOUSE_NO_POS = {
 }
 
 
-def _render_diamond_svg(width, height, asc_sign, planets_by_house, title_text, theme='light'):
+def _render_diamond_svg(width, height, asc_sign, planets_by_house, title_text, theme='light', lang='en'):
     """Render a North Indian diamond chart SVG."""
     dwg = svgwrite.Drawing(size=(width, height), profile='full')
     dwg.attribs['viewBox'] = f'0 0 {width} {height}'
@@ -91,6 +87,7 @@ def _render_diamond_svg(width, height, asc_sign, planets_by_house, title_text, t
         dwg.add(dwg.text(str(h), insert=pos, font_size='14px', fill=tc, font_weight='bold'))
 
     # Planets
+    abbr_map = _ABBR_BY_LANG.get(lang, _BASE_PLANET_ABBR)
     import math as _m
     radius = 20 * min(scale_x, scale_y)
     for h in range(1, 13):
@@ -103,7 +100,7 @@ def _render_diamond_svg(width, height, asc_sign, planets_by_house, title_text, t
                 angle = 2 * _m.pi * j / len(hplanets)
                 px = center[0] + radius * _m.cos(angle)
                 py = center[1] + radius * _m.sin(angle)
-            abbr = PLANET_ABBR.get(planet['name'], planet['name'][:2])
+            abbr = abbr_map.get(planet['name'], _BASE_PLANET_ABBR.get(planet['name'], planet['name'][:2]))
             color = PLANET_COLORS.get(planet['name'], '#000000')
             retro = planet.get('isRetrograde', False)
             label = f"{abbr}{'®' if retro else ''}"
@@ -173,7 +170,7 @@ def navamsa_chart_svg(req: DedicatedChartRequest):
     w = req.width or 800
     h = req.height or 600
     svg = _render_diamond_svg(w, h, asc_sign, by_house,
-                               f"Navamsa Chart (D9) | Asc: {asc_sign}", req.theme or 'light')
+                               f"Navamsa Chart (D9) | Asc: {asc_sign}", req.theme or 'light', req.lang or 'en')
 
     return {
         'status': 200,
@@ -225,7 +222,7 @@ def hora_chart_svg(req: DedicatedChartRequest):
     w = req.width or 800
     h = req.height or 600
     svg = _render_diamond_svg(w, h, asc_sign, by_house,
-                               f"Hora Chart (D2) | Asc: {asc_sign}", req.theme or 'light')
+                               f"Hora Chart (D2) | Asc: {asc_sign}", req.theme or 'light', req.lang or 'en')
 
     return {
         'status': 200,
@@ -292,7 +289,7 @@ def sudarshana_chakra_svg(req: SudarshanaRequest):
     layers = []
     asc_idx = ZODIAC_SIGNS.index(asc_natal['sign'])
     for p in planets_natal:
-        if p['name'] not in PLANET_ABBR:
+        if p['name'] not in _BASE_PLANET_ABBR:
             continue
         # Rasi layer
         rasi_sign = p['sign']
@@ -354,12 +351,13 @@ def sudarshana_chakra_svg(req: SudarshanaRequest):
         dwg.add(dwg.text(str(h_num), insert=pos, font_size='14px', fill=tc, font_weight='bold'))
 
     # Place planets with three lines each (Rasi / Navamsa / Transit)
+    abbr_map = _ABBR_BY_LANG.get(req.lang or 'en', _BASE_PLANET_ABBR)
     import math as _m
     radius = 20 * min(scale_x, scale_y)
     for layer in layers:
         h_num = layer['rasi']['house']
         center = sp(HOUSE_CENTERS[h_num])
-        abbr = PLANET_ABBR.get(layer['name'], layer['name'][:2])
+        abbr = abbr_map.get(layer['name'], _BASE_PLANET_ABBR.get(layer['name'], layer['name'][:2]))
         color = PLANET_COLORS.get(layer['name'], '#000000')
         retro = '®' if layer['isRetrograde'] else ''
 

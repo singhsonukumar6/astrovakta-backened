@@ -33,6 +33,66 @@ PLANET_ABBR = {
     'Uranus': 'Ur', 'Neptune': 'Ne', 'Pluto': 'Pl'
 }
 
+PLANET_ABBR_HI = {
+    'Ascendant': 'लग्न', 'Sun': 'सू', 'Moon': 'चं', 'Mars': 'मं', 'Mercury': 'बु',
+    'Jupiter': 'गु', 'Venus': 'शु', 'Saturn': 'श', 'Rahu': 'रा', 'Ketu': 'के',
+    'Uranus': 'अर', 'Neptune': 'ने', 'Pluto': 'प्लू'
+}
+
+PLANET_ABBR_TA = {
+    'Ascendant': 'ல', 'Sun': 'சூ', 'Moon': 'ச', 'Mars': 'செ', 'Mercury': 'பு',
+    'Jupiter': 'கு', 'Venus': 'சு', 'Saturn': 'ச', 'Rahu': 'ரா', 'Ketu': 'கே',
+    'Uranus': 'யு', 'Neptune': 'நெ', 'Pluto': 'பு'
+}
+
+PLANET_ABBR_TE = {
+    'Ascendant': 'ల', 'Sun': 'సూ', 'Moon': 'చ', 'Mars': 'కు', 'Mercury': 'బు',
+    'Jupiter': 'గు', 'Venus': 'శు', 'Saturn': 'శ', 'Rahu': 'రా', 'Ketu': 'కే',
+    'Uranus': 'యు', 'Neptune': 'నె', 'Pluto': 'ప్లూ'
+}
+
+PLANET_ABBR_KN = {
+    'Ascendant': 'ಲ', 'Sun': 'ಸೂ', 'Moon': 'ಚ', 'Mars': 'ಕು', 'Mercury': 'ಬು',
+    'Jupiter': 'ಗು', 'Venus': 'ಶು', 'Saturn': 'ಶ', 'Rahu': 'ರಾ', 'Ketu': 'ಕೇ',
+    'Uranus': 'ಯು', 'Neptune': 'ನೆ', 'Pluto': 'ಪ್ಲೂ'
+}
+
+PLANET_ABBR_ML = {
+    'Ascendant': 'ല', 'Sun': 'സൂ', 'Moon': 'ച', 'Mars': 'കു', 'Mercury': 'ബു',
+    'Jupiter': 'ഗു', 'Venus': 'ശു', 'Saturn': 'ശ', 'Rahu': 'രാ', 'Ketu': 'കേ',
+    'Uranus': 'യു', 'Neptune': 'നെ', 'Pluto': 'പ്ലൂ'
+}
+
+PLANET_ABBR_BN = {
+    'Ascendant': 'ল', 'Sun': 'সূ', 'Moon': 'চ', 'Mars': 'কু', 'Mercury': 'বু',
+    'Jupiter': 'গু', 'Venus': 'শু', 'Saturn': 'শ', 'Rahu': 'রা', 'Ketu': 'কে',
+    'Uranus': 'যু', 'Neptune': 'নে', 'Pluto': 'প্লূ'
+}
+
+PLANET_ABBR_MR = {
+    'Ascendant': 'ल', 'Sun': 'सू', 'Moon': 'च', 'Mars': 'मं', 'Mercury': 'बु',
+    'Jupiter': 'गु', 'Venus': 'शु', 'Saturn': 'श', 'Rahu': 'रा', 'Ketu': 'के',
+    'Uranus': 'यू', 'Neptune': 'ने', 'Pluto': 'प्लू'
+}
+
+PLANET_ABBR_GU = {
+    'Ascendant': 'લ', 'Sun': 'સૂ', 'Moon': 'ચ', 'Mars': 'કુ', 'Mercury': 'બુ',
+    'Jupiter': 'ગુ', 'Venus': 'શુ', 'Saturn': 'શ', 'Rahu': 'રા', 'Ketu': 'કે',
+    'Uranus': 'યુ', 'Neptune': 'ને', 'Pluto': 'પ્લૂ'
+}
+
+PLANET_ABBR_PA = {
+    'Ascendant': 'ਲ', 'Sun': 'ਸੂ', 'Moon': 'ਚ', 'Mars': 'ਮੰ', 'Mercury': 'ਬੁ',
+    'Jupiter': 'ਗੁ', 'Venus': 'ਸ਼ੁ', 'Saturn': 'ਸ਼', 'Rahu': 'ਰਾ', 'Ketu': 'ਕੇ',
+    'Uranus': 'ਯੂ', 'Neptune': 'ਨੇ', 'Pluto': 'ਪਲੂ'
+}
+
+_ABBR_BY_LANG = {
+    'hi': PLANET_ABBR_HI, 'ta': PLANET_ABBR_TA, 'te': PLANET_ABBR_TE,
+    'kn': PLANET_ABBR_KN, 'ml': PLANET_ABBR_ML, 'bn': PLANET_ABBR_BN,
+    'mr': PLANET_ABBR_MR, 'gu': PLANET_ABBR_GU, 'pa': PLANET_ABBR_PA,
+}
+
 PLANET_COLORS = {
     'Sun': '#B8860B', 'Moon': '#4682B4', 'Mars': '#B22222', 'Mercury': '#006400',
     'Jupiter': '#8B4513', 'Venus': '#C71585', 'Saturn': '#1a1a1a', 
@@ -94,7 +154,7 @@ def scale_point(point, scale_x, scale_y):
     return (point[0] * scale_x, point[1] * scale_y)
 
 
-def render_svg(width: int, height: int, asc: dict, planets: list, theme: str = 'light', include_outer: bool = True, stack_mode: Optional[str] = None, stack_threshold: int = 3, show_degrees: bool = True, show_retrograde: bool = True):
+def render_svg(width: int, height: int, asc: dict, planets: list, theme: str = 'light', include_outer: bool = True, stack_mode: Optional[str] = None, stack_threshold: int = 3, show_degrees: bool = True, show_retrograde: bool = True, lang: str = 'en'):
     """Generate North Indian chart using svgwrite with proper polygon houses."""
     from ..main import ZODIAC_SIGNS
     
@@ -151,6 +211,9 @@ def render_svg(width: int, height: int, asc: dict, planets: list, theme: str = '
         text = dwg.text(str(sign_num), insert=pos, font_size='14px', fill=text_color, font_weight='bold')
         dwg.add(text)
     
+    # Select abbreviation set for language
+    abbr_map = _ABBR_BY_LANG.get(lang, PLANET_ABBR)
+    
     # Group planets by house
     outer = {'Uranus', 'Neptune', 'Pluto'}
     by_house = {i: [] for i in range(1, 13)}
@@ -193,7 +256,7 @@ def render_svg(width: int, height: int, asc: dict, planets: list, theme: str = '
         for j, planet in enumerate(house_planets):
             y = start_y + j * line_step
             planet_name = planet['name']
-            abbr = PLANET_ABBR.get(planet_name, planet_name[:2])
+            abbr = abbr_map.get(planet_name, PLANET_ABBR.get(planet_name, planet_name[:2]))
             color = PLANET_COLORS.get(planet_name, '#000000')
             if show_retrograde and planet.get('isRetrograde'):
                 abbr_label = f"{abbr}®"
@@ -233,7 +296,7 @@ async def chart_svg(req: ChartRequest):
     theme = (req.theme or 'light').lower()
     include_outer = bool(req.includeOuterPlanets) if req.includeOuterPlanets is not None else True
 
-    svg = render_svg(width, height, house_data['ascendant'], planets, theme=theme, include_outer=include_outer, stack_threshold=int(req.stackIfCountAtLeast or 3))
+    svg = render_svg(width, height, house_data['ascendant'], planets, theme=theme, include_outer=include_outer, stack_threshold=int(req.stackIfCountAtLeast or 3), lang=req.lang or 'en')
     return Response(content=svg, media_type='image/svg+xml')
 
 # ---------------- Divisional Chart (Varga) SVG ----------------
@@ -316,7 +379,7 @@ def divisional_chart_svg(req: DivisionalChartRequest):
     theme = (req.theme or 'light').lower()
     include_outer = bool(req.includeOuterPlanets) if req.includeOuterPlanets is not None else True
 
-    svg = render_svg(width, height, asc, vplanets, theme=theme, include_outer=include_outer, stack_mode='vertical', stack_threshold=int(req.stackIfCountAtLeast or 2), show_degrees=False, show_retrograde=True)
+    svg = render_svg(width, height, asc, vplanets, theme=theme, include_outer=include_outer, stack_mode='vertical', stack_threshold=int(req.stackIfCountAtLeast or 2), show_degrees=False, show_retrograde=True, lang=req.lang or 'en')
 
     # Chart name
     try:

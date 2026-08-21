@@ -4,10 +4,115 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 import pytz
 import hashlib
+import httpx
 
 from ..i18n import detect_language, translate_response
 
 router = APIRouter()
+
+# ──────────────────────────────────────────────
+# AI Translation Helper
+# ──────────────────────────────────────────────
+
+_LANG_NAMES = {
+    'hi': 'Hindi', 'ta': 'Tamil', 'te': 'Telugu', 'kn': 'Kannada',
+    'ml': 'Malayalam', 'bn': 'Bengali', 'mr': 'Marathi', 'gu': 'Gujarati',
+    'pa': 'Punjabi',
+}
+
+
+def _ai_translate_texts(texts: List[str], lang: str, request: Request = None) -> List[str]:
+    """Translate a list of English text strings to the target language using AI.
+
+    Uses the authenticated user's configured AI provider. Falls back to original
+    English text if no provider is available or on error.
+    """
+    if lang == 'en' or not texts:
+        return texts
+
+    lang_name = _LANG_NAMES.get(lang, lang)
+    user_id = None
+    if request:
+        key_info = getattr(getattr(request, 'state', None), 'api_key_info', None)
+        user_id = key_info.get('user_id') if key_info else None
+
+    if not user_id:
+        return texts
+
+    try:
+        from ..auth import get_active_ai_provider
+        from ..crypto import decrypt_api_key
+
+        provider_config = get_active_ai_provider(user_id)
+        if not provider_config:
+            return texts
+
+        api_key = decrypt_api_key(provider_config["api_key_encrypted"])
+        provider = provider_config["provider"]
+        model = provider_config.get("model") or {
+            "openai": "gpt-4o-mini", "anthropic": "claude-3-haiku-20240307",
+            "groq": "llama-3.3-70b-versatile",
+            "together": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+        }.get(provider, "gpt-4o-mini")
+
+        endpoints = {
+            "openai": "https://api.openai.com/v1/chat/completions",
+            "anthropic": "https://api.anthropic.com/v1/messages",
+            "groq": "https://api.groq.com/openai/v1/chat/completions",
+            "together": "https://api.together.xyz/v1/chat/completions",
+        }
+        headers_fn = {
+            "openai": lambda k: {"Authorization": f"Bearer {k}", "Content-Type": "application/json"},
+            "anthropic": lambda k: {"x-api-key": k, "anthropic-version": "2023-06-01", "Content-Type": "application/json"},
+            "groq": lambda k: {"Authorization": f"Bearer {k}", "Content-Type": "application/json"},
+            "together": lambda k: {"Authorization": f"Bearer {k}", "Content-Type": "application/json"},
+        }
+
+        endpoint = endpoints.get(provider)
+        if not endpoint:
+            return texts
+
+        numbered = "\n".join(f"[{i+1}] {t}" for i, t in enumerate(texts))
+        system_prompt = (
+            f"You are a professional translator specializing in Vedic astrology. "
+            f"Translate each numbered text below from English to {lang_name}. "
+            f"Preserve the exact numbering format [N]. Keep astrological terms accurate. "
+            f"Return ONLY the translated lines, one per line, maintaining the [N] prefix. "
+            f"Do NOT add explanations."
+        )
+
+        headers = headers_fn[provider](api_key)
+        if provider == "anthropic":
+            payload = {"model": model, "max_tokens": 4096, "system": system_prompt,
+                       "messages": [{"role": "user", "content": numbered}]}
+        else:
+            payload = {"model": model, "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": numbered}],
+                "max_tokens": 4096, "temperature": 0.3}
+
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.post(endpoint, headers=headers, json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+
+        if provider == "anthropic":
+            result_text = data["content"][0]["text"]
+        else:
+            result_text = data["choices"][0]["message"]["content"]
+
+        translated = {}
+        for line in result_text.strip().split("\n"):
+            line = line.strip()
+            if "] " in line:
+                idx_part, val = line.split("] ", 1)
+                idx = int(idx_part.strip("[")) - 1
+                translated[idx] = val
+
+        return [translated.get(i, texts[i]) for i in range(len(texts))]
+
+    except Exception:
+        return texts
 
 # ──────────────────────────────────────────────
 # Request / response models
@@ -687,8 +792,8 @@ def _period_label(period: str, req: HoroscopeRequest) -> str:
 
 
 def _build_full_response(req: HoroscopeRequest, chart: dict, overview_bank: dict,
-                         extra_bank: dict, period: str, lang: str = 'en') -> dict:
-    
+                         extra_bank: dict, period: str, lang: str = 'en', request: Request = None) -> dict:
+
     from ..main import SIGN_LORDS
     sign = _determine_sign(req, chart)
     period_lbl = _period_label(period, req)
@@ -727,7 +832,72 @@ def _build_full_response(req: HoroscopeRequest, chart: dict, overview_bank: dict
 
     result = _build_response(sign, period_lbl, overview_tmpl, extra, chart, req)
     result = translate_response(result, lang, _HOROSCOPE_FIELDS)
+
+    if lang != 'en':
+        _translate_result_paragraphs(result, lang, request)
+
     return {'status': 200, 'data': result}
+
+
+# Text fields in the response that contain paragraph predictions
+_PARAGRAPH_FIELDS = ['overview', 'positive', 'challenging', 'careerAdvice',
+                     'loveAdvice', 'financeAdvice', 'healthAdvice',
+                     'careerSummary', 'loveSummary', 'financeSummary', 'healthSummary']
+
+
+def _collect_paragraphs(data: dict, depth: int = 0) -> list:
+    """Collect all paragraph text strings from a nested result dict, returning (list, paths)."""
+    paragraphs = []
+    paths = []
+    if depth > 5:
+        return paragraphs, paths
+    for key, val in data.items():
+        if isinstance(val, str) and len(val) > 40 and key in _PARAGRAPH_FIELDS or (isinstance(val, str) and len(val) > 80):
+            paragraphs.append(val)
+            paths.append(key)
+        elif isinstance(val, dict):
+            sub_paras, sub_paths = _collect_paragraphs(val, depth + 1)
+            for sp, spath in zip(sub_paras, sub_paths):
+                paragraphs.append(sp)
+                paths.append(f"{key}.{spath}")
+        elif isinstance(val, list):
+            for i, item in enumerate(val):
+                if isinstance(item, dict):
+                    sub_paras, sub_paths = _collect_paragraphs(item, depth + 1)
+                    for sp, spath in zip(sub_paras, sub_paths):
+                        paragraphs.append(sp)
+                        paths.append(f"{key}[{i}].{spath}")
+    return paragraphs, paths
+
+
+def _set_by_path(data: dict, path: str, value: str):
+    """Set a value in a nested dict by dot-separated path."""
+    parts = path.replace('[', '.').replace(']', '').split('.')
+    current = data
+    for part in parts[:-1]:
+        if part.isdigit():
+            current = current[int(part)]
+        else:
+            current = current[part]
+    last = parts[-1]
+    if last.isdigit():
+        current[int(last)] = value
+    else:
+        current[last] = value
+
+
+def _translate_result_paragraphs(result: dict, lang: str, request: Request = None):
+    """Translate all paragraph text fields in a horoscope result using AI."""
+    data = result.get('data', result)
+    paragraphs, paths = _collect_paragraphs(data)
+    if not paragraphs:
+        return
+    translated = _ai_translate_texts(paragraphs, lang, request)
+    for path, text in zip(paths, translated):
+        try:
+            _set_by_path(data, path, text)
+        except Exception:
+            pass
 
 
 # ──────────────────────────────────────────────
@@ -738,28 +908,28 @@ def _build_full_response(req: HoroscopeRequest, chart: dict, overview_bank: dict
 def daily_horoscope(req: HoroscopeRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     chart = _build_chart(req.dateOfBirth, req.timeOfBirth, req.latitude, req.longitude, req.timezone)
-    return _build_full_response(req, chart, DAILY_OVERVIEW, {}, 'daily', lang)
+    return _build_full_response(req, chart, DAILY_OVERVIEW, {}, 'daily', lang, request)
 
 
 @router.post('/horoscope/weekly')
 def weekly_horoscope(req: HoroscopeRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     chart = _build_chart(req.dateOfBirth, req.timeOfBirth, req.latitude, req.longitude, req.timezone)
-    return _build_full_response(req, chart, WEEKLY_OVERVIEW, {}, 'weekly', lang)
+    return _build_full_response(req, chart, WEEKLY_OVERVIEW, {}, 'weekly', lang, request)
 
 
 @router.post('/horoscope/monthly')
 def monthly_horoscope(req: HoroscopeRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     chart = _build_chart(req.dateOfBirth, req.timeOfBirth, req.latitude, req.longitude, req.timezone)
-    return _build_full_response(req, chart, MONTHLY_OVERVIEW, {}, 'monthly', lang)
+    return _build_full_response(req, chart, MONTHLY_OVERVIEW, {}, 'monthly', lang, request)
 
 
 @router.post('/horoscope/yearly')
 def yearly_horoscope(req: HoroscopeRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     chart = _build_chart(req.dateOfBirth, req.timeOfBirth, req.latitude, req.longitude, req.timezone)
-    return _build_full_response(req, chart, YEARLY_OVERVIEW, {}, 'yearly', lang)
+    return _build_full_response(req, chart, YEARLY_OVERVIEW, {}, 'yearly', lang, request)
 
 
 @router.post('/horoscope/career')
@@ -803,6 +973,8 @@ def career_horoscope(req: HoroscopeRequest, request: Request):
             'remedy': _dpick(remedies, chart, req),
         }
     data = translate_response(data, lang, _HOROSCOPE_FIELDS)
+    if lang != 'en':
+        _translate_result_paragraphs({'data': data}, lang, request)
     return {'status': 200, 'data': data}
 
 
@@ -892,6 +1064,8 @@ def finance_horoscope(req: HoroscopeRequest, request: Request):
             'remedy': _dpick(remedies, chart, req),
         }
     data = translate_response(data, lang, _HOROSCOPE_FIELDS)
+    if lang != 'en':
+        _translate_result_paragraphs({'data': data}, lang, request)
     return {'status': 200, 'data': data}
 
 
@@ -937,4 +1111,6 @@ def health_horoscope(req: HoroscopeRequest, request: Request):
             'remedy': _dpick(remedies, chart, req),
         }
     data = translate_response(data, lang, _HOROSCOPE_FIELDS)
+    if lang != 'en':
+        _translate_result_paragraphs({'data': data}, lang, request)
     return {'status': 200, 'data': data}
