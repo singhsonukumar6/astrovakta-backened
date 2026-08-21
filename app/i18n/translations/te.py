@@ -523,4 +523,256 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "partIndex": "భాగం సంఖ్య",
         "totalParts": "మొత్తం భాగాలు",
     },
+
+    # ── Colors (రంగులు) ────────────────────────────────────────────────────────
+    "color": {
+        "Red": "ఎరుపు",
+        "Blue": "నీలం",
+        "Green": "ఆకుపచ్చ",
+        "White": "తెలుపు",
+        "Yellow": "పసుపు",
+        "Orange": "నారింజ",
+        "Pink": "గులాబీ",
+        "Purple": "ఊదా",
+        "Black": "నలుపు",
+        "Brown": "గోధుమ",
+        "Gold": "బంగారు",
+        "Silver": "వెండి",
+        "Grey": "బూడిద",
+        "Maroon": "గాఢ ఎరుపు",
+        "Cream": "క్రీమ్",
+        "Peach": "పీచ్",
+        "Coral": "ప్రవాళం",
+        "Turquoise": "పచ్చనీలం",
+    },
+
+    # ── Directions (దిక్కులు) ──────────────────────────────────────────────────
+    "direction": {
+        "North": "ఉత్తరం",
+        "South": "దక్షిణం",
+        "East": "తూర్పు",
+        "West": "పడమర",
+        "North-East": "వాయువ్య",
+        "North-West": "వాయువ్య",
+        "South-East": "ఆగ్నేయ",
+        "South-West": "నైఋత్య",
+    },
+
+    # ── Metals (లోహాలు) ────────────────────────────────────────────────────────
+    "metal": {
+        "Gold": "బంగారం",
+        "Silver": "వెండి",
+        "Copper": "రాగి",
+        "Iron": "ఇనుము",
+        "Bronze": "వెండి మిశ్రమం",
+        "Platinum": "ప్లాటినం",
+        "Steel": "ఉక్కు",
+        "Brass": "పిత్తడి",
+    },
+
+    # ── Elements (మూలకాలు) ────────────────────────────────────────────────────
+    "element": {
+        "Fire": "అగ్ని",
+        "Earth": "భూమి",
+        "Air": "వాయువు",
+        "Water": "జలం",
+    },
+
+    # ── Dignity (గ్రహ గౌరవం) ──────────────────────────────────────────────────
+    "dignity": {
+        "Exalted": "ఉన్నత",
+        "Debilitated": "నీచ",
+        "Own Sign": "స్వరాశి",
+        "Moolatrikona": "మూలత్రికోణం",
+        "Friendly": "మిత్ర",
+        "Enemy": "శత్రు",
+        "Neutral": "సమ",
+        "Very Strong": "అత్యంత బలమైన",
+        "Strong": "బలమైన",
+        "Moderate": "మధ్యస్థ",
+        "Weak": "బలహీన",
+    },
+
+    # ── Muhurat Names (ముహూర్త పేర్లు) ─────────────────────────────────────────
+    "muhurat_name": {
+        "Abhijit Muhurta": "అభిజిత్ ముహూర్తం",
+        "Brahma Muhurta": "బ్రహ్మ ముహూర్తం",
+        "Amrit Ghadi": "అమృత ఘడి",
+        "Shubh Muhurta": "శుభ ముహూర్తం",
+        "Labh Ghadi": "లాభ ఘడి",
+    },
+
+    # ── Muhurat Rating (Capitalized) ───────────────────────────────────────────
+    "muhurat_rating_cap": {
+        "Excellent": "ఉత్తమం",
+        "Good": "మంచి",
+        "Avoid": "తప్పించండి",
+        "Inauspicious": "అశుభం",
+    },
+
+    # ── Hindu Months (హిందూ నెలలు) ─────────────────────────────────────────────
+    "hindu_month": {
+        "Chaitra": "చైత్ర",
+        "Vaishakh": "వైశాఖ",
+        "Jyeshtha": "జ్యేష్ఠ",
+        "Ashadha": "ఆషాఢ",
+        "Shravana": "శ్రావణ",
+        "Bhadrapada": "భాద్రపద",
+        "Ashwin": "ఆశ్విని",
+        "Kartik": "కార్తిక",
+        "Margashirsha": "మార్గశిర",
+        "Paush": "పౌష",
+        "Magh": "మాఘ",
+        "Phalguna": "ఫాల్గున",
+    },
+
+    # ── Month Names (నెలలు) ────────────────────────────────────────────────────
+    "month_name": {
+        "January": "జనవరి",
+        "February": "ఫిబ్రవరి",
+        "March": "మార్చి",
+        "April": "ఏప్రిల్",
+        "May": "మే",
+        "June": "జూన్",
+        "July": "జూలై",
+        "August": "ఆగస్టు",
+        "September": "సెప్టెంబర్",
+        "October": "అక్టోబర్",
+        "November": "నవంబర్",
+        "December": "డిసెంబర్",
+    },
+
+    # ── Festival Types (పండుగ రకాలు) ───────────────────────────────────────────
+    "festival_type": {
+        "Sankranti": "సంక్రాంతి",
+        "Harvest Festival": "పంట పండుగ",
+        "Puja": "పూజ",
+        "Fasting": "వ్రతం",
+        "New Year": "నూతన సంవత్సరం",
+        "Auspicious Day": "శుభ దినం",
+        "Holy Bath": "పవిత్ర స్నానం",
+        "Amavasya": "అమావాస్య",
+        "Purnima": "పౌర్ణిమ",
+        "Festival": "పండుగ",
+        "Jayanti": "జయంతి",
+        "Ekadashi Fasting": "ఏకాదశి వ్రతం",
+    },
+
+    # ── Sade Sati Phases (సాడే సాతి దశలు) ──────────────────────────────────────
+    "sade_sati_phase": {
+        "Rising": "ఎదుగుతున్న సాడే సాతి",
+        "Peak": "శిఖర సాడే సాతి",
+        "Setling": "దిగజారుతున్న సాడే సాతి",
+        "rising": "ఎదుగుతున్న సాడే సాతి",
+        "peak": "శిఖర సాడే సాతి",
+        "settling": "దిగజారుతున్న సాడే సాతి",
+        "No Sade Sati or Dhaiya active": "సాడే సాతి లేదా దైయ్య సక్రియంగా లేదు",
+    },
+
+    # ── Compatibility Verdict Extended (విస్తరించిన జాతక తీర్పు) ────────────────
+    "compatibility_verdict_ext": {
+        "Very Good Match": "చాలా మంచి జత",
+        "Excellent": "అద్భుతం",
+        "Very Good": "చాలా మంచి",
+        "Good": "మంచి",
+        "Average": "సగటు",
+        "Poor": "పేలవం",
+        "Very Poor": "చాలా పేలవం",
+    },
+
+    # ── Quality (గుణం) ─────────────────────────────────────────────────────────
+    "quality": {
+        "Exalted": "ఉన్నత",
+        "Debilitated": "నీచ",
+        "Own Sign": "స్వరాశి",
+        "Friendly": "మిత్ర",
+        "Enemy": "శత్రు",
+        "Neutral": "సమ",
+        "Moolatrikona": "మూలత్రికోణం",
+        "Combust": "దగ్ధం",
+        "Retrograde": "వక్ర",
+        "Direct": "సూటి",
+        "Very Strong": "అత్యంత బలమైన",
+        "Strong": "బలమైన",
+        "Moderate": "మధ్యస్థ",
+        "Weak": "బలహీన",
+        "Very Weak": "చాలా బలహీన",
+        "Mild": "తేలిక",
+        "Severe": "తీవ్ర",
+        "Benefic": "శుభ",
+        "Malefic": "అశుభ",
+        "Mixed": "మిశ్రమ",
+    },
+
+    # ── Aspect Names (దృష్టి పేర్లు) ───────────────────────────────────────────
+    "aspect_name": {
+        "Conjunction": "యుతి",
+        "Trine": "త్రికోణం",
+        "Square": "చతురస్రం",
+        "Opposition": "సప్తమ",
+        "Sextile": "షష్టక",
+        "Semi-Sextile": "అర్ధ షష్టక",
+        "Quincunx": "క్వింకన్క్స్",
+    },
+
+    # ── Confirmation (నిర్ధారణ) ────────────────────────────────────────────────
+    "confirmation": {
+        "Strong confirmation": "బలమైన నిర్ధారణ",
+        "Moderate confirmation": "మధ్యస్థ నిర్ధారణ",
+        "Weak or no confirmation": "బలహీన లేదా నిర్ధారణ లేదు",
+    },
+
+    # ── Chart Titles (చార్ట్ శీర్షికలు) ────────────────────────────────────────
+    "chart_title": {
+        "East Indian Chart": "తూర్పు భారతీయ చార్ట్",
+        "Moon Chart": "చంద్రుడి చార్ట్",
+        "Navamsa Chart": "నవాంశ చార్ట్",
+        "Hora Chart": "హోరా చార్ట్",
+        "Sudarshana Chakra": "సుదర్శన చక్రం",
+        "North Indian Chart": "ఉత్తర భారతీయ చార్ట్",
+        "South Indian Chart": "దక్షిణ భారతీయ చార్ట్",
+        "Asc": "లగ్నం",
+    },
+
+    # ── Zodiac Signs Full (పూర్తి రాశులు) ──────────────────────────────────────
+    "zodiac_full": {
+        "Aries": "మేషం",
+        "Taurus": "వృషభం",
+        "Gemini": "మిథునం",
+        "Cancer": "కర్కాటకం",
+        "Leo": "సింహం",
+        "Virgo": "కన్య",
+        "Libra": "తులాం",
+        "Scorpio": "వృశ్చికం",
+        "Sagittarius": "ధనస్సు",
+        "Capricorn": "మకరం",
+        "Aquarius": "కుంభం",
+        "Pisces": "మీనం",
+    },
+
+    # ── Planet Position (గ్రహ స్థానం) ──────────────────────────────────────────
+    "planet_position": {
+        "in": "లో",
+        "at": "వద్ద",
+        "degree": "డిగ్రీ",
+        "retrograde": "వక్ర",
+        "combust": "దగ్ధ",
+        "House": "భావం",
+        "Sign": "రాశి",
+        "Nakshatra": "నక్షత్రం",
+    },
+
+    # ── Astro Terms (జ్యోతిష పదాలు) ────────────────────────────────────────────
+    "astro_term": {
+        "Ascendant": "లగ్నం",
+        "Lagna": "లగ్నం",
+        "Moon Sign": "చంద్ర రాశి",
+        "Sun Sign": "సూర్య రాశి",
+        "Birth Star": "జన్మ నక్షత్రం",
+        "Nakshatra Lord": "నక్షత్ర అధిపతి",
+        "Sign Lord": "రాశి అధిపతి",
+        "Vimshottari Dasha": "విమ్సోత్తరి దశ",
+        "System": "విధానం",
+        "Unknown": "తెలియని",
+    },
 }
