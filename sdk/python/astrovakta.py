@@ -13,9 +13,10 @@ logger = logging.getLogger("astrovakta")
 class AstroVaktaClient:
     """Client wrapper for interacting with the AstroVakta API."""
 
-    def __init__(self, api_key: str, base_url: str = "http://localhost:5000"):
+    def __init__(self, api_key: str, base_url: str = "http://localhost:5000", lang: str = "en"):
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
+        self.lang = lang
         self.session = requests.Session()
         self.session.headers.update({
             "X-API-Key": self.api_key,
@@ -25,8 +26,11 @@ class AstroVaktaClient:
 
     def _request(self, method: str, path: str, json_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         url = f"{self.base_url}/{path.lstrip('/')}"
+        data = json_data or {}
+        if self.lang and self.lang != "en" and "lang" not in data:
+            data["lang"] = self.lang
         try:
-            resp = self.session.request(method, url, json=json_data)
+            resp = self.session.request(method, url, json=data)
             resp.raise_for_status()
             return resp.json()
         except requests.exceptions.RequestException as e:
