@@ -81,7 +81,7 @@ def _get_ai_credentials(request=None):
         key_info = getattr(getattr(request, 'state', None), 'api_key_info', None)
         user_id = key_info.get('user_id') if key_info else None
         if not user_id:
-            logger.debug("No user_id in request state — skipping AI translation")
+            logger.warning("i18n: No user_id in request state — skipping AI translation")
             return None, None, None
 
         from ..auth import get_active_ai_provider
@@ -89,7 +89,7 @@ def _get_ai_credentials(request=None):
 
         provider_config = get_active_ai_provider(user_id)
         if not provider_config:
-            logger.debug("No active AI provider for user %s", user_id)
+            logger.warning("i18n: No active AI provider for user %s", user_id)
             return None, None, None
 
         api_key = decrypt_api_key(provider_config["api_key_encrypted"])
@@ -100,9 +100,10 @@ def _get_ai_credentials(request=None):
             "together": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
         }.get(provider, "gpt-4o-mini")
 
+        logger.warning("i18n: Using AI provider %s/%s for user %s", provider, model, user_id)
         return api_key, provider, model
     except Exception as e:
-        logger.debug("Could not get AI credentials: %s", e)
+        logger.warning("i18n: Could not get AI credentials: %s", e)
         return None, None, None
 
 
@@ -120,6 +121,7 @@ def translate_paragraphs(data: Any, lang: str, request=None,
 
     api_key, provider, model = _get_ai_credentials(request)
     if not api_key:
+        logger.warning("i18n: translate_paragraphs — no AI credentials, skipping")
         return data
 
     # Phase 1: collect long strings and their locations
@@ -145,10 +147,16 @@ def translate_paragraphs(data: Any, lang: str, request=None,
     _collect(data)
 
     if not texts:
+        logger.warning("i18n: translate_paragraphs — no long strings found (min_length=%d)", min_length)
         return data
+
+    logger.warning("i18n: translate_paragraphs — translating %d texts via %s/%s", len(texts), provider, model)
 
     # Phase 2: AI translate in batch
     translated = translate_texts(texts, lang, api_key, provider, model)
+
+    if translated == texts:
+        logger.warning("i18n: translate_paragraphs — AI returned unchanged texts (translation failed)")
 
     # Phase 3: write back
     for (parent, key), new_text in zip(locations, translated):

@@ -87,6 +87,7 @@ def translate_texts(texts: List[str], lang: str, api_key: str,
 
     result = _call_ai(prompt, api_key, provider, model)
     if not result:
+        logger.warning("ai_translate: _call_ai returned None for %s/%s", provider, model)
         return texts
 
     try:
@@ -100,8 +101,10 @@ def translate_texts(texts: List[str], lang: str, api_key: str,
         cleaned = cleaned.strip()
         translated = json.loads(cleaned)
         if isinstance(translated, list) and len(translated) == len(texts):
+            logger.warning("ai_translate: Successfully translated %d texts via %s", len(texts), provider)
             return translated
-    except (json.JSONDecodeError, IndexError):
-        pass
+        logger.warning("ai_translate: Parsed result but length mismatch: expected %d, got %d", len(texts), len(translated) if isinstance(translated, list) else 0)
+    except (json.JSONDecodeError, IndexError) as e:
+        logger.warning("ai_translate: Failed to parse AI response: %s (response: %s)", e, result[:200])
 
     return texts
