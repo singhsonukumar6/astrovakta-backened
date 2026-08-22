@@ -311,7 +311,7 @@ def _build_planet_summary(planets: list) -> Dict[str, Any]:
 
 
 @router.post('/prashna/chart')
-def prashna_chart(body: PrashnaRequest, request: Request) -> Dict[str, Any]:
+async def prashna_chart(body: PrashnaRequest, request: Request) -> Dict[str, Any]:
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     try:
         date_str, time_str, tz, now = _resolve_question_time(body)
@@ -348,7 +348,7 @@ def prashna_chart(body: PrashnaRequest, request: Request) -> Dict[str, Any]:
 
         panchang = panchang_at_jd(jd)
 
-        return {
+        _r = {
             'success': True,
             'data': translate_response({
                 'question': body.question,
@@ -394,6 +394,8 @@ def prashna_chart(body: PrashnaRequest, request: Request) -> Dict[str, Any]:
                 'houseSystem': body.houseSystem or 'W',
             }, lang, _PRASHNA_FIELDS),
         }
+        _r['data'] = await translate_paragraphs(_r['data'], lang, request)
+        return _r
     except HTTPException:
         raise
     except Exception as e:
@@ -402,7 +404,7 @@ def prashna_chart(body: PrashnaRequest, request: Request) -> Dict[str, Any]:
 
 
 @router.post('/prashna/judgement')
-def prashna_judgement(body: PrashnaRequest, request: Request) -> Dict[str, Any]:
+async def prashna_judgement(body: PrashnaRequest, request: Request) -> Dict[str, Any]:
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     try:
         date_str, time_str, tz, now = _resolve_question_time(body)
@@ -459,7 +461,7 @@ def prashna_judgement(body: PrashnaRequest, request: Request) -> Dict[str, Any]:
             else 'Neutral'
         )
 
-        return {
+        _r = {
             'success': True,
             'data': translate_response({
                 'question': body.question,
@@ -488,6 +490,8 @@ def prashna_judgement(body: PrashnaRequest, request: Request) -> Dict[str, Any]:
                 ),
             }, lang, _PRASHNA_FIELDS),
         }
+        _r['data'] = await translate_paragraphs(_r['data'], lang, request)
+        return _r
     except HTTPException:
         raise
     except Exception as e:

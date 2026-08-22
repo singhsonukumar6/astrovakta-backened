@@ -248,7 +248,7 @@ def _nadi_score(male_nakshatra: str, female_nakshatra: str) -> Dict[str, Any]:
             'description': f'Male {m_nadi}, Female {f_nadi} - {"Nadi Dosha - health concerns for offspring" if score == 0 else "No Nadi Dosha - excellent"}'}
 
 
-def _full_guna_milan(body: CompatRequest, lang: str = "en") -> Dict[str, Any]:
+async def _full_guna_milan(body: CompatRequest, lang: str = "en") -> Dict[str, Any]:
     male_moon, female_moon, male_asc, female_asc, ZODIAC_SIGNS = _compute_moon_positions(body)
 
     if not male_moon or not female_moon:
@@ -311,17 +311,19 @@ def _full_guna_milan(body: CompatRequest, lang: str = "en") -> Dict[str, Any]:
         },
         'ashtakootaGunas': gunas,
     }
-    return translate_response(data, lang, _COMPAT_SUMMARY_FIELDS)
+    data = translate_response(data, lang, _COMPAT_SUMMARY_FIELDS)
+    data = await translate_paragraphs(data, lang, request)
+    return data
 
 
 @router.post('/compat/gun-milan')
-def gun_milan(body: CompatRequest, request: Request) -> Dict[str, Any]:
+async def gun_milan(body: CompatRequest, request: Request) -> Dict[str, Any]:
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     return _full_guna_milan(body, lang)
 
 
 @router.post('/compat/nadi')
-def nadi_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
+async def nadi_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     male_moon, female_moon, _, _, _ = _compute_moon_positions(body)
 
@@ -332,16 +334,18 @@ def nadi_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
     female_nakshatra = female_moon['nakshatra']
     result = translate_response(_nadi_score(male_nakshatra, female_nakshatra), lang, _GUNA_FIELD_MAPS["Nadi"])
 
-    return translate_response({
+    data = translate_response({
         'status': 200,
         'maleProfile': {'moonNakshatra': male_nakshatra, 'moonSign': male_moon['sign']},
         'femaleProfile': {'moonNakshatra': female_nakshatra, 'moonSign': female_moon['sign']},
         'nadi': result,
     }, lang, _PROFILE_FIELDS)
+    data = await translate_paragraphs(data, lang, request)
+    return data
 
 
 @router.post('/compat/bhakoot')
-def bhakoot_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
+async def bhakoot_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     male_moon, female_moon, _, _, ZODIAC_SIGNS = _compute_moon_positions(body)
 
@@ -352,16 +356,18 @@ def bhakoot_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
     female_moon_sign_idx = ZODIAC_SIGNS.index(female_moon['sign'])
     result = translate_response(_bhakoot_score(male_moon_sign_idx, female_moon_sign_idx), lang, _GUNA_FIELD_MAPS["Bhakoot"])
 
-    return translate_response({
+    data = translate_response({
         'status': 200,
         'maleProfile': {'moonSign': male_moon['sign']},
         'femaleProfile': {'moonSign': female_moon['sign']},
         'bhakoot': result,
     }, lang, _PROFILE_FIELDS)
+    data = await translate_paragraphs(data, lang, request)
+    return data
 
 
 @router.post('/compat/yoni')
-def yoni_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
+async def yoni_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     male_moon, female_moon, _, _, _ = _compute_moon_positions(body)
 
@@ -372,16 +378,18 @@ def yoni_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
     female_nakshatra = female_moon['nakshatra']
     result = translate_response(_yoni_score(male_nakshatra, female_nakshatra), lang, _GUNA_FIELD_MAPS["Yoni"])
 
-    return translate_response({
+    data = translate_response({
         'status': 200,
         'maleProfile': {'moonNakshatra': male_nakshatra, 'moonSign': male_moon['sign']},
         'femaleProfile': {'moonNakshatra': female_nakshatra, 'moonSign': female_moon['sign']},
         'yoni': result,
     }, lang, _PROFILE_FIELDS)
+    data = await translate_paragraphs(data, lang, request)
+    return data
 
 
 @router.post('/compat/gana')
-def gana_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
+async def gana_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     male_moon, female_moon, _, _, _ = _compute_moon_positions(body)
 
@@ -392,16 +400,18 @@ def gana_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
     female_nakshatra = female_moon['nakshatra']
     result = translate_response(_gana_score(male_nakshatra, female_nakshatra), lang, _GUNA_FIELD_MAPS["Gana"])
 
-    return translate_response({
+    data = translate_response({
         'status': 200,
         'maleProfile': {'moonNakshatra': male_nakshatra, 'moonSign': male_moon['sign']},
         'femaleProfile': {'moonNakshatra': female_nakshatra, 'moonSign': female_moon['sign']},
         'gana': result,
     }, lang, _PROFILE_FIELDS)
+    data = await translate_paragraphs(data, lang, request)
+    return data
 
 
 @router.post('/compat/tara')
-def tara_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
+async def tara_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     male_moon, female_moon, _, _, _ = _compute_moon_positions(body)
 
@@ -412,9 +422,11 @@ def tara_only(body: CompatRequest, request: Request) -> Dict[str, Any]:
     female_nakshatra = female_moon['nakshatra']
     result = translate_response(_tara_score(male_nakshatra, female_nakshatra), lang, _GUNA_FIELD_MAPS["Tara"])
 
-    return translate_response({
+    data = translate_response({
         'status': 200,
         'maleProfile': {'moonNakshatra': male_nakshatra, 'moonSign': male_moon['sign']},
         'femaleProfile': {'moonNakshatra': female_nakshatra, 'moonSign': female_moon['sign']},
         'tara': result,
     }, lang, _PROFILE_FIELDS)
+    data = await translate_paragraphs(data, lang, request)
+    return data

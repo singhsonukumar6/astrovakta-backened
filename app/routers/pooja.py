@@ -140,7 +140,7 @@ PLANET_TEMPLES = {
 
 
 @router.post('/pooja/recommendation')
-def pooja_recommendation(body: BirthRequest, request: Request):
+async def pooja_recommendation(body: BirthRequest, request: Request):
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, detect_doshas, planet_status
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
@@ -183,7 +183,7 @@ def pooja_recommendation(body: BirthRequest, request: Request):
             pooja['name'] = f'{pname} Graha Shanti Puja'
             recommendations.append(pooja)
 
-    return {
+    _r = {
         'status': 200,
         'data': translate_response({
             'recommendations': recommendations,
@@ -191,10 +191,12 @@ def pooja_recommendation(body: BirthRequest, request: Request):
             'afflictedPlanets': afflicted,
         }, lang, _POOJA_FIELDS),
     }
+    _r['data'] = await translate_paragraphs(_r['data'], lang, request)
+    return _r
 
 
 @router.post('/pooja/temple')
-def temple_recommendation(body: BirthRequest, request: Request):
+async def temple_recommendation(body: BirthRequest, request: Request):
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, planet_status
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
@@ -228,17 +230,19 @@ def temple_recommendation(body: BirthRequest, request: Request):
             if st == 'Exalted':
                 all_recommendations.append({'planet': pname, 'status': st, **PLANET_TEMPLES[pname]})
 
-    return {
+    _r = {
         'status': 200,
         'data': translate_response({
             'primaryTemple': {'planet': weakest_planet, **primary_temple} if weakest_planet else PLANET_TEMPLES['Sun'],
             'allRecommendations': all_recommendations if all_recommendations else [{'planet': 'General', **PLANET_TEMPLES['Sun']}],
         }, lang, _POOJA_FIELDS),
     }
+    _r['data'] = await translate_paragraphs(_r['data'], lang, request)
+    return _r
 
 
 @router.post('/pooja/sankalp')
-def sankalp_details(body: BirthRequest, request: Request):
+async def sankalp_details(body: BirthRequest, request: Request):
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, get_nakshatra
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
@@ -247,7 +251,7 @@ def sankalp_details(body: BirthRequest, request: Request):
     moon = next((p for p in planets if p['name'] == 'Moon'), None)
     nk = get_nakshatra(moon['longitude']) if moon else {'name': 'Unknown', 'pada': 1}
 
-    return {
+    _r = {
         'status': 200,
         'data': translate_response({
             'sankalp': {
@@ -268,6 +272,8 @@ def sankalp_details(body: BirthRequest, request: Request):
             },
         }, lang, _POOJA_FIELDS),
     }
+    _r['data'] = await translate_paragraphs(_r['data'], lang, request)
+    return _r
 
 
 @router.post('/pooja/booking')
