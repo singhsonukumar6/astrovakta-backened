@@ -23,6 +23,44 @@ Open **Swagger UI**: http://localhost:5000/docs
 
 ---
 
+## Multi-Language Support (i18n)
+
+All endpoints support 9 Indian languages via the `lang` parameter or `Accept-Language` header:
+
+| Code | Language |
+|------|----------|
+| `hi` | Hindi |
+| `ta` | Tamil |
+| `te` | Telugu |
+| `kn` | Kannada |
+| `ml` | Malayalam |
+| `bn` | Bengali |
+| `mr` | Marathi |
+| `gu` | Gujarati |
+| `pa` | Punjabi |
+
+**Usage:**
+```bash
+# Via body parameter
+curl -X POST https://api.astrovakta.com/panchang \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-key" \
+  -d '{"dateOfBirth":"1990-05-15","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata","lang":"hi"}'
+
+# Via Accept-Language header
+curl -X POST https://api.astrovakta.com/panchang \
+  -H "Content-Type: application/json" \
+  -H "Accept-Language: hi" \
+  -H "X-API-Key: your-key" \
+  -d '{"dateOfBirth":"1990-05-15","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata"}'
+```
+
+**What gets translated:**
+- **Dictionary (57 categories):** Planet names, zodiac signs, nakshatras, doshas, yogas, gemstones, festivals, compatibility terms, house names, weekdays, muhurat ratings, dignity values, etc.
+- **AI-Powered (long text):** When an AI provider is configured, dosha descriptions, yoga predictions, transit forecasts, compatibility analysis, report summaries, and other free-text are automatically translated via AI.
+
+---
+
 ## Features (216+ Endpoints)
 
 ### Core Astrology

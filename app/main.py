@@ -21,7 +21,7 @@ from .utils import (
 )
 
 from .response import success, error
-from .i18n import detect_language, translate_response
+from .i18n import detect_language, translate_response, translate_paragraphs
 
 from .database import init_db
 
@@ -47,32 +47,32 @@ app = FastAPI(
         {"name": "Charts - Visual", "description": "SVG chart generation: South Indian, North Indian, Grid, East Indian, Moon"},
         {"name": "Charts - Specialized", "description": "Dedicated charts: Navamsa (D9), Hora (D2), Sudarshana Chakra"},
         {"name": "Charts - Divisional", "description": "Divisional charts D1-D60"},
-        {"name": "Charts - Bhava", "description": "Bhava Chalit and house cusp analysis"},
-        {"name": "Birth Chart", "description": "Core Kundli / birth chart data"},
-        {"name": "Horoscope", "description": "Daily, weekly, monthly, yearly horoscopes"},
-        {"name": "Dasha", "description": "Vimshottari, Chara, Yogini, Kalachakra, Ashtottari dasha periods"},
+        {"name": "Charts - Bhava", "description": "Bhava Chalit and house cusp analysis. Supports lang parameter."},
+        {"name": "Birth Chart", "description": "Core Kundli / birth chart data. Supports lang parameter."},
+        {"name": "Horoscope", "description": "Daily, weekly, monthly, yearly horoscopes. Supports lang parameter."},
+        {"name": "Dasha", "description": "Vimshottari, Chara, Yogini, Kalachakra, Ashtottari dasha periods. Supports lang parameter."},
         {"name": "Panchang", "description": "Tithi, Nakshatra, Yoga, Karana, Muhurat calculations. Supports multi-language output (lang parameter)."},
-        {"name": "Transit", "description": "Planetary transit analysis and predictions"},
-        {"name": "Compatibility", "description": "Ashtakoot milan, gun milan, matching"},
-        {"name": "Dosha", "description": "Manglik, Kaal Sarp, Shani, Nadi, Bhakoot, Yogini doshas"},
-        {"name": "KP Astrology", "description": "KP Astrology system: planet details, cuspal lords, ruling planets, horary"},
-        {"name": "Lal Kitab", "description": "Lal Kitab remedies and chart analysis"},
-        {"name": "Yoga", "description": "Yoga detection and predictions"},
+        {"name": "Transit", "description": "Planetary transit analysis and predictions. Supports lang parameter."},
+        {"name": "Compatibility", "description": "Ashtakoot milan, gun milan, matching. Supports lang parameter."},
+        {"name": "Dosha", "description": "Manglik, Kaal Sarp, Shani, Nadi, Bhakoot, Yogini doshas. Supports lang parameter."},
+        {"name": "KP Astrology", "description": "KP Astrology system: planet details, cuspal lords, ruling planets, horary. Supports lang parameter."},
+        {"name": "Lal Kitab", "description": "Lal Kitab remedies and chart analysis. Supports lang parameter."},
+        {"name": "Yoga", "description": "Yoga detection and predictions. Supports lang parameter."},
         {"name": "Calculator", "description": "Lagna, Moon sign, Sun sign, Shadbala, Ashtakavarga calculators"},
-        {"name": "Muhurat", "description": "Auspicious timing for marriage, property, travel, etc."},
-        {"name": "Varshaphal", "description": "Annual horoscope and Tajika aspects"},
-        {"name": "Prashna", "description": "Horary astrology - answers based on question time"},
-        {"name": "Predictions", "description": "Business, education, child, foreign travel predictions"},
-        {"name": "Gemstone", "description": "Gemstone recommendations based on chart"},
-        {"name": "Rudraksha", "description": "Rudraksha recommendations and identification"},
-        {"name": "Numerology", "description": "Life path, destiny, soul, expression numbers"},
-        {"name": "Festival", "description": "Hindu festival dates and calendars"},
+        {"name": "Muhurat", "description": "Auspicious timing for marriage, property, travel, etc. Supports lang parameter."},
+        {"name": "Varshaphal", "description": "Annual horoscope and Tajika aspects. Supports lang parameter."},
+        {"name": "Prashna", "description": "Horary astrology - answers based on question time. Supports lang parameter."},
+        {"name": "Predictions", "description": "Business, education, child, foreign travel predictions. Supports lang parameter."},
+        {"name": "Gemstone", "description": "Gemstone recommendations based on chart. Supports lang parameter."},
+        {"name": "Rudraksha", "description": "Rudraksha recommendations and identification. Supports lang parameter."},
+        {"name": "Numerology", "description": "Life path, destiny, soul, expression numbers. Supports lang parameter."},
+        {"name": "Festival", "description": "Hindu festival dates and calendars. Supports lang parameter."},
         {"name": "Calendar", "description": "Hindu calendar, panchang calendar, festival calendar. Supports multi-language output (lang parameter)."},
-        {"name": "Pooja", "description": "Pooja recommendations and booking"},
-        {"name": "Lucky", "description": "Lucky color, number, day, metal based on numerology"},
-        {"name": "Reports", "description": "PDF report generation - Kundli, Horoscope, Career, Health, Finance, Marriage"},
-        {"name": "AI", "description": "AI-powered interpretations and predictions (requires provider config)"},
-        {"name": "Utility", "description": "Ayanamsa, Ephemeris, Sunrise/Sunset, Julian Day, etc."},
+        {"name": "Pooja", "description": "Pooja recommendations and booking. Supports lang parameter."},
+        {"name": "Lucky", "description": "Lucky color, number, day, metal based on numerology. Supports lang parameter."},
+        {"name": "Reports", "description": "PDF report generation - Kundli, Horoscope, Career, Health, Finance, Marriage. Supports lang parameter."},
+        {"name": "AI", "description": "AI-powered interpretations and predictions (requires provider config). Supports lang parameter."},
+        {"name": "Utility", "description": "Ayanamsa, Ephemeris, Sunrise/Sunset, Julian Day, etc. Supports lang parameter."},
         {"name": "Location", "description": "Location search, reverse geocode, timezone lookup"},
         {"name": "Auth", "description": "Registration, login, API key management"},
         {"name": "Admin", "description": "Admin panel: user management, key management, stats, usage analytics"},
@@ -1456,7 +1456,7 @@ def get_vedic_properties(sign: str, nakshatra: str, pada: int) -> Dict[str, str]
 
 
 @app.post('/api/kundli', tags=['Birth Chart'])
-def generate_kundli(body: BirthDetails, request: Request) -> Dict[str, Any]:
+async def generate_kundli(body: BirthDetails, request: Request) -> Dict[str, Any]:
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     tropical = bool(body.tropical)
@@ -1594,6 +1594,8 @@ def generate_kundli(body: BirthDetails, request: Request) -> Dict[str, Any]:
         'panchang': panch,
     }
     data = translate_response(data, lang, _KUNDLI_FIELDS)
+    if lang != 'en':
+        data = await translate_paragraphs(data, lang, request)
     return success(data)
 
 # --------------------- New endpoint: /horoscope/planet-details ---------------------
@@ -1696,7 +1698,7 @@ PLANET_DEFS = {
 }
 
 @app.post('/horoscope/planet-details')
-def planet_details(body: BirthDetails, request: Request):
+async def planet_details(body: BirthDetails, request: Request):
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     import math
     # Compute base data
@@ -1825,4 +1827,6 @@ def planet_details(body: BirthDetails, request: Request):
         'planet_report': report,
     }
     data = translate_response(data, lang, _KUNDLI_FIELDS)
+    if lang != 'en':
+        data = await translate_paragraphs(data, lang, request)
     return success(data)

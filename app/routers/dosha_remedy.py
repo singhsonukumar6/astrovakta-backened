@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
 from ..utils import to_julian, calc_planets, calc_houses, get_sign, get_nakshatra, ZODIAC_SIGNS, SIGN_LORDS, PLANET_PROPS, planet_status
-from ..i18n import detect_language, translate_response, t as _t
+from ..i18n import detect_language, translate_response, translate_paragraphs, t as _t
 
 router = APIRouter()
 

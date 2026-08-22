@@ -100,9 +100,11 @@ curl -X POST https://api.astrovakta.com/horoscope/panchang \
   -d '{"dateOfBirth":"1990-05-15","latitude":28.6139,"longitude":77.209,"timezone":"Asia/Kolkata"}'
 ```
 
-**What gets translated:** Planet names, zodiac signs, nakshatras, doshas, yogas, gemstones, festivals, compatibility terms, house names, weekdays, muhurat ratings, and more (38 categories total).
+**What gets translated:** Planet names, zodiac signs, nakshatras, doshas, yogas, gemstones, festivals, compatibility terms, house names, weekdays, muhurat ratings, and more (57 categories total via dictionary).
 
-**What stays in English:** Long prediction text, numerical values, URLs, API status codes.
+**AI-Powered Paragraph Translation:** When you configure an AI provider (OpenAI, Anthropic, Groq, or Together) in your account settings, long free-text content like dosha descriptions, yoga predictions, transit forecasts, compatibility analysis, and report summaries are automatically translated via AI after dictionary translation runs. This means full translations are available across all response text, not just short terms.
+
+**Fallback:** If no AI provider is configured, long prediction text stays in English while short terms still translate via the dictionary.
 
 ---
 
@@ -186,6 +188,7 @@ Complete birth chart with planets, houses, nakshatras, yogas, and doshas.
 | `tropical` | boolean | `false` | Use tropical zodiac (Western-style) instead of sidereal (Vedic). When `true`, planet positions and house cusps are computed without ayanamsa correction. |
 | `houseSystem` | string | `"W"` | House system code (e.g., `W` for Whole Sign, `P` for Placidus) |
 | `nodeMode` | string | `"mean"` | Lunar node mode (`mean` or `true`) |
+| `lang` | string | `"en"` | Response language. Supported: `en`, `hi`, `ta`, `te`, `kn`, `ml`, `bn`, `mr`, `gu`, `pa`. Also set via `Accept-Language` header. |
 
 ### 4.2 Horoscope Endpoints
 

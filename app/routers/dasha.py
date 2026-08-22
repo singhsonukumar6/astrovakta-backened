@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 
-from ..i18n import detect_language, translate_response, t as _t
+from ..i18n import detect_language, translate_response, translate_paragraphs, t as _t
 
 router = APIRouter()
 

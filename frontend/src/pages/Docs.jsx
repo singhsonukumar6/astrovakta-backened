@@ -77,6 +77,28 @@ curl -X POST http://localhost:5000/api/kundli \\
 \`\`\``,
       },
       {
+        title: 'Multi-Language (i18n)',
+        content: `All endpoints support 9 Indian languages via \`lang\` parameter or \`Accept-Language\` header:
+
+| Code | Language | Code | Language |
+|------|----------|------|----------|
+| \`hi\` | Hindi | \`bn\` | Bengali |
+| \`ta\` | Tamil | \`mr\` | Marathi |
+| \`te\` | Telugu | \`gu\` | Gujarati |
+| \`kn\` | Kannada | \`pa\` | Punjabi |
+| \`ml\` | Malayalam | | |
+
+**Via body parameter:** add \`"lang":"hi"\` to any request body.
+
+**Via header:** set \`Accept-Language: hi\`.
+
+**What gets translated:**
+- **Dictionary (57 categories):** Planet names, zodiac signs, nakshatras, doshas, yogas, festivals, etc.
+- **AI-Powered (long text):** With an AI provider configured, dosha descriptions, predictions, compatibility analysis, and report summaries are translated via AI.
+
+**Fallback:** Without an AI provider, short terms translate via dictionary; long text stays in English.`,
+      },
+      {
         title: 'JavaScript / Node.js',
         content: `\`\`\`javascript
 const axios = require('axios');

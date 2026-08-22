@@ -5,7 +5,7 @@ from datetime import datetime
 import pytz
 from dateutil import parser
 
-from ..i18n import detect_language, translate_response, t as _t
+from ..i18n import detect_language, translate_response, translate_paragraphs, t as _t
 
 router = APIRouter()
 

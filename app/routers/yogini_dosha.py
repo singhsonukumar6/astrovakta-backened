@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 from ..response import success, error
-from ..i18n import detect_language, translate_response, t as _t
+from ..i18n import detect_language, translate_response, translate_paragraphs, t as _t
 
 router = APIRouter()
 

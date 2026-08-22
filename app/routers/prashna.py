@@ -6,7 +6,7 @@ import swisseph as swe
 import pytz
 import logging
 
-from ..i18n import detect_language, translate_response, t as _t
+from ..i18n import detect_language, translate_response, translate_paragraphs, t as _t
 
 from ..utils import (
     to_julian, calc_planets, calc_houses, get_sign, get_nakshatra,
