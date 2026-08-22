@@ -7,6 +7,7 @@ Usage:
     lang = detect_language(query_lang=body.lang, header_lang=accept_lang)
     response_data["tithi"] = t("tithi", raw_tithi, lang)
 """
+import asyncio
 import logging
 from typing import Optional, Dict, Any, Union, List
 from .languages import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
@@ -119,8 +120,8 @@ def _get_ai_credentials(request=None):
         return None, None, None
 
 
-def translate_paragraphs(data: Any, lang: str, request=None,
-                         min_length: int = 30) -> Any:
+async def translate_paragraphs(data: Any, lang: str, request=None,
+                               min_length: int = 30) -> Any:
     """Translate all long string values in a nested response using AI.
 
     Recursively walks the response, collects all string values longer than
@@ -164,8 +165,8 @@ def translate_paragraphs(data: Any, lang: str, request=None,
 
     logger.warning("i18n: translate_paragraphs — translating %d texts via %s/%s", len(texts), provider, model)
 
-    # Phase 2: AI translate in batch
-    translated = translate_texts(texts, lang, api_key, provider, model)
+    # Phase 2: AI translate in batch (run sync AI call in thread to avoid blocking event loop)
+    translated = await asyncio.to_thread(translate_texts, texts, lang, api_key, provider, model)
 
     if translated == texts:
         logger.warning("i18n: translate_paragraphs — AI returned unchanged texts (translation failed)")
