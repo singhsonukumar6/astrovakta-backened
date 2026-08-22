@@ -25,8 +25,13 @@ def detect_language(query_lang: Optional[str] = None, header_lang: Optional[str]
 
     Priority: query param > Accept-Language header > default 'en'
     Returns a supported language code, or DEFAULT_LANGUAGE if invalid.
+
+    Note: Pydantic defaults `lang` fields to "en", so we treat "en" as
+    unset to allow Accept-Language header fallback to work correctly.
     """
-    lang = query_lang or header_lang
+    # Treat None, empty, or the Pydantic default "en" as unset
+    effective_query = query_lang if query_lang and query_lang.strip().lower() not in ("", "en") else None
+    lang = effective_query or header_lang
     if not lang:
         return DEFAULT_LANGUAGE
     lang = lang.strip().lower()
