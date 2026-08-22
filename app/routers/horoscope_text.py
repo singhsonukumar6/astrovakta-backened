@@ -855,15 +855,14 @@ def _build_full_response(req: HoroscopeRequest, chart: dict, overview_bank: dict
     }
 
     result = _build_response(sign, period_lbl, overview_tmpl, extra, chart, req)
-    result = translate_response(result, lang, _HOROSCOPE_FIELDS)
 
-    if lang != 'en':
-        ai_data = _ai_generate_horoscope(chart, sign, period, lang, request)
-        if ai_data:
-            _apply_ai_horoscope(result, ai_data)
-            logger.warning("horoscope: AI-generated %s horoscope for %s in %s", period, sign, lang)
-        else:
-            logger.warning("horoscope: AI generation failed for %s/%s, keeping English text", sign, lang)
+    ai_data = _ai_generate_horoscope(chart, sign, period, lang, request)
+    if ai_data:
+        _apply_ai_horoscope(result, ai_data)
+        logger.warning("horoscope: AI-generated %s horoscope for %s in %s", period, sign, lang)
+    else:
+        result = translate_response(result, lang, _HOROSCOPE_FIELDS)
+        logger.warning("horoscope: AI generation unavailable for %s/%s, using templates", sign, lang)
 
     return {'status': 200, 'data': result}
 
@@ -940,13 +939,13 @@ def career_horoscope(req: HoroscopeRequest, request: Request):
             'luckyDirection': lucky_dir,
             'remedy': _dpick(remedies, chart, req),
         }
-    data = translate_response(data, lang, _HOROSCOPE_FIELDS)
-    if lang != 'en':
-        ai_data = _ai_generate_section(chart, sign, 'monthly', 'career', lang, request)
-        if ai_data:
-            data['overview'] = ai_data.get('overview', data['overview'])
-            if 'career' in ai_data:
-                data['career'].update({k: v for k, v in ai_data['career'].items() if k in ('positive', 'challenging')})
+    ai_data = _ai_generate_section(chart, sign, 'monthly', 'career', lang, request)
+    if ai_data:
+        data['overview'] = ai_data.get('overview', data['overview'])
+        if 'career' in ai_data:
+            data['career'].update({k: v for k, v in ai_data['career'].items() if k in ('positive', 'challenging')})
+    else:
+        data = translate_response(data, lang, _HOROSCOPE_FIELDS)
     return {'status': 200, 'data': data}
 
 
@@ -990,6 +989,11 @@ def love_horoscope(req: HoroscopeRequest, request: Request):
             'remedy': _dpick(remedies, chart, req),
         }
     data = translate_response(data, lang, _HOROSCOPE_FIELDS)
+    ai_data = _ai_generate_section(chart, sign, 'monthly', 'love', lang, request)
+    if ai_data:
+        data['overview'] = ai_data.get('overview', data['overview'])
+        if 'love' in ai_data:
+            data['love'].update({k: v for k, v in ai_data['love'].items() if k in ('positive', 'challenging')})
     return {'status': 200, 'data': data}
 
 
@@ -1035,13 +1039,13 @@ def finance_horoscope(req: HoroscopeRequest, request: Request):
             'luckyDirection': lucky_dir,
             'remedy': _dpick(remedies, chart, req),
         }
-    data = translate_response(data, lang, _HOROSCOPE_FIELDS)
-    if lang != 'en':
-        ai_data = _ai_generate_section(chart, sign, 'monthly', 'finance', lang, request)
-        if ai_data:
-            data['overview'] = ai_data.get('overview', data['overview'])
-            if 'finance' in ai_data:
-                data['finance'].update({k: v for k, v in ai_data['finance'].items() if k in ('positive', 'challenging')})
+    ai_data = _ai_generate_section(chart, sign, 'monthly', 'finance', lang, request)
+    if ai_data:
+        data['overview'] = ai_data.get('overview', data['overview'])
+        if 'finance' in ai_data:
+            data['finance'].update({k: v for k, v in ai_data['finance'].items() if k in ('positive', 'challenging')})
+    else:
+        data = translate_response(data, lang, _HOROSCOPE_FIELDS)
     return {'status': 200, 'data': data}
 
 
@@ -1086,11 +1090,11 @@ def health_horoscope(req: HoroscopeRequest, request: Request):
             'luckyDirection': lucky_dir,
             'remedy': _dpick(remedies, chart, req),
         }
-    data = translate_response(data, lang, _HOROSCOPE_FIELDS)
-    if lang != 'en':
-        ai_data = _ai_generate_section(chart, sign, 'monthly', 'health', lang, request)
-        if ai_data:
-            data['overview'] = ai_data.get('overview', data['overview'])
-            if 'health' in ai_data:
-                data['health'].update({k: v for k, v in ai_data['health'].items() if k in ('positive', 'challenging')})
+    ai_data = _ai_generate_section(chart, sign, 'monthly', 'health', lang, request)
+    if ai_data:
+        data['overview'] = ai_data.get('overview', data['overview'])
+        if 'health' in ai_data:
+            data['health'].update({k: v for k, v in ai_data['health'].items() if k in ('positive', 'challenging')})
+    else:
+        data = translate_response(data, lang, _HOROSCOPE_FIELDS)
     return {'status': 200, 'data': data}
