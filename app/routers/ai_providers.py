@@ -178,5 +178,5 @@ async def test_saved_provider(provider_id: int, user: dict = Depends(get_current
     p = get_ai_provider(provider_id, user["id"])
     if not p:
         raise HTTPException(status_code=404, detail="Provider not found")
-    api_key = decrypt_api_key(p["encrypted_key"])
+    api_key = decrypt_api_key(p["api_key_encrypted"])
     return await _run_provider_test(p["provider"], api_key)
