@@ -81,6 +81,7 @@ def _get_ai_credentials(request=None):
         key_info = getattr(getattr(request, 'state', None), 'api_key_info', None)
         user_id = key_info.get('user_id') if key_info else None
         if not user_id:
+            logger.debug("No user_id in request state — skipping AI translation")
             return None, None, None
 
         from ..auth import get_active_ai_provider
@@ -88,6 +89,7 @@ def _get_ai_credentials(request=None):
 
         provider_config = get_active_ai_provider(user_id)
         if not provider_config:
+            logger.debug("No active AI provider for user %s", user_id)
             return None, None, None
 
         api_key = decrypt_api_key(provider_config["api_key_encrypted"])
