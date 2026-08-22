@@ -4,8 +4,14 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 import pytz
 import hashlib
+import json
+import logging
 
-from ..i18n import detect_language, translate_response, translate_paragraphs
+from ..i18n import detect_language, translate_response
+from ..i18n.ai_translate import _call_ai, LANG_NAMES
+from ..i18n import _get_ai_credentials
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -34,6 +40,124 @@ _HOROSCOPE_FIELDS = {
     "marsDignity": "dignity",
     "saturnDignity": "dignity",
 }
+
+
+# ──────────────────────────────────────────────
+# AI Horoscope Generation (non-English)
+# ──────────────────────────────────────────────
+
+def _build_chart_summary(chart: dict, sign: str, period: str) -> str:
+    """Build a concise chart summary string for the AI prompt."""
+    lines = [f"Zodiac Sign: {sign}"]
+    lines.append(f"Ascendant: {chart['ascendant'].get('sign', 'Unknown')}")
+    for p in ['Sun', 'Moon', 'Mars', 'Mercury', 'Venus', 'Jupiter', 'Saturn', 'Rahu', 'Ketu']:
+        info = _get_planet_info(chart['planets'], p)
+        if info:
+            lines.append(f"{p}: {info.get('sign','?')} (House {info.get('house','?')})")
+    return "\n".join(lines)
+
+
+def _ai_generate_horoscope(chart: dict, sign: str, period: str, lang: str,
+                           request: Request = None) -> Optional[dict]:
+    """Generate horoscope paragraphs directly in the target language via AI.
+
+    Returns a dict with keys: overview, career, love, finance, health (each with
+    positive/challenging strings), or None on failure.
+    """
+    api_key, provider, model = _get_ai_credentials(request)
+    if not api_key:
+        return None
+
+    lang_name = LANG_NAMES.get(lang, lang)
+    chart_text = _build_chart_summary(chart, sign, period)
+
+    prompt = (
+        f"You are a Vedic astrology expert. Generate a {period} horoscope in {lang_name} "
+        f"for the following birth chart:\n\n{chart_text}\n\n"
+        f"Return ONLY a JSON object (no markdown, no explanation) with this exact structure:\n"
+        f'{{"overview":"...","career":{{"positive":"...","challenging":"..."}},'
+        f'"love":{{"positive":"...","challenging":"..."}},'
+        f'"finance":{{"positive":"...","challenging":"..."}},'
+        f'"health":{{"positive":"...","challenging":"..."}}}}\n\n'
+        f"Guidelines:\n"
+        f"- Write 2-4 sentences per paragraph\n"
+        f"- Use natural {lang_name}, not translated-English\n"
+        f"- Reference specific planetary positions from the chart\n"
+        f"- Be specific and actionable, not generic\n"
+        f"- Return ONLY valid JSON, no extra text"
+    )
+
+    result = _call_ai(prompt, api_key, provider, model)
+    if not result:
+        return None
+
+    try:
+        cleaned = result.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[1]
+        if cleaned.endswith("```"):
+            cleaned = cleaned.rsplit("```", 1)[0]
+        cleaned = cleaned.strip()
+        data = json.loads(cleaned)
+        if isinstance(data, dict) and "overview" in data:
+            return data
+    except (json.JSONDecodeError, KeyError) as e:
+        logger.warning("horoscope: AI generation parse failed: %s", e)
+
+    return None
+
+
+def _apply_ai_horoscope(result: dict, ai_data: dict) -> dict:
+    """Apply AI-generated paragraphs onto the template-built result dict."""
+    result['overview'] = ai_data.get('overview', result.get('overview', ''))
+    for section in ['career', 'love', 'finance', 'health']:
+        if section in ai_data and isinstance(ai_data[section], dict):
+            if section not in result or not isinstance(result[section], dict):
+                result[section] = {}
+            result[section]['positive'] = ai_data[section].get('positive', result[section].get('positive', ''))
+            result[section]['challenging'] = ai_data[section].get('challenging', result[section].get('challenging', ''))
+    return result
+
+
+def _ai_generate_section(chart: dict, sign: str, period: str, section: str,
+                         lang: str, request: Request = None) -> Optional[dict]:
+    """Generate a single section's paragraphs via AI in the target language.
+
+    Returns dict with 'overview', and the section key with positive/challenging.
+    """
+    api_key, provider, model = _get_ai_credentials(request)
+    if not api_key:
+        return None
+
+    lang_name = LANG_NAMES.get(lang, lang)
+    chart_text = _build_chart_summary(chart, sign, period)
+
+    prompt = (
+        f"You are a Vedic astrology expert. Generate {section} horoscope predictions in {lang_name} "
+        f"for the following birth chart:\n\n{chart_text}\n\n"
+        f"Return ONLY a JSON object with:\n"
+        f'{{"overview":"2-3 sentence summary","{section}":{{"positive":"2-3 sentences of positive prediction","challenging":"2-3 sentences of challenges/cautions"}}}}\n\n'
+        f"Write natural {lang_name}. Reference specific planetary positions. Be specific and actionable."
+    )
+
+    result = _call_ai(prompt, api_key, provider, model)
+    if not result:
+        return None
+
+    try:
+        cleaned = result.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[1]
+        if cleaned.endswith("```"):
+            cleaned = cleaned.rsplit("```", 1)[0]
+        cleaned = cleaned.strip()
+        data = json.loads(cleaned)
+        if isinstance(data, dict) and "overview" in data:
+            return data
+    except (json.JSONDecodeError, KeyError) as e:
+        logger.warning("horoscope: AI section generation parse failed: %s", e)
+
+    return None
 
 
 # ──────────────────────────────────────────────
@@ -734,7 +858,12 @@ def _build_full_response(req: HoroscopeRequest, chart: dict, overview_bank: dict
     result = translate_response(result, lang, _HOROSCOPE_FIELDS)
 
     if lang != 'en':
-        translate_paragraphs(result, lang, request)
+        ai_data = _ai_generate_horoscope(chart, sign, period, lang, request)
+        if ai_data:
+            _apply_ai_horoscope(result, ai_data)
+            logger.warning("horoscope: AI-generated %s horoscope for %s in %s", period, sign, lang)
+        else:
+            logger.warning("horoscope: AI generation failed for %s/%s, keeping English text", sign, lang)
 
     return {'status': 200, 'data': result}
 
@@ -813,7 +942,11 @@ def career_horoscope(req: HoroscopeRequest, request: Request):
         }
     data = translate_response(data, lang, _HOROSCOPE_FIELDS)
     if lang != 'en':
-        translate_paragraphs(data, lang, request)
+        ai_data = _ai_generate_section(chart, sign, 'monthly', 'career', lang, request)
+        if ai_data:
+            data['overview'] = ai_data.get('overview', data['overview'])
+            if 'career' in ai_data:
+                data['career'].update({k: v for k, v in ai_data['career'].items() if k in ('positive', 'challenging')})
     return {'status': 200, 'data': data}
 
 
@@ -904,7 +1037,11 @@ def finance_horoscope(req: HoroscopeRequest, request: Request):
         }
     data = translate_response(data, lang, _HOROSCOPE_FIELDS)
     if lang != 'en':
-        translate_paragraphs(data, lang, request)
+        ai_data = _ai_generate_section(chart, sign, 'monthly', 'finance', lang, request)
+        if ai_data:
+            data['overview'] = ai_data.get('overview', data['overview'])
+            if 'finance' in ai_data:
+                data['finance'].update({k: v for k, v in ai_data['finance'].items() if k in ('positive', 'challenging')})
     return {'status': 200, 'data': data}
 
 
@@ -951,5 +1088,9 @@ def health_horoscope(req: HoroscopeRequest, request: Request):
         }
     data = translate_response(data, lang, _HOROSCOPE_FIELDS)
     if lang != 'en':
-        translate_paragraphs(data, lang, request)
+        ai_data = _ai_generate_section(chart, sign, 'monthly', 'health', lang, request)
+        if ai_data:
+            data['overview'] = ai_data.get('overview', data['overview'])
+            if 'health' in ai_data:
+                data['health'].update({k: v for k, v in ai_data['health'].items() if k in ('positive', 'challenging')})
     return {'status': 200, 'data': data}
