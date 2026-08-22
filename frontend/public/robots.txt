@@ -1,0 +1,13 @@
+# AstroVakta Developers — https://devs.astrovakta.com
+User-agent: *
+Allow: /
+
+# Private / authenticated areas
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /verify-email
+Disallow: /verify-email-prompt
+Disallow: /forgot-password
+Disallow: /reset-password
+
+Sitemap: https://devs.astrovakta.com/sitemap.xml

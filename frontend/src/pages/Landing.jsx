@@ -250,12 +250,15 @@ export default function Landing() {
             }}>
             <span style={{ color: '#ffffff' }}>Astro</span>
             <span style={{ color: '#eab308' }}>Vakta</span>
+            <motion.span
+              initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.45 }}
+              style={{
+                display: 'block', color: '#64748b', fontSize: 15,
+                fontWeight: 500, letterSpacing: 0, marginTop: 10,
+              }}
+            >for developers</motion.span>
           </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.45 }}
-            style={{ color: '#64748b', fontSize: 15, fontWeight: 500, marginBottom: 8 }}
-          >for developers</motion.p>
 
           <motion.h2 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.5 }}

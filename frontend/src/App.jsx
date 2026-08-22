@@ -1,6 +1,7 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import Navbar from './components/Navbar.jsx'
 import Footer from './components/Footer.jsx'
+import SeoManager from './components/SEO.jsx'
 import Landing from './pages/Landing.jsx'
 import Pricing from './pages/Pricing.jsx'
 import Dashboard from './pages/Dashboard.jsx'
@@ -23,6 +24,7 @@ import Starfield from './components/Starfield.jsx'
 export default function App() {
   return (
     <>
+      <SeoManager />
       <Starfield />
       <Navbar />
       <main style={{ flex: 1, position: 'relative', zIndex: 1 }}>
@@ -44,6 +46,9 @@ export default function App() {
           <Route path="/terms" element={<Terms />} />
           <Route path="/blogs" element={<Blogs />} />
           <Route path="/blogs/:slug" element={<BlogPost />} />
+          <Route path="/register" element={<Navigate to="/" replace />} />
+          <Route path="/login" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
       <Footer />
