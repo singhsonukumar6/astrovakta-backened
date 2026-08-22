@@ -195,7 +195,7 @@ def _default_model(provider: str) -> str:
     defaults = {
         "openai": "gpt-4o-mini",
         "anthropic": "claude-3-haiku-20240307",
-        "groq": "llama-3.3-70b-versatile",
+        "groq": "openai/gpt-oss-120b",
         "together": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
     }
     return defaults.get(provider, "gpt-4o-mini")

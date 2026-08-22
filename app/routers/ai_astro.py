@@ -193,7 +193,7 @@ def _call_ai_provider(user_id, system_prompt, user_prompt, preferred_provider=No
     provider = provider_config["provider"]
     model = provider_config.get("model") or {
         "openai": "gpt-4o-mini", "anthropic": "claude-3-haiku-20240307",
-        "groq": "llama-3.3-70b-versatile",
+        "groq": "openai/gpt-oss-120b",
         "together": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
     }.get(provider, "gpt-4o-mini")
 

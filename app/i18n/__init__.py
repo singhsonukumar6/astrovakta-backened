@@ -94,11 +94,23 @@ def _get_ai_credentials(request=None):
 
         api_key = decrypt_api_key(provider_config["api_key_encrypted"])
         provider = provider_config["provider"]
-        model = provider_config.get("model") or {
+        _DEPRECATED_MODELS = {
+            "groq": {
+                "llama-3.3-70b-versatile": "openai/gpt-oss-120b",
+                "llama-3.1-8b-instant": "openai/gpt-oss-120b",
+                "mixtral-8x7b-32768": "openai/gpt-oss-120b",
+            },
+        }
+        saved_model = provider_config.get("model")
+        model = saved_model or {
             "openai": "gpt-4o-mini", "anthropic": "claude-3-haiku-20240307",
-            "groq": "llama-3.3-70b-versatile",
+            "groq": "openai/gpt-oss-120b",
             "together": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
         }.get(provider, "gpt-4o-mini")
+        deprecated = _DEPRECATED_MODELS.get(provider, {})
+        if model in deprecated:
+            logger.warning("i18n: Model %s is deprecated for %s, using %s instead", model, provider, deprecated[model])
+            model = deprecated[model]
 
         logger.warning("i18n: Using AI provider %s/%s for user %s", provider, model, user_id)
         return api_key, provider, model
