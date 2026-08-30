@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Check, Zap, Star, Crown, ArrowRight, DollarSign, IndianRupee, MessageCircle } from 'lucide-react'
+import { Check, Zap, Star, Crown, ArrowRight, DollarSign, IndianRupee, MessageCircle, MonitorSmartphone, Smartphone, Loader } from 'lucide-react'
 import { SignedOut, SignUpButton } from '@clerk/clerk-react'
+import toast from 'react-hot-toast'
+import { createCheckout } from '../lib/api.js'
+import { useAuth } from '../lib/auth.jsx'
 
 const tiers = [
   {
@@ -62,7 +65,28 @@ const faqs = [
 export default function Pricing() {
   const [openFaq, setOpenFaq] = useState(null)
   const [currency, setCurrency] = useState('usd')
+  const [checkoutPlan, setCheckoutPlan] = useState(null)
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
+
+  const handleCheckout = async (plan) => {
+    if (!isAuthenticated) {
+      navigate('/register')
+      return
+    }
+    setCheckoutPlan(plan.name)
+    try {
+      const data = await createCheckout(plan.name.toLowerCase(), currency === 'usd' ? 'USD' : 'INR')
+      if (data && data.checkout_url) {
+        window.location.href = data.checkout_url
+      } else {
+        toast.error('Could not create checkout session. Please try again or contact support.')
+      }
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Checkout failed. Please try again.')
+    }
+    setCheckoutPlan(null)
+  }
 
   return (
     <div style={{ paddingTop: 100 }}>
@@ -226,14 +250,149 @@ export default function Pricing() {
                 </SignedOut>
               ) : (
                 <button
-                  onClick={() => navigate('/register')}
+                  onClick={() => handleCheckout(tier)}
                   className={tier.popular ? 'btn-primary' : 'btn-secondary'}
                   style={{ width: '100%', justifyContent: 'center' }}
+                  disabled={checkoutPlan === tier.name}
                 >
-                  {tier.cta}
-                  <ArrowRight size={16} />
+                  {checkoutPlan === tier.name ? (
+                    <><Loader size={16} className="spin" /> Redirecting...</>
+                  ) : (
+                    <>{tier.cta}<ArrowRight size={16} /></>
+                  )}
                 </button>
               )}
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* Custom Webapp & Mobile App Pricing */}
+      <section className="section" id="app-pricing">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, justifyContent: 'center' }}>
+            <MonitorSmartphone size={24} color="#eab308" />
+            <p style={{ color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, fontWeight: 600 }}>
+              Custom Development
+            </p>
+          </div>
+          <h2 className="section-title">
+            Custom Branded Webapps & <span className="gradient-text">Mobile Apps</span>
+          </h2>
+          <p className="section-subtitle">
+            We design, develop & deploy fully branded astrology web and mobile apps — powered by AstroVakta's complete API stack.
+          </p>
+        </motion.div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gap: 24,
+            maxWidth: 1100,
+            margin: '40px auto 0',
+          }}
+        >
+          {[
+            {
+              name: 'Starter',
+              usd: 36,
+              inr: 2999,
+              features: ['5-Page Custom Web App', 'Mobile Responsive Design', 'Basic API Integration (Birth Charts, Horoscopes)', 'Contact Form + WhatsApp Chat', '1 Month Maintenance Support', 'Branded with Your Logo'],
+              popular: false,
+            },
+            {
+              name: 'Professional',
+              usd: 72,
+              inr: 5999,
+              features: ['10-Page Custom Web App', 'iOS + Android App (PWA)', 'Full API Integration (All 180+ Endpoints)', 'Payment Gateway (Stripe / Razorpay)', 'Client Login & Dashboard', 'PDF Report System', 'SEO Optimization', '3 Months Support'],
+              popular: true,
+            },
+            {
+              name: 'Enterprise',
+              usd: 120,
+              inr: 9999,
+              features: ['Unlimited Pages Custom Web App', 'Native iOS & Android Apps', 'Full API Stack + Custom Endpoints', 'Multi-Payment Gateway', 'Advanced Admin Dashboard', 'Client Management Portal', 'Push Notifications System', '12 Months Premium Support', 'Priority Feature Updates'],
+              popular: false,
+            },
+          ].map((pkg, i) => (
+            <motion.div
+              key={pkg.name}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: i * 0.1 }}
+              style={{
+                background: 'var(--bg-card)',
+                border: pkg.popular
+                  ? '2px solid rgba(234,179,8,0.5)'
+                  : '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-lg)',
+                padding: 32,
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {pkg.popular && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: -12,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: '#eab308',
+                    color: '#0a0a1f',
+                    padding: '4px 16px',
+                    borderRadius: 20,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: 1,
+                  }}
+                >
+                  Most Popular
+                </div>
+              )}
+
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(234,179,8,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                <Smartphone size={22} color="#eab308" />
+              </div>
+
+              <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>{pkg.name}</h3>
+              <p style={{ color: '#64748b', fontSize: 14, marginBottom: 16 }}>Custom branded website & app package</p>
+
+              <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 24 }}>
+                <span style={{ fontSize: 40, fontWeight: 900 }}>
+                  {currency === 'usd' ? `$${pkg.usd}` : `₹${pkg.inr.toLocaleString()}`}
+                </span>
+                <span style={{ color: '#64748b', fontSize: 15, marginLeft: 4 }}>/month</span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 32, flex: 1 }}>
+                {pkg.features.map((f) => (
+                  <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Check size={16} color="#eab308" />
+                    <span style={{ color: '#cbd5e1', fontSize: 14 }}>{f}</span>
+                  </div>
+                ))}
+              </div>
+
+              <a
+                href="https://wa.me/916239402519?text=Hi%20AstroVakta%2C%20I%20am%20interested%20in%20the%20custom%20webapp%20or%20mobile%20app%20package"
+                target="_blank" rel="noopener noreferrer"
+                style={{ textDecoration: 'none' }}
+              >
+                <button
+                  className={pkg.popular ? 'btn-primary' : 'btn-secondary'}
+                  style={{ width: '100%', justifyContent: 'center' }}
+                >
+                  <MessageCircle size={16} /> Discuss on WhatsApp
+                </button>
+              </a>
             </motion.div>
           ))}
         </div>

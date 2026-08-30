@@ -172,6 +172,22 @@ async def validation_handler(request, exc):
 
 app.include_router(auth_router, prefix="/auth", tags=['Auth'])
 
+# Content router (public page config + blogs)
+try:
+    from .routers.content import router as content_router
+    app.include_router(content_router, prefix="/api", tags=['Content'])
+except Exception as e:
+    import logging as _logging_content
+    _logging_content.error(f"Failed to include CONTENT router: {e}")
+
+# Payments router
+try:
+    from .routers.payments import router as payments_router
+    app.include_router(payments_router, prefix="/payments", tags=['Payments'])
+except Exception as e:
+    import logging as _logging_payments
+    _logging_payments.error(f"Failed to include PAYMENTS router: {e}")
+
 # Admin router
 try:
     from .routers.admin import router as admin_router
@@ -179,6 +195,14 @@ try:
 except Exception as e:
     import logging as _logging_admin
     _logging_admin.error(f"Failed to include ADMIN router: {e}")
+
+# Admin content router (page config + blog CRUD)
+try:
+    from .routers.admin_content import router as admin_content_router
+    app.include_router(admin_content_router, prefix="/admin", tags=['Admin'])
+except Exception as e:
+    import logging as _logging_admin_content
+    _logging_admin_content.error(f"Failed to include ADMIN CONTENT router: {e}")
 
 # AI Providers router
 try:

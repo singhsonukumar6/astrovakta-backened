@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Star, Menu, X, LogIn, LayoutDashboard } from 'lucide-react'
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@clerk/clerk-react'
 import { useAuth } from '../lib/auth.jsx'
+import { useConfig } from '../lib/ConfigContext.jsx'
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
@@ -11,6 +12,7 @@ export default function Navbar() {
   const { isAuthenticated } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
+  const { config } = useConfig()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -46,13 +48,15 @@ export default function Navbar() {
     >
       <div style={{ width: '100%', maxWidth: 1200, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          
+          {config.logo_url ? (
+            <img src={config.logo_url} alt="logo" style={{ width: 26, height: 26, objectFit: 'contain' }} />
+          ) : null}
           <div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 0 }}>
               <span style={{ fontSize: 22, fontWeight: 800, color: '#ffffff' }}>Astro</span>
               <span style={{ fontSize: 22, fontWeight: 800, color: '#eab308' }}>Vakta</span>
             </div>
-            <span style={{ fontSize: 10, color: '#64748b', fontWeight: 500, display: 'block', marginTop: -2 }}>for developers</span>
+            <span style={{ fontSize: 10, color: '#64748b', fontWeight: 500, display: 'block', marginTop: -2 }}>{config.site_tagline || 'for developers'}</span>
           </div>
         </Link>
 

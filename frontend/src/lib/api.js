@@ -65,6 +65,62 @@ export const getUsageStats = (keyId) =>
 export const getCreditCosts = () =>
   api.get('/auth/credits/costs').then((r) => r.data)
 
+// ──── CONTENT (public) ────
+export const getPageConfig = () =>
+  api.get('/api/page-config').then((r) => r.data?.data ?? r.data)
+
+export const getBlogs = (params = {}) =>
+  api.get('/api/blogs', { params }).then((r) => r.data?.data ?? r.data)
+
+export const getBlog = (slug) =>
+  api.get(`/api/blogs/${slug}`).then((r) => r.data?.data ?? r.data)
+
+// ──── PAYMENTS ────
+export const createCheckout = (plan, currency) =>
+  api.post('/payments/checkout', { plan, currency }).then((r) => r.data)
+
+export const getMyPayments = (page = 1) =>
+  api.get('/payments/my-payments', { params: { page } }).then((r) => r.data)
+
+// ──── ADMIN: PAGE CONFIG ────
+export const adminGetConfig = () =>
+  api.get('/admin/config').then((r) => r.data)
+
+export const adminUpdateConfig = (data) =>
+  api.put('/admin/config', data).then((r) => r.data)
+
+export const adminSetConfig = (key, value) =>
+  api.post('/admin/config', { key, value }).then((r) => r.data)
+
+export const adminResetConfig = () =>
+  api.post('/admin/config/reset').then((r) => r.data)
+
+// ──── ADMIN: BLOGS ────
+export const adminGetBlogs = (params = {}) =>
+  api.get('/admin/blogs', { params }).then((r) => r.data)
+
+export const adminCreateBlog = (data) =>
+  api.post('/admin/blogs', data).then((r) => r.data)
+
+export const adminUpdateBlog = (id, data) =>
+  api.put(`/admin/blogs/${id}`, data).then((r) => r.data)
+
+export const adminDeleteBlog = (id) =>
+  api.delete(`/admin/blogs/${id}`).then((r) => r.data)
+
+export const adminPublishBlog = (id) =>
+  api.post(`/admin/blogs/${id}/publish`).then((r) => r.data)
+
+export const adminUnpublishBlog = (id) =>
+  api.post(`/admin/blogs/${id}/unpublish`).then((r) => r.data)
+
+// ──── ADMIN: EARNINGS / PAYMENTS ────
+export const adminGetPayments = (params = {}) =>
+  api.get('/payments/admin/payments', { params }).then((r) => r.data)
+
+export const adminGetPaymentsTotals = () =>
+  api.get('/payments/admin/payments/totals').then((r) => r.data)
+
 // ──── ADMIN ────
 export const adminGetUsers = (page = 1, search = '') =>
   api.get('/admin/users', { params: { page, search } }).then((r) => r.data)

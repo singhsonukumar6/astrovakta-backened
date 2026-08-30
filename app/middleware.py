@@ -24,6 +24,12 @@ SKIP_PATHS = {
     "/redoc",
 }
 
+# Public content endpoints accessible without an API key (site config + blog listing/reading)
+PUBLIC_CONTENT_PREFIXES = (
+    "/api/page-config",
+    "/api/blogs",
+)
+
 _PASSTHROUGH_HEADERS = frozenset((
     "content-length", "content-type", "content-encoding", "transfer-encoding",
 ))
@@ -149,6 +155,10 @@ class APIKeyMiddleware:
             return
 
         if not any(path.startswith(p) for p in PROTECTED_PREFIXES):
+            await self.app(scope, receive, send)
+            return
+
+        if any(path.startswith(p) for p in PUBLIC_CONTENT_PREFIXES):
             await self.app(scope, receive, send)
             return
 

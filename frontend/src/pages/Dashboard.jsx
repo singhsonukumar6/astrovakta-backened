@@ -43,6 +43,7 @@ import {
   updateProfile, changePassword,
   resendVerification,
   getUsageStats,
+  createCheckout,
 } from '../lib/api.js'
 
 const tabs = [
@@ -805,9 +806,20 @@ function Profile({ user, onUserUpdate }) {
         </div>
         <div style={{ marginBottom: 20 }}>
           <label style={{ display: 'block', fontSize: 14, color: '#94a3b8', marginBottom: 8 }}>Plan</label>
-          <span className="badge" style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa', textTransform: 'capitalize', fontSize: 14, padding: '6px 14px' }}>
-            {user?.plan || 'Free'}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <span className="badge" style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa', textTransform: 'capitalize', fontSize: 14, padding: '6px 14px' }}>
+              {user?.plan || 'Free'}
+            </span>
+            {(user?.plan === 'free' || user?.plan === 'starter') && (
+              <button
+                className="btn-primary"
+                onClick={() => navigate('/pricing')}
+                style={{ padding: '6px 18px', fontSize: 13 }}
+              >
+                Upgrade Plan
+              </button>
+            )}
+          </div>
         </div>
         <div style={{ marginBottom: 20 }}>
           <label style={{ display: 'block', fontSize: 14, color: '#94a3b8', marginBottom: 8 }}>Email Status</label>

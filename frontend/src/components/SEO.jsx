@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import blogPosts from '../pages/blogData.js'
+import { useConfig } from '../lib/ConfigContext.jsx'
 
 export const SITE_URL = 'https://devs.astrovakta.com'
 const OG_IMAGE = `${SITE_URL}/og-image.png`
@@ -9,6 +9,12 @@ const HOME = {
   title: 'AstroVakta — Vedic Astrology API | Kundli, Birth Charts, Horoscopes & AI Predictions',
   description:
     'AstroVakta is the most complete Vedic astrology API for developers. 180+ endpoints for kundli birth charts, daily horoscopes, gun milan compatibility, mangal dosha, panchang, vimshottari dasha, PDF reports and AI astrology predictions. Free tier — no credit card required.',
+}
+
+const BLOG_LIST_META = {
+  title: 'Astrology API Blog — Tutorials & Developer Guides | AstroVakta',
+  description:
+    'Learn to build astrology apps: step-by-step tutorials, divisional chart deep-dives, AI astrologer guides and API feature roundups from the AstroVakta engineering blog.',
 }
 
 const ROUTE_META = {
@@ -103,50 +109,22 @@ function setJsonLd(id, data) {
   document.head.appendChild(script)
 }
 
-function resolveMeta(pathname) {
+function resolveMeta(pathname, config) {
   if (pathname.startsWith('/blogs/')) {
-    const slug = pathname.replace('/blogs/', '').replace(/\/$/, '')
-    const post = blogPosts.find((p) => p.slug === slug)
-    if (post) {
-      return {
-        title: `${post.title} | AstroVakta Blog`,
-        description: post.excerpt,
-        type: 'article',
-        jsonLd: {
-          '@context': 'https://schema.org',
-          '@type': 'BlogPosting',
-          headline: post.title,
-          description: post.excerpt,
-          datePublished: new Date(post.date).toISOString(),
-          dateModified: new Date(post.date).toISOString(),
-          author: { '@type': 'Person', name: post.author },
-          publisher: { '@type': 'Organization', name: 'AstroVakta', url: SITE_URL },
-          mainEntityOfPage: `${SITE_URL}/blogs/${post.slug}`,
-          image: OG_IMAGE,
-          articleSection: post.tag,
-          inLanguage: 'en',
-        },
-      }
-    }
+    // Per-post SEO is set dynamically by the BlogPost component (fetched from API)
+    return { title: document.title || BLOG_LIST_META.title, description: BLOG_LIST_META.description, type: 'article' }
   }
 
   if (pathname === '/blogs') {
     return {
-      ...ROUTE_META['/blogs'],
+      ...BLOG_LIST_META,
       jsonLd: {
         '@context': 'https://schema.org',
         '@type': 'Blog',
-        name: 'AstroVakta Blog',
+        name: (config && config.site_title) || 'AstroVakta Blog',
         url: `${SITE_URL}/blogs`,
-        description: ROUTE_META['/blogs'].description,
-        publisher: { '@type': 'Organization', name: 'AstroVakta', url: SITE_URL },
-        blogPost: blogPosts.map((p) => ({
-          '@type': 'BlogPosting',
-          headline: p.title,
-          url: `${SITE_URL}/blogs/${p.slug}`,
-          datePublished: new Date(p.date).toISOString(),
-          author: { '@type': 'Person', name: p.author },
-        })),
+        description: BLOG_LIST_META.description,
+        publisher: { '@type': 'Organization', name: (config && config.site_title) || 'AstroVakta', url: SITE_URL },
       },
     }
   }
@@ -160,16 +138,23 @@ function resolveMeta(pathname) {
 
 export default function SeoManager() {
   const location = useLocation()
+  const { config } = useConfig()
   const pathname = location.pathname.replace(/\/+$/, '') || '/'
   const noindex = NOINDEX_ROUTES.has(pathname)
-  const { title, description, type = 'website', jsonLd } = resolveMeta(pathname)
+  const { title, description, type = 'website', jsonLd } = resolveMeta(pathname, config)
+
+  const homeTitle = (config && config.seo_title) || HOME.title
+  const homeDescription = (config && config.seo_description) || HOME.description
+  const ogImage = (config && config.seo_og_image) || OG_IMAGE
 
   useEffect(() => {
     const url = `${SITE_URL}${pathname === '/' ? '/' : pathname}`
+    const pageTitle = pathname === '/' ? homeTitle : title
+    const pageDescription = pathname === '/' ? homeDescription : description
 
-    document.title = title
+    document.title = pageTitle
 
-    upsertMeta('name', 'description', description)
+    upsertMeta('name', 'description', pageDescription)
     upsertMeta(
       'name',
       'robots',
@@ -179,18 +164,18 @@ export default function SeoManager() {
     )
     upsertCanonical(url)
 
-    upsertMeta('property', 'og:title', title)
-    upsertMeta('property', 'og:description', description)
+    upsertMeta('property', 'og:title', pageTitle)
+    upsertMeta('property', 'og:description', pageDescription)
     upsertMeta('property', 'og:url', url)
     upsertMeta('property', 'og:type', type)
-    upsertMeta('property', 'og:image', OG_IMAGE)
+    upsertMeta('property', 'og:image', ogImage)
 
-    upsertMeta('name', 'twitter:title', title)
-    upsertMeta('name', 'twitter:description', description)
-    upsertMeta('name', 'twitter:image', OG_IMAGE)
+    upsertMeta('name', 'twitter:title', pageTitle)
+    upsertMeta('name', 'twitter:description', pageDescription)
+    upsertMeta('name', 'twitter:image', ogImage)
 
     setJsonLd('route-jsonld', jsonLd || null)
-  }, [pathname, title, description, type, noindex, jsonLd])
+  }, [pathname, title, description, type, noindex, jsonLd, homeTitle, homeDescription, ogImage])
 
   return null
 }

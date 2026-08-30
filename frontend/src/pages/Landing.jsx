@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, useInView, useScroll, useTransform, AnimatePresence } from 'framer-motion'
 import { SignedOut, SignUpButton } from '@clerk/clerk-react'
+import { useConfig } from '../lib/ConfigContext.jsx'
 import {
   Sparkles, BookOpen, Heart, Sun, Shield, Brain, Code, Zap, Globe,
   Clock, Cpu, TrendingUp, Star, Check, X as XIcon, ChevronRight,
@@ -217,6 +218,7 @@ export default function Landing() {
   const { scrollYProgress } = useScroll()
   const heroY = useTransform(scrollYProgress, [0, 0.3], [0, -80])
   const [currency, setCurrency] = useState('usd')
+  const { config } = useConfig()
 
   return (
     <div style={{ overflow: 'hidden' }}>
@@ -248,8 +250,8 @@ export default function Landing() {
               fontSize: 'clamp(40px, 7vw, 80px)', fontWeight: 900,
               lineHeight: 1.05, marginBottom: 28, letterSpacing: '-1.5px',
             }}>
-            <span style={{ color: '#ffffff' }}>Astro</span>
-            <span style={{ color: '#eab308' }}>Vakta</span>
+            <span style={{ color: '#ffffff' }}>{config.homepage_hero_title || 'Astro'}</span>
+            <span style={{ color: '#eab308' }}>{config.homepage_hero_subtitle || 'Vakta'}</span>
             <motion.span
               initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.45 }}
@@ -257,7 +259,7 @@ export default function Landing() {
                 display: 'block', color: '#64748b', fontSize: 15,
                 fontWeight: 500, letterSpacing: 0, marginTop: 10,
               }}
-            >for developers</motion.span>
+            >{config.site_tagline || 'for developers'}</motion.span>
           </motion.h1>
 
           <motion.h2 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
@@ -266,7 +268,7 @@ export default function Landing() {
               fontSize: 'clamp(18px, 2.5vw, 28px)', fontWeight: 600,
               color: '#94a3b8', marginBottom: 16, lineHeight: 1.4,
             }}>
-            The Vedic Astrology API for Modern Developers
+            The {config.homepage_tagline || 'Vedic Astrology API for Modern Developers'}
           </motion.h2>
 
           <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
@@ -275,8 +277,7 @@ export default function Landing() {
               fontSize: 'clamp(15px, 1.8vw, 18px)', color: '#94a3b8',
               maxWidth: 640, margin: '0 auto 44px', lineHeight: 1.75,
             }}>
-            Birth charts, horoscopes, doshas, compatibility, panchang, divisional charts,
-            PDF reports, and AI interpretations {'\u2014'} a complete sidereal astrology engine behind a single REST API.
+            {config.homepage_description || 'Birth charts, horoscopes, doshas, compatibility, panchang, divisional charts, PDF reports, and AI interpretations \u2014 a complete sidereal astrology engine behind a single REST API.'}
           </motion.p>
 
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
@@ -437,6 +438,159 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ═══════════ PRICING ═══════════ */}
+      <section className="section" id="api-pricing">
+        <FadeIn>
+          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>API Pricing</p>
+          <h2 className="section-title">Start <span className="gradient-text">Free</span>, Scale When Ready</h2>
+          <p className="section-subtitle">No credit card required. Upgrade when you need more.</p>
+        </FadeIn>
+
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center',
+            background: 'var(--bg-card)', borderRadius: 12,
+            border: '1px solid var(--border-color)', padding: 4,
+          }}>
+            <button
+              onClick={() => setCurrency('inr')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '10px 20px', borderRadius: 10,
+                border: 'none', background: currency === 'inr' ? 'var(--gradient-primary)' : 'transparent',
+                color: currency === 'inr' ? '#fff' : '#94a3b8',
+                fontWeight: 600, fontSize: 14, cursor: 'pointer',
+              }}>
+              <IndianRupee size={16} /> INR
+            </button>
+            <button
+              onClick={() => setCurrency('usd')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '10px 20px', borderRadius: 10,
+                border: 'none', background: currency === 'usd' ? 'var(--gradient-primary)' : 'transparent',
+                color: currency === 'usd' ? '#fff' : '#94a3b8',
+                fontWeight: 600, fontSize: 14, cursor: 'pointer',
+              }}>
+              <DollarSign size={16} /> USD
+            </button>
+          </div>
+        </div>
+
+        <div className="scrollable-row" style={{ maxWidth: 1100, margin: '0 auto' }}>
+          {[
+            {
+              name: 'Free', usdPrice: 0, inrPrice: 0,
+              limit: '500 calls/month',
+              color: '#64748b',
+              features: ['All 180+ endpoints', 'Birth charts & predictions', 'Divisional charts', 'AI chat (BYO key)', 'Community support'],
+              cta: 'Get Started Free',
+              highlight: false,
+            },
+            {
+              name: 'Starter', usdPrice: 29, inrPrice: 1499,
+              limit: '5,000 calls/month',
+              color: '#3b82f6',
+              features: ['Everything in Free', 'PDF report generation', 'Email support', 'Usage analytics', '1 API key'],
+              cta: 'Start Free Trial',
+              highlight: false,
+            },
+            {
+              name: 'Pro', usdPrice: 99, inrPrice: 4999,
+              limit: '50,000 calls/month',
+              color: '#7c3aed',
+              features: ['Everything in Starter', 'Priority support', '99.9% SLA', '10 API keys', 'Custom rate limits'],
+              cta: 'Start Free Trial',
+              highlight: true,
+            },
+            {
+              name: 'Enterprise', usdPrice: null, inrPrice: null,
+              limit: 'Unlimited calls',
+              color: '#f59e0b',
+              features: ['Everything in Pro', 'Dedicated infrastructure', 'Custom SLA', 'Phone support', 'On-premise deployment', 'Unlimited API keys'],
+              cta: 'Contact Sales',
+              highlight: false,
+            },
+          ].map((p, i) => (
+            <FadeIn key={p.name} delay={i * 0.1}>
+              <div style={{
+                background: 'var(--bg-card)',
+                border: `1px solid ${p.highlight ? 'var(--accent-purple)' : 'var(--border-color)'}`,
+                borderRadius: 'var(--radius-lg)', padding: 32, height: '100%',
+                position: 'relative', overflow: 'hidden',
+                boxShadow: p.highlight ? '0 0 60px rgba(124,58,237,0.12)' : 'none',
+                minHeight: 440,
+              }}>
+                {p.highlight && (
+                  <div style={{
+                    position: 'absolute', top: 16, right: -28,
+                    background: 'var(--gradient-primary)', color: '#fff',
+                    fontSize: 10, fontWeight: 700, padding: '4px 36px',
+                    transform: 'rotate(45deg)', textTransform: 'uppercase', letterSpacing: 1,
+                  }}>Popular</div>
+                )}
+                <div style={{ fontSize: 13, fontWeight: 700, color: p.color, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 16 }}>{p.name}</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 8 }}>
+                  <span style={{ fontSize: 44, fontWeight: 900 }}>
+                    {p.usdPrice !== null
+                      ? (currency === 'usd' ? `$${p.usdPrice}` : `₹${p.inrPrice}`)
+                      : 'Custom'}
+                  </span>
+                  {p.usdPrice !== null && <span style={{ color: '#64748b', fontSize: 15 }}>/month</span>}
+                </div>
+                <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 24 }}>{p.limit}</p>
+                {p.cta === 'Contact Sales' ? (
+                  <a href="https://wa.me/916239402519?text=Hi%20AstroVakta%2C%20I%20am%20interested%20in%20the%20Enterprise%20plan" target="_blank" rel="noopener noreferrer">
+                    <button style={{
+                      width: '100%', padding: '12px 0', borderRadius: 12,
+                      border: '1px solid var(--border-color)',
+                      background: 'transparent', color: '#e2e8f0',
+                      fontWeight: 600, fontSize: 14, cursor: 'pointer', marginBottom: 24,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    }}>
+                      <MessageCircle size={16} /> {p.cta}
+                    </button>
+                  </a>
+                ) : p.name === 'Free' ? (
+                  <SignedOut>
+                    <SignUpButton mode="modal">
+                      <button style={{
+                        width: '100%', padding: '12px 0', borderRadius: 12,
+                        border: p.highlight ? 'none' : '1px solid var(--border-color)',
+                        background: p.highlight ? 'var(--gradient-primary)' : 'transparent',
+                        color: p.highlight ? '#fff' : '#e2e8f0',
+                        fontWeight: 600, fontSize: 14, cursor: 'pointer', marginBottom: 24,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      }}>
+                        {p.cta} <ArrowRight size={16} />
+                      </button>
+                    </SignUpButton>
+                  </SignedOut>
+                ) : (
+                  <Link to="/register">
+                    <button style={{
+                      width: '100%', padding: '12px 0', borderRadius: 12,
+                      border: p.highlight ? 'none' : '1px solid var(--border-color)',
+                      background: p.highlight ? 'var(--gradient-primary)' : 'transparent',
+                      color: p.highlight ? '#fff' : '#e2e8f0',
+                      fontWeight: 600, fontSize: 14, cursor: 'pointer', marginBottom: 24,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    }}>
+                      {p.cta} <ArrowRight size={16} />
+                    </button>
+                  </Link>
+                )}
+                {p.features.map((feat) => (
+                  <div key={feat} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', fontSize: 13, color: '#cbd5e1' }}>
+                    <Check size={15} color="#22c55e" style={{ flexShrink: 0 }} />
+                    {feat}
+                  </div>
+                ))}
+              </div>
+            </FadeIn>
+          ))}
+        </div>
+      </section>
       {/* ═══════════ CUSTOM BRANDED WEBAPPS & MOBILE APPS ═══════════ */}
       <section className="section" id="custom-websites">
         <FadeIn>
@@ -620,159 +774,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ═══════════ PRICING ═══════════ */}
-      <section className="section" id="api-pricing">
-        <FadeIn>
-          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>API Pricing</p>
-          <h2 className="section-title">Start <span className="gradient-text">Free</span>, Scale When Ready</h2>
-          <p className="section-subtitle">No credit card required. Upgrade when you need more.</p>
-        </FadeIn>
-
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center',
-            background: 'var(--bg-card)', borderRadius: 12,
-            border: '1px solid var(--border-color)', padding: 4,
-          }}>
-            <button
-              onClick={() => setCurrency('inr')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '10px 20px', borderRadius: 10,
-                border: 'none', background: currency === 'inr' ? 'var(--gradient-primary)' : 'transparent',
-                color: currency === 'inr' ? '#fff' : '#94a3b8',
-                fontWeight: 600, fontSize: 14, cursor: 'pointer',
-              }}>
-              <IndianRupee size={16} /> INR
-            </button>
-            <button
-              onClick={() => setCurrency('usd')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '10px 20px', borderRadius: 10,
-                border: 'none', background: currency === 'usd' ? 'var(--gradient-primary)' : 'transparent',
-                color: currency === 'usd' ? '#fff' : '#94a3b8',
-                fontWeight: 600, fontSize: 14, cursor: 'pointer',
-              }}>
-              <DollarSign size={16} /> USD
-            </button>
-          </div>
-        </div>
-
-        <div className="scrollable-row" style={{ maxWidth: 1100, margin: '0 auto' }}>
-          {[
-            {
-              name: 'Free', usdPrice: 0, inrPrice: 0,
-              limit: '500 calls/month',
-              color: '#64748b',
-              features: ['All 180+ endpoints', 'Birth charts & predictions', 'Divisional charts', 'AI chat (BYO key)', 'Community support'],
-              cta: 'Get Started Free',
-              highlight: false,
-            },
-            {
-              name: 'Starter', usdPrice: 29, inrPrice: 1499,
-              limit: '5,000 calls/month',
-              color: '#3b82f6',
-              features: ['Everything in Free', 'PDF report generation', 'Email support', 'Usage analytics', '1 API key'],
-              cta: 'Start Free Trial',
-              highlight: false,
-            },
-            {
-              name: 'Pro', usdPrice: 99, inrPrice: 4999,
-              limit: '50,000 calls/month',
-              color: '#7c3aed',
-              features: ['Everything in Starter', 'Priority support', '99.9% SLA', '10 API keys', 'Custom rate limits'],
-              cta: 'Start Free Trial',
-              highlight: true,
-            },
-            {
-              name: 'Enterprise', usdPrice: null, inrPrice: null,
-              limit: 'Unlimited calls',
-              color: '#f59e0b',
-              features: ['Everything in Pro', 'Dedicated infrastructure', 'Custom SLA', 'Phone support', 'On-premise deployment', 'Unlimited API keys'],
-              cta: 'Contact Sales',
-              highlight: false,
-            },
-          ].map((p, i) => (
-            <FadeIn key={p.name} delay={i * 0.1}>
-              <div style={{
-                background: 'var(--bg-card)',
-                border: `1px solid ${p.highlight ? 'var(--accent-purple)' : 'var(--border-color)'}`,
-                borderRadius: 'var(--radius-lg)', padding: 32, height: '100%',
-                position: 'relative', overflow: 'hidden',
-                boxShadow: p.highlight ? '0 0 60px rgba(124,58,237,0.12)' : 'none',
-                minHeight: 440,
-              }}>
-                {p.highlight && (
-                  <div style={{
-                    position: 'absolute', top: 16, right: -28,
-                    background: 'var(--gradient-primary)', color: '#fff',
-                    fontSize: 10, fontWeight: 700, padding: '4px 36px',
-                    transform: 'rotate(45deg)', textTransform: 'uppercase', letterSpacing: 1,
-                  }}>Popular</div>
-                )}
-                <div style={{ fontSize: 13, fontWeight: 700, color: p.color, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 16 }}>{p.name}</div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 8 }}>
-                  <span style={{ fontSize: 44, fontWeight: 900 }}>
-                    {p.usdPrice !== null
-                      ? (currency === 'usd' ? `$${p.usdPrice}` : `₹${p.inrPrice}`)
-                      : 'Custom'}
-                  </span>
-                  {p.usdPrice !== null && <span style={{ color: '#64748b', fontSize: 15 }}>/month</span>}
-                </div>
-                <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 24 }}>{p.limit}</p>
-                {p.cta === 'Contact Sales' ? (
-                  <a href="https://wa.me/916239402519?text=Hi%20AstroVakta%2C%20I%20am%20interested%20in%20the%20Enterprise%20plan" target="_blank" rel="noopener noreferrer">
-                    <button style={{
-                      width: '100%', padding: '12px 0', borderRadius: 12,
-                      border: '1px solid var(--border-color)',
-                      background: 'transparent', color: '#e2e8f0',
-                      fontWeight: 600, fontSize: 14, cursor: 'pointer', marginBottom: 24,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    }}>
-                      <MessageCircle size={16} /> {p.cta}
-                    </button>
-                  </a>
-                ) : p.name === 'Free' ? (
-                  <SignedOut>
-                    <SignUpButton mode="modal">
-                      <button style={{
-                        width: '100%', padding: '12px 0', borderRadius: 12,
-                        border: p.highlight ? 'none' : '1px solid var(--border-color)',
-                        background: p.highlight ? 'var(--gradient-primary)' : 'transparent',
-                        color: p.highlight ? '#fff' : '#e2e8f0',
-                        fontWeight: 600, fontSize: 14, cursor: 'pointer', marginBottom: 24,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                      }}>
-                        {p.cta} <ArrowRight size={16} />
-                      </button>
-                    </SignUpButton>
-                  </SignedOut>
-                ) : (
-                  <Link to="/register">
-                    <button style={{
-                      width: '100%', padding: '12px 0', borderRadius: 12,
-                      border: p.highlight ? 'none' : '1px solid var(--border-color)',
-                      background: p.highlight ? 'var(--gradient-primary)' : 'transparent',
-                      color: p.highlight ? '#fff' : '#e2e8f0',
-                      fontWeight: 600, fontSize: 14, cursor: 'pointer', marginBottom: 24,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    }}>
-                      {p.cta} <ArrowRight size={16} />
-                    </button>
-                  </Link>
-                )}
-                {p.features.map((feat) => (
-                  <div key={feat} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', fontSize: 13, color: '#cbd5e1' }}>
-                    <Check size={15} color="#22c55e" style={{ flexShrink: 0 }} />
-                    {feat}
-                  </div>
-                ))}
-              </div>
-            </FadeIn>
-          ))}
-        </div>
-      </section>
 
       {/* ═══════════ API ENDPOINTS SHOWCASE ═══════════ */}
       <section className="section" style={{ background: 'var(--bg-secondary)' }}>

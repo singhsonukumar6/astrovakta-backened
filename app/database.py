@@ -203,6 +203,45 @@ CREATE TABLE IF NOT EXISTS job_results (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (job_id) REFERENCES background_jobs(id)
 );
+CREATE TABLE IF NOT EXISTS page_config (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT UNIQUE NOT NULL,
+    value TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS blogs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT UNIQUE NOT NULL,
+    title TEXT NOT NULL,
+    excerpt TEXT,
+    body TEXT,
+    cover_image TEXT,
+    author TEXT,
+    author_id INTEGER,
+    tag TEXT,
+    read_time TEXT,
+    is_published BOOLEAN DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (author_id) REFERENCES users(id)
+);
+CREATE TABLE IF NOT EXISTS payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    email TEXT,
+    name TEXT,
+    amount INTEGER NOT NULL,
+    currency TEXT DEFAULT 'USD',
+    plan TEXT,
+    provider TEXT DEFAULT 'dodo',
+    dodo_payment_id TEXT,
+    dodo_checkout_id TEXT,
+    status TEXT DEFAULT 'pending',
+    payment_method TEXT,
+    metadata TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
 """
 
 _PG_DDL = """
@@ -278,6 +317,43 @@ CREATE TABLE IF NOT EXISTS job_results (
     result_blob BYTEA,
     file_size INTEGER,
     filename TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS page_config (
+    id SERIAL PRIMARY KEY,
+    key TEXT UNIQUE NOT NULL,
+    value TEXT,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS blogs (
+    id SERIAL PRIMARY KEY,
+    slug TEXT UNIQUE NOT NULL,
+    title TEXT NOT NULL,
+    excerpt TEXT,
+    body TEXT,
+    cover_image TEXT,
+    author TEXT,
+    author_id INTEGER REFERENCES users(id),
+    tag TEXT,
+    read_time TEXT,
+    is_published BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS payments (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    email TEXT,
+    name TEXT,
+    amount INTEGER NOT NULL,
+    currency TEXT DEFAULT 'USD',
+    plan TEXT,
+    provider TEXT DEFAULT 'dodo',
+    dodo_payment_id TEXT,
+    dodo_checkout_id TEXT,
+    status TEXT DEFAULT 'pending',
+    payment_method TEXT,
+    metadata TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 """

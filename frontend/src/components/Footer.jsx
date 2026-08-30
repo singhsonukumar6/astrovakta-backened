@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
 import { Star, ExternalLink } from 'lucide-react'
+import { useConfig } from '../lib/ConfigContext.jsx'
 
 export default function Footer() {
+  const { config } = useConfig()
   return (
     <footer
       style={{
@@ -23,15 +25,18 @@ export default function Footer() {
       >
         <div style={{ maxWidth: 300 }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <Star size={22} color="#7c3aed" fill="#7c3aed" />
+            {config.logo_url ? (
+              <img src={config.logo_url} alt="logo" style={{ width: 22, height: 22, objectFit: 'contain' }} />
+            ) : (
+              <Star size={22} color="#7c3aed" fill="#7c3aed" />
+            )}
             <span>
               <span style={{ fontSize: 18, fontWeight: 700, color: '#ffffff' }}>Astro</span>
               <span style={{ fontSize: 18, fontWeight: 700, color: '#eab308' }}>Vakta</span>
             </span>
           </Link>
           <p style={{ color: '#64748b', fontSize: 14, lineHeight: 1.7 }}>
-            The most comprehensive Vedic Astrology API. Build astrological applications with
-            ease.
+            {config.footer_text || 'The most comprehensive Vedic Astrology API. Build astrological applications with ease.'}
           </p>
         </div>
 
@@ -82,7 +87,7 @@ export default function Footer() {
         }}
       >
         <p style={{ color: '#475569', fontSize: 13 }}>
-          &copy; {new Date().getFullYear()} AstroVakta. All rights reserved.
+          &copy; {new Date().getFullYear()} {config.site_title || 'AstroVakta'}. All rights reserved.
         </p>
         <div style={{ display: 'flex', gap: 16 }}>
           <a href="#" style={{ color: '#475569' }}><ExternalLink size={18} /></a>

@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { motion, useInView } from 'framer-motion'
 import { MessageCircle, Mail, MapPin, Phone, Send, Clock, Zap } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { useConfig } from '../lib/ConfigContext.jsx'
 
 function FadeIn({ children, delay = 0 }) {
   const ref = useRef(null)
@@ -17,13 +18,19 @@ function FadeIn({ children, delay = 0 }) {
 }
 
 export default function Contact() {
+  const { config } = useConfig()
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
   const [sent, setSent] = useState(false)
+
+  const email = config.contact_email || 'hello@astrovakta.com'
+  const phone = config.contact_phone || '+91-62394-02519'
+  const phoneDigits = ((config.contact_phone || '+91-62394-02519').replace(/\D/g, ''))
+  const address = config.contact_address || 'India'
 
   const handleSubmit = (e) => {
     e.preventDefault()
     const msg = `Hi AstroVakta,%0A%0AName: ${form.name}%0AEmail: ${form.email}%0ASubject: ${form.subject}%0A%0A${form.message}`
-    window.open(`https://wa.me/916239402519?text=${msg}`, '_blank')
+    window.open(`https://wa.me/${phoneDigits}?text=${msg}`, '_blank')
     setSent(true)
   }
 
@@ -93,9 +100,9 @@ export default function Contact() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 {[
-                  { icon: MessageCircle, label: 'WhatsApp', value: '+91 62394 02519', href: 'https://wa.me/916239402519', color: '#25D366' },
-                  { icon: Mail, label: 'Email', value: 'hello@astrovakta.com', href: 'mailto:hello@astrovakta.com', color: '#7c3aed' },
-                  { icon: MapPin, label: 'Location', value: 'Bangalore, India', href: null, color: '#ef4444' },
+                  { icon: MessageCircle, label: 'WhatsApp', value: phone, href: `https://wa.me/${phoneDigits}`, color: '#25D366' },
+                  { icon: Mail, label: 'Email', value: email, href: `mailto:${email}`, color: '#7c3aed' },
+                  { icon: MapPin, label: 'Location', value: address, href: null, color: '#ef4444' },
                   { icon: Clock, label: 'Response Time', value: 'Within 24 hours (Mon-Fri)', href: null, color: '#f59e0b' },
                 ].map((item, i) => (
                   <div key={i} style={{
