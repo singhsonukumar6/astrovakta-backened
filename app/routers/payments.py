@@ -1,14 +1,16 @@
 """Payments with Dodo Payments integration.
 
 Dodo Payments supports a hosted checkout flow:
-1. Call Dodo Payments API to create a payment intent / checkout link.
-2. Redirect the user to Dodo's hosted checkout.
-3. Dodo notifies via webhook when the payment succeeds.
+1. Create a Checkout Session via Dodo's API (POST /checkouts).
+2. Redirect the user to Dodo's hosted checkout URL.
+3. Dodo notifies via webhook (Standard Webhooks spec) when the payment succeeds.
 """
 import os
 import json
+import base64
 import hmac
 import hashlib
+import time
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
@@ -25,11 +27,40 @@ from .admin_content import require_admin
 
 router = APIRouter()
 
-DODO_API_BASE = os.getenv("DODO_API_BASE", "https://api.dodopayments.com")
 DODO_API_KEY = os.getenv("DODO_API_KEY", "")
 DODO_WEBHOOK_SECRET = os.getenv("DODO_WEBHOOK_SECRET", "")
 DODO_SUCCESS_URL = os.getenv("DODO_SUCCESS_URL", os.getenv("FRONTEND_URL", "http://localhost:5173") + "/dashboard")
 DODO_CANCEL_URL = os.getenv("DODO_CANCEL_URL", os.getenv("FRONTEND_URL", "http://localhost:5173") + "/pricing")
+
+# Dodo API hosts: test.dodopayments.com (test keys) / live.dodopayments.com (live keys).
+# DODO_API_BASE can override, but the default MUST be a real host (api.dodopayments.com does not exist).
+def _dodo_base() -> str:
+    override = os.getenv("DODO_API_BASE", "").strip()
+    if override:
+        return override.rstrip("/")
+    if DODO_API_KEY.startswith("dodo_test_"):
+        return "https://test.dodopayments.com"
+    return "https://live.dodopayments.com"
+
+
+# Dodo Checkout Sessions are priced per product (product_id), not from a free-form amount.
+# Map plan + currency to product IDs configured in the Dodo dashboard. Per-currency IDs
+# fall back to the plan-level ID when the currency-specific one isn't set.
+_PRODUCT_ENV = {
+    "starter": {"usd": "DODO_PRODUCT_STARTER_USD", "inr": "DODO_PRODUCT_STARTER_INR"},
+    "pro": {"usd": "DODO_PRODUCT_PRO_USD", "inr": "DODO_PRODUCT_PRO_INR"},
+}
+
+
+def _product_id_for(plan: str, currency: str) -> str:
+    currency = (currency or "USD").upper()
+    env_key = _PRODUCT_ENV[plan].get(currency.lower(), "")
+    pid = os.getenv(env_key) or os.getenv(f"DODO_PRODUCT_{plan.upper()}") or ""
+    if not pid:
+        detail = f"Dodo product not configured. Set {env_key or f'DODO_PRODUCT_{plan.upper()}'} in .env"
+        raise HTTPException(status_code=500, detail=detail)
+    return pid
+
 
 PLAN_PRICES = {
     "starter": {"usd": 2900, "inr": 149900},
@@ -72,22 +103,19 @@ def create_checkout(body: CreateCheckoutBody, user: dict = Depends(get_current_u
         "metadata": {"user_id": user["id"], "plan": body.plan},
     })
 
-    items = [{
-        "name": f"AstroVakta {body.plan.capitalize()} Plan",
-        "quantity": 1,
-        "unit_amount": amount,
-        "currency": currency,
-        "description": f"{body.plan.capitalize()} subscription for AstroVakta API",
-    }]
+    product_id = _product_id_for(body.plan, currency)
 
     payload = {
-        "amount": amount,
-        "currency": currency,
+        "product_cart": [
+            {
+                "product_id": product_id,
+                "quantity": 1,
+            }
+        ],
         "customer": {
             "email": user.get("email"),
             "name": user.get("name"),
         },
-        "items": items,
         "return_url": DODO_SUCCESS_URL,
         "cancel_url": DODO_CANCEL_URL,
         "metadata": {"payment_id": str(payment["id"]), "user_id": str(user["id"]), "plan": body.plan},
@@ -96,7 +124,7 @@ def create_checkout(body: CreateCheckoutBody, user: dict = Depends(get_current_u
     try:
         import httpx
         resp = httpx.post(
-            f"{DODO_API_BASE}/payment_intents",
+            f"{_dodo_base()}/checkouts",
             json=payload,
             headers={
                 "Authorization": f"Bearer {DODO_API_KEY}",
@@ -109,18 +137,18 @@ def create_checkout(body: CreateCheckoutBody, user: dict = Depends(get_current_u
         if resp.status_code >= 400:
             raise HTTPException(
                 status_code=502,
-                detail=f"Dodo payment intents failed ({resp.status_code}): {data}",
+                detail=f"Dodo checkout session failed ({resp.status_code}): {data}",
             )
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Dodo API error: {e}")
 
-    payment_id = data.get("id")
+    session_id = data.get("session_id") or data.get("id")
     checkout_url = data.get("checkout_url") or data.get("payment_link")
 
-    if payment_id:
-        update_payment(payment["id"], {"dodo_payment_id": payment_id})
+    if session_id:
+        update_payment(payment["id"], {"dodo_payment_id": session_id})
 
     if not checkout_url:
         raise HTTPException(status_code=502, detail="Dodo returned no checkout URL")
@@ -128,7 +156,7 @@ def create_checkout(body: CreateCheckoutBody, user: dict = Depends(get_current_u
     return {
         "checkout_url": checkout_url,
         "payment_id": payment["id"],
-        "dodo_payment_id": payment_id,
+        "dodo_payment_id": session_id,
         "amount": amount,
         "currency": currency,
         "plan": body.plan,
@@ -139,12 +167,26 @@ def create_checkout(body: CreateCheckoutBody, user: dict = Depends(get_current_u
 async def dodo_webhook(request: Request):
     raw = await request.body()
     if DODO_WEBHOOK_SECRET:
-        signature = request.headers.get("Signature") or request.headers.get("X-Dodo-Signature") or ""
-        computed = hmac.new(
-            DODO_WEBHOOK_SECRET.encode(), raw, hashlib.sha256
-        ).hexdigest()
-        if signature and not hmac.compare_digest(signature, computed):
-            raise HTTPException(status_code=400, detail="Invalid signature")
+        # Dodo uses the Standard Webhooks specification (Svix):
+        # headers: webhook-id, webhook-timestamp, webhook-signature
+        # signature = base64(hmac_sha256(secret, "<timestamp>.<raw_body>"))
+        sig_header = request.headers.get("Webhook-Signature") or request.headers.get("webhook-signature") or ""
+        timestamp = request.headers.get("Webhook-Timestamp") or request.headers.get("webhook-timestamp") or ""
+        _id = request.headers.get("Webhook-Id") or request.headers.get("webhook-id") or ""
+
+        sig_parts = [s for s in sig_header.split(" ") if s and not s.startswith("t=")]
+        received = ""
+        for s in sig_parts:
+            if s.startswith("v1,"):
+                received = s[len("v1,"):]
+                break
+        if received:
+            signed_content = f"{timestamp}.{raw.decode('utf-8')}".encode()
+            computed = base64.b64encode(
+                hmac.new(DODO_WEBHOOK_SECRET.encode(), signed_content, hashlib.sha256).digest()
+            ).decode()
+            if not hmac.compare_digest(received, computed):
+                raise HTTPException(status_code=400, detail="Invalid signature")
 
     try:
         event = json.loads(raw)
