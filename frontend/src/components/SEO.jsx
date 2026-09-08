@@ -2,8 +2,9 @@ import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useConfig } from '../lib/ConfigContext.jsx'
 
-export const SITE_URL = 'https://devs.astrovakta.com'
-const OG_IMAGE = `${SITE_URL}/og-image.png`
+export const SITE_URL = 'https://dev.astrovakta.com'
+const API_URL = 'https://api.astrovakta.com'
+export const OG_IMAGE = `${SITE_URL}/og-image.png`
 
 const HOME = {
   title: 'AstroVakta — Vedic Astrology API | Kundli, Birth Charts, Horoscopes & AI Predictions',
@@ -109,9 +110,34 @@ function setJsonLd(id, data) {
   document.head.appendChild(script)
 }
 
+const BREADCRUMB_LABELS = {
+  '/pricing': 'Pricing',
+  '/docs': 'API Documentation',
+  '/sandbox': 'API Sandbox',
+  '/kundali-report': 'Free Kundli Report',
+  '/about': 'About',
+  '/contact': 'Contact',
+  '/privacy': 'Privacy Policy',
+  '/terms': 'Terms of Service',
+  '/blogs': 'Blog',
+}
+
+function breadcrumbJsonLd(pathname, title) {
+  const label = BREADCRUMB_LABELS[pathname]
+  if (!label) return null
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
+      { '@type': 'ListItem', position: 2, name: label, item: `${SITE_URL}${pathname}` },
+    ],
+  }
+}
+
 function resolveMeta(pathname, config) {
   if (pathname.startsWith('/blogs/')) {
-    // Per-post SEO is set dynamically by the BlogPost component (fetched from API)
+    // Per-post SEO is set dynamically by the BlogPost component (API or static fallback)
     return { title: document.title || BLOG_LIST_META.title, description: BLOG_LIST_META.description, type: 'article' }
   }
 
@@ -145,7 +171,9 @@ export default function SeoManager() {
 
   const homeTitle = (config && config.seo_title) || HOME.title
   const homeDescription = (config && config.seo_description) || HOME.description
-  const ogImage = (config && config.seo_og_image) || OG_IMAGE
+  // OG/Twitter images must be absolute URLs (some scrapers drop relative paths).
+  const rawImage = (config && config.seo_og_image) || OG_IMAGE
+  const ogImage = /^https?:\/\//.test(rawImage) ? rawImage : `${SITE_URL}${rawImage.startsWith('/') ? '' : '/'}${rawImage}`
 
   useEffect(() => {
     const url = `${SITE_URL}${pathname === '/' ? '/' : pathname}`
@@ -155,6 +183,8 @@ export default function SeoManager() {
     document.title = pageTitle
 
     upsertMeta('name', 'description', pageDescription)
+    const keywords = (config && config.seo_keywords) || null
+    if (keywords) upsertMeta('name', 'keywords', keywords)
     upsertMeta(
       'name',
       'robots',
@@ -174,8 +204,11 @@ export default function SeoManager() {
     upsertMeta('name', 'twitter:description', pageDescription)
     upsertMeta('name', 'twitter:image', ogImage)
 
-    setJsonLd('route-jsonld', jsonLd || null)
-  }, [pathname, title, description, type, noindex, jsonLd, homeTitle, homeDescription, ogImage])
+    // Merge route JSON-LD (e.g. Blog) with breadcrumb trail where one exists.
+    const crumbs = breadcrumbJsonLd(pathname, pageTitle)
+    setJsonLd('route-jsonld', jsonLd || crumbs || null)
+    setJsonLd('breadcrumb-jsonld', jsonLd && crumbs ? crumbs : null)
+  }, [pathname, title, description, type, noindex, jsonLd, homeTitle, homeDescription, ogImage, config])
 
   return null
 }

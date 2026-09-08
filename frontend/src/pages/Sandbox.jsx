@@ -240,7 +240,7 @@ function DynamicForm({ fields, values, onChange, apiKey }) {
 // ──── Curl Generator ────
 function CurlGenerator({ method, path, body, apiKey }) {
   const curlPath = path.split('?')[0]
-  const curl = `curl -X ${method} "http://localhost:5000${curlPath}" \\
+  const curl = `curl -X ${method} "https://api.astrovakta.com${curlPath}" \\
   -H "X-API-Key: ${apiKey || 'YOUR_API_KEY'}" \\
   -H "Content-Type: application/json"${
     method === 'POST' && body ? ` \\

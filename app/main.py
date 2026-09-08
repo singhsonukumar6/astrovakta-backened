@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Body, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, Literal, Dict, Any, List
@@ -237,6 +237,70 @@ def on_startup():
 @app.get("/health")
 def health_check():
     return success({"status": "ok", "version": app.version, "service": "Vedic Astrology API"})
+
+# ──────── AI / crawler discovery ────────
+_API_ROBOTS = """User-agent: *
+Allow: /
+Disallow: /auth/
+Disallow: /admin/
+
+# Documentation
+Allow: /docs
+Allow: /openapi.json
+
+Sitemap: https://api.astrovakta.com/sitemap.xml
+"""
+
+_API_LLMS = """# AstroVakta Vedic Astrology API
+
+> Complete Vedic astrology REST API for developers: 180+ endpoints for kundli birth charts,
+> divisional charts (D1-D60), daily/weekly/monthly/yearly horoscopes, kundali matching (gun milan),
+> dosha analysis (mangal, kaal sarp, sade sati), panchang, muhurat, vimshottari dasha, gemstone
+> recommendations, branded PDF reports, and AI-powered interpretations. Powered by Swiss Ephemeris
+> sidereal calculations with Lahiri ayanamsha. Free tier: 500 calls/month, no credit card.
+
+Base API URL: https://api.astrovakta.com
+Developer portal: https://dev.astrovakta.com
+API reference (OpenAPI): https://api.astrovakta.com/openapi.json
+Interactive docs: https://api.astrovakta.com/docs
+Pricing: https://dev.astrovakta.com/pricing
+API sandbox: https://dev.astrovakta.com/sandbox
+
+## Capabilities
+
+- Birth chart (kundli) generation: 9 planets, 12 houses, nakshatras, degrees, retrograde, combustion, dignities
+- 16 chart types incl. divisional charts D1-D60, navamsa (D9), sudarshana chakra, bhava chalit
+- Daily, weekly, monthly and yearly horoscopes based on real transits
+- Kundali matching: Ashtakoot guna milan with dosha analysis and verdict
+- 12+ dosha detections: mangal, kaal sarp, sade sati, pitra, shani and more
+- Panchang, muhurat, festivals, Hindu calendar
+- Vimshottari (4 levels), chara and yogini dasha systems
+- Gemstone, rudraksha, numerology and lal kitab recommendations
+- 22-section branded PDF report generation
+- AI interpretations via OpenAI, Anthropic, Groq or Together AI (BYO key)
+- 9 Indian languages via lang parameter: hi, ta, te, kn, ml, bn, mr, gu, pa
+
+## Quick start
+
+```bash
+curl -X POST https://api.astrovakta.com/chart/birth-chart \\
+  -H "X-API-Key: avk_your_key" \\
+  -H "Content-Type: application/json" \\
+  -d '{"dateOfBirth":"1990-05-15","timeOfBirth":"14:30","latitude":28.6139,"longitude":77.2090,"timezone":"Asia/Kolkata"}'
+```
+
+Contact: hello@astrovakta.com
+"""
+
+
+@app.get("/robots.txt", include_in_schema=False)
+def api_robots():
+    return PlainTextResponse(_API_ROBOTS, media_type="text/plain")
+
+
+@app.get("/llms.txt", include_in_schema=False)
+def api_llms():
+    return PlainTextResponse(_API_LLMS, media_type="text/plain")
 
 # Routers
 try:

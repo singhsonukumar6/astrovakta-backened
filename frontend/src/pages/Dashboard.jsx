@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { SignedOut, SignInButton } from '@clerk/clerk-react'
+import { SignedOut, SignInButton } from '../lib/clerk.jsx'
 import {
   LayoutDashboard,
   Key,

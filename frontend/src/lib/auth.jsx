@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { useUser, useAuth as useClerkAuth } from '@clerk/clerk-react'
+import { useUser, useAuth as useClerkAuth } from './clerk.jsx'
 import api, { getMe } from './api.js'
 
 const AuthContext = createContext(null)

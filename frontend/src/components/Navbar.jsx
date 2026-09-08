@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Star, Menu, X, LogIn, LayoutDashboard } from 'lucide-react'
-import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@clerk/clerk-react'
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '../lib/clerk.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import { useConfig } from '../lib/ConfigContext.jsx'
 

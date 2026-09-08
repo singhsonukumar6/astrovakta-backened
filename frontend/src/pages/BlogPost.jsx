@@ -2,12 +2,111 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Clock, User, Calendar, BookOpen, Image as ImageIcon } from 'lucide-react'
 import { getBlog } from '../lib/api.js'
+import { SITE_URL, OG_IMAGE } from '../components/SEO.jsx'
+import blogData from './blogData.js'
 
 const tagColor = (tag) => {
   const colors = ['#7c3aed', '#3b82f6', '#ec4899', '#8b5cf6', '#f59e0b']
   let hash = 0
   for (let i = 0; i < (tag || 'x').length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash)
   return colors[Math.abs(hash) % colors.length]
+}
+
+// Bundled fallback post, same shape the API returns (used when the API has none).
+const FALLBACK_BY_SLUG = Object.fromEntries(
+  blogData.map((p) => [
+    p.slug,
+    {
+      slug: p.slug,
+      title: p.title,
+      excerpt: p.excerpt,
+      tag: p.tag,
+      read_time: p.readTime,
+      author: p.author,
+      cover_image: null,
+      created_at: p.date,
+      body: p.body
+        .map((b) =>
+          b.type === 'h2'
+            ? `<h2>${b.text}</h2>`
+            : b.type === 'pre'
+              ? `<pre><code>${b.text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</code></pre>`
+              : `<p>${b.text}</p>`,
+        )
+        .join('\n'),
+    },
+  ]),
+)
+
+function upsertMeta(attr, key, content) {
+  if (content == null) return
+  let el = document.head.querySelector(`meta[${attr}="${key}"]`)
+  if (!el) {
+    el = document.createElement('meta')
+    el.setAttribute(attr, key)
+    document.head.appendChild(el)
+  }
+  el.setAttribute('content', content)
+}
+
+function toIsoDate(value) {
+  if (!value) return null
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value
+  const parsed = new Date(value)
+  return isNaN(parsed) ? null : parsed.toISOString()
+}
+
+// Per-post SEO: title, description, canonical, OG/Twitter tags and Article JSON-LD.
+function applyPostSeo(post, slug) {
+  const url = `${SITE_URL}/blogs/${slug}`
+  const title = `${post.title} | AstroVakta Blog`
+  const description = (post.excerpt || 'AstroVakta developer blog').slice(0, 300)
+
+  document.title = title
+  upsertMeta('name', 'description', description)
+  upsertMeta('name', 'robots', 'index, follow, max-image-preview:large, max-snippet:-1')
+
+  let canonical = document.head.querySelector('link[rel="canonical"]')
+  if (!canonical) {
+    canonical = document.createElement('link')
+    canonical.setAttribute('rel', 'canonical')
+    document.head.appendChild(canonical)
+  }
+  canonical.setAttribute('href', url)
+
+  const image = post.cover_image || OG_IMAGE
+  upsertMeta('property', 'og:title', title)
+  upsertMeta('property', 'og:description', description)
+  upsertMeta('property', 'og:url', url)
+  upsertMeta('property', 'og:type', 'article')
+  upsertMeta('property', 'og:image', image)
+  upsertMeta('name', 'twitter:card', 'summary_large_image')
+  upsertMeta('name', 'twitter:title', title)
+  upsertMeta('name', 'twitter:description', description)
+  upsertMeta('name', 'twitter:image', image)
+
+  const published = toIsoDate(post.created_at)
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: post.title,
+    description,
+    url,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': url },
+    image: [image],
+    author: { '@type': 'Person', name: post.author || 'AstroVakta' },
+    publisher: { '@type': 'Organization', name: 'AstroVakta', url: SITE_URL },
+    ...(published ? { datePublished: published, dateModified: published } : {}),
+  }
+  let script = document.getElementById('blogpost-jsonld')
+  if (!script) {
+    script = document.createElement('script')
+    script.type = 'application/ld+json'
+    script.id = 'blogpost-jsonld'
+    document.head.appendChild(script)
+  }
+  script.textContent = JSON.stringify(jsonLd)
 }
 
 export default function BlogPost() {
@@ -18,10 +117,16 @@ export default function BlogPost() {
   useEffect(() => {
     setLoading(true)
     getBlog(slug)
-      .then(setPost)
-      .catch(() => setPost(null))
+      .then((data) => {
+        setPost(data || FALLBACK_BY_SLUG[slug] || null)
+      })
+      .catch(() => setPost(FALLBACK_BY_SLUG[slug] || null))
       .finally(() => setLoading(false))
   }, [slug])
+
+  useEffect(() => {
+    if (post) applyPostSeo(post, slug)
+  }, [post, slug])
 
   if (loading) {
     return (

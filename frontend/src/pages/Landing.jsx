@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, useInView, useScroll, useTransform, AnimatePresence } from 'framer-motion'
-import { SignedOut, SignUpButton } from '@clerk/clerk-react'
+import { SignedOut, SignUpButton } from '../lib/clerk.jsx'
 import { useConfig } from '../lib/ConfigContext.jsx'
 import {
   Sparkles, BookOpen, Heart, Sun, Shield, Brain, Code, Zap, Globe,
@@ -34,7 +34,7 @@ const TERMINAL_LINES = [
   { text: ' ', color: '' },
   { text: '-X POST', color: '#22c55e' },
   { text: ' ', color: '' },
-  { text: '"http://localhost:5000/chart/birth-chart"', color: '#fbbf24' },
+  { text: '"https://api.astrovakta.com/api/kundli"', color: '#fbbf24' },
   { text: ' \\\n', color: '#64748b' },
   { text: '  ', color: '' },
   { text: '-H', color: '#a78bfa' },
@@ -280,7 +280,7 @@ export default function Landing() {
             {config.homepage_description || 'Birth charts, horoscopes, doshas, compatibility, panchang, divisional charts, PDF reports, and AI interpretations \u2014 a complete sidereal astrology engine behind a single REST API.'}
           </motion.p>
 
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+          <motion.div id="start-free" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.7 }}
             style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
             <SignedOut>
@@ -305,7 +305,7 @@ export default function Landing() {
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             transition={{ delay: 0.9 }}
             style={{ color: '#64748b', fontSize: 13, marginTop: 16 }}>
-            No credit card required · 100 API calls per month free
+            No credit card required · 500 API calls per month free
           </motion.p>
 
           <TypingTerminal />

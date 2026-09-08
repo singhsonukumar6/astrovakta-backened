@@ -12,7 +12,7 @@ const categories = [
     sections: [
       {
         title: 'Base URL & Authentication',
-        content: `**Base URL:** \`http://localhost:5000\` (or your deployed URL)
+        content: `**Base URL:** \`https://api.astrovakta.com\` (or your deployed URL)
 
 All protected endpoints require an \`X-API-Key\` header:
 
@@ -25,7 +25,7 @@ X-API-Key: avk_your_api_key_here
 2. Login: \`POST /auth/login\` → get JWT token
 3. Create API key: \`POST /auth/keys\` (with JWT in Authorization header)
 
-**Rate Limits:** 100 req/day (Free) | 1,000 (Starter) | 10,000 (Pro) | Unlimited (Enterprise)
+**Rate Limits:** 500 calls/month (Free) | 5,000/month (Starter) | 50,000/month (Pro) | Unlimited (Enterprise)
 
 Rate limit headers are included in every response:
 \`\`\`
@@ -53,7 +53,7 @@ X-Response-Time: 0.142s
         content: `**Get a complete birth chart (Kundli):**
 
 \`\`\`bash
-curl -X POST http://localhost:5000/api/kundli \\
+curl -X POST https://api.astrovakta.com/api/kundli \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: avk_your_key" \\
   -d '${B}'
@@ -104,7 +104,7 @@ curl -X POST http://localhost:5000/api/kundli \\
 const axios = require('axios');
 
 const API_KEY = 'avk_your_key_here';
-const BASE = 'http://localhost:5000';
+const BASE = 'https://api.astrovakta.com';
 
 // Get birth chart
 async function getBirthChart(dob, tob, lat, lon, tz) {
@@ -152,7 +152,7 @@ console.log(chart.data.planets);
 import requests
 
 API_KEY = 'avk_your_key_here'
-BASE = 'http://localhost:5000'
+BASE = 'https://api.astrovakta.com'
 
 def get_birth_chart(dob, tob, lat, lon, tz):
     resp = requests.post(f'{BASE}/api/kundli', json={
@@ -275,7 +275,7 @@ with open('report.pdf', 'wb') as f:
 
 **Example with watermark:**
 \`\`\`bash
-curl -X POST http://localhost:5000/reports/full-pdf \\
+curl -X POST https://api.astrovakta.com/reports/full-pdf \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: avk_your_key" \\
   -d '${B.replace('{', '{\"clientName\":\"Client\",\"watermarkText\":\"DRAFT\",\"watermarkOpacity\":0.06,')}
@@ -347,7 +347,7 @@ When \`tropical: true\`, both planet positions and house cusps are computed in t
 
 \`\`\`bash
 # Get Navamsa chart
-curl -X POST "http://localhost:5000/chart/divisional-svg?d=9" \\
+curl -X POST "https://api.astrovakta.com/chart/divisional-svg?d=9" \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: avk_your_key" \\
   -d '${B}' > navamsa.svg
@@ -493,7 +493,7 @@ ${COM.split('').map((c, i) => i < 500 ? c : '').join('')}
 **Without a provider:** Endpoints return rule-based fallback responses (no error).
 
 **Configure via:**
-- Admin panel: \`http://localhost:5173/admin\` → AI Providers tab
+- Admin panel: \`https://dev.astrovakta.com/admin\` → AI Providers tab
 - API: \`POST /ai-providers\`
 
 **Supported providers:** OpenAI, Anthropic, Groq, Together AI, Ollama, and any OpenAI-compatible API.`,
@@ -653,11 +653,11 @@ The \`imageUrl\` is a relative path — prepend your base URL or static asset pr
     sections: [
       {
         title: 'API Key Tiers',
-        content: `| Tier | Requests/Day | Description |
-|------|-------------|-------------|
-| \`free\` | 100 | Basic access, watermarked PDFs |
-| \`starter\` | 1,000 | Full access, 50 AI calls/day |
-| \`pro\` | 10,000 | Full access, 500 AI calls/day |
+        content: `| Tier | Requests/Month | Description |
+|------|---------------|-------------|
+| \`free\` | 500 | Basic access, watermarked PDFs |
+| \`starter\` | 5,000 | Full access, 50 AI calls/day |
+| \`pro\` | 50,000 | Full access, 500 AI calls/day |
 | \`enterprise\` | Unlimited | White-label, unlimited AI |
 
 **Admin endpoints** (JWT auth, not API key):
@@ -910,8 +910,8 @@ function EndpointCard({ ep }) {
   const mc = { GET: { bg: 'rgba(34,197,94,0.15)', text: '#22c55e', border: 'rgba(34,197,94,0.3)' }, POST: { bg: 'rgba(59,130,246,0.15)', text: '#3b82f6', border: 'rgba(59,130,246,0.3)' }, DELETE: { bg: 'rgba(239,68,68,0.15)', text: '#ef4444', border: 'rgba(239,68,68,0.3)' } }[ep.method] || { bg: 'rgba(59,130,246,0.15)', text: '#3b82f6', border: 'rgba(59,130,246,0.3)' }
 
   const curl = ep.method === 'GET'
-    ? `curl "http://localhost:5000${ep.path.split('?')[0]}" \\\n  -H "X-API-Key: YOUR_KEY"`
-    : `curl -X ${ep.method} "http://localhost:5000${ep.path.split('?')[0]}" \\\n  -H "Content-Type: application/json" \\\n  -H "X-API-Key: YOUR_KEY"${ep.body ? ` \\\n  -d '${ep.body.replace(/\n/g, ' ')}'` : ''}`
+    ? `curl "https://api.astrovakta.com${ep.path.split('?')[0]}" \\\n  -H "X-API-Key: YOUR_KEY"`
+    : `curl -X ${ep.method} "https://api.astrovakta.com${ep.path.split('?')[0]}" \\\n  -H "Content-Type: application/json" \\\n  -H "X-API-Key: YOUR_KEY"${ep.body ? ` \\\n  -d '${ep.body.replace(/\n/g, ' ')}'` : ''}`
 
   return (
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>

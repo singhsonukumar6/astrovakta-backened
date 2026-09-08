@@ -3,6 +3,29 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowRight, BookOpen, Clock, User, Image as ImageIcon } from 'lucide-react'
 import { getBlogs } from '../lib/api.js'
+import blogData from './blogData.js'
+
+// Static fallback posts, used when the API has none published yet.
+// Kept in the API's response shape so the card markup stays unchanged.
+const FALLBACK_POSTS = blogData.map((p) => ({
+  slug: p.slug,
+  title: p.title,
+  excerpt: p.excerpt,
+  tag: p.tag,
+  read_time: p.readTime,
+  author: p.author,
+  cover_image: null,
+  created_at: p.date,
+  body: p.body
+    .map((b) =>
+      b.type === 'h2'
+        ? `<h2>${b.text}</h2>`
+        : b.type === 'pre'
+          ? `<pre><code>${b.text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</code></pre>`
+          : `<p>${b.text}</p>`,
+    )
+    .join('\n'),
+}))
 
 export default function Blogs() {
   const [posts, setPosts] = useState([])
@@ -11,8 +34,16 @@ export default function Blogs() {
 
   useEffect(() => {
     getBlogs({ page: 1, per_page: 30 })
-      .then((data) => setPosts(data.blogs || []))
-      .catch(() => setError(true))
+      .then((data) => {
+        const list = data.blogs || []
+        // Prefer admin-managed posts; fall back to bundled content so the
+        // blog (and its SEO surface) is never empty.
+        setPosts(list.length ? list : FALLBACK_POSTS)
+      })
+      .catch(() => {
+        setError(true)
+        setPosts(FALLBACK_POSTS)
+      })
       .finally(() => setLoading(false))
   }, [])
 

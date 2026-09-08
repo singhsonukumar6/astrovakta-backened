@@ -1,0 +1,59 @@
+# AstroVakta — Vedic Astrology API for Developers
+
+> AstroVakta is the most complete Vedic astrology REST API for developers, with 180+ endpoints
+> for kundli birth charts, divisional charts (D1–D60), daily/weekly/monthly/yearly horoscopes,
+> kundali matching (ashtakoot gun milan), mangal dosha and 12+ other dosha detections, panchang,
+> muhurat, vimshottari dasha, gemstone recommendations, branded 22-section PDF reports, and
+> AI-powered chart interpretations (OpenAI, Claude, Groq, Together — bring your own key).
+> All calculations use the Swiss Ephemeris sidereal engine with Lahiri ayanamsha.
+> Free tier: 500 API calls/month, no credit card required.
+
+Site: https://dev.astrovakta.com
+API base URL: https://api.astrovakta.com
+API reference (OpenAPI): https://api.astrovakta.com/openapi.json
+Interactive API docs: https://dev.astrovakta.com/docs
+Pricing: https://dev.astrovakta.com/pricing
+Free API sandbox (no signup to browse): https://dev.astrovakta.com/sandbox
+Free online kundli report: https://dev.astrovakta.com/kundali-report
+Blog & developer guides: https://dev.astrovakta.com/blogs
+Contact: hello@astrovakta.com | WhatsApp: +91-62394-02519
+
+## What AstroVakta offers
+
+- **Astrology API**: REST API returning JSON for birth charts, horoscopes, compatibility, doshas, panchang, dasha, transits, numerology, gemstones and PDF reports. Auth via `X-API-Key` header.
+- **Custom astrology apps and websites for developers**: fully branded, white-label astrology web apps and mobile apps (iOS + Android, React Native or Flutter) built on the AstroVakta API stack — with payment gateways (Stripe/Razorpay), client portals, booking calendars and PDF report systems. Packages from $36/month (₹2,999/month).
+- **Kundli API**: complete D1 Rasi chart with all 9 planets, house placements, nakshatras, degrees, retrograde/combustion status and dignities in one request.
+- **Horoscope API**: personalized daily, weekly, monthly and yearly horoscopes computed from real-time transits over the natal chart.
+- **Kundali matching API**: ashtakoot guna milan with individual koota scores, dosha analysis and compatibility verdict for matrimony platforms.
+- **AI astrology API**: BYO-key AI interpretations across OpenAI, Anthropic Claude, Groq and Together AI; the API pre-computes the full chart so the LLM only interprets, never guesses.
+
+## Key developer pages
+
+- [Pricing](https://dev.astrovakta.com/pricing): Free (500 calls/mo), Starter $29/mo (5,000 calls), Pro $99/mo (50,000 calls), Enterprise with self-hosting.
+- [API Documentation](https://dev.astrovakta.com/docs): base URL, authentication, rate limits, request/response examples for all endpoint categories.
+- [API Sandbox](https://dev.astrovakta.com/sandbox): test all 180+ astrology endpoints live in the browser.
+- [Kundli Report](https://dev.astrovakta.com/kundali-report): free online kundli (birth chart) report generator with PDF download.
+- [Blog](https://dev.astrovakta.com/blogs): tutorials for building astrology apps and websites.
+
+## Example API call
+
+```bash
+curl -X POST https://api.astrovakta.com/chart/birth-chart \
+  -H "X-API-Key: avk_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{"dateOfBirth":"1990-05-15","timeOfBirth":"14:30","latitude":28.6139,"longitude":77.2090,"timezone":"Asia/Kolkata"}'
+```
+
+## Custom development packages
+
+- **Starter ($36/mo | ₹2,999/mo)**: 5-page custom astrology web app, mobile responsive, birth chart + horoscope integration, contact form + WhatsApp chat, branded with your logo.
+- **Professional ($72/mo | ₹5,999/mo)**: 10-page custom web app, iOS + Android PWA, all 180+ endpoints, payment gateway, client login & dashboard, PDF reports, SEO optimization.
+- **Enterprise ($120/mo | ₹9,999/mo)**: unlimited pages, native iOS & Android apps, custom endpoints, multi-payment gateway, admin dashboard, push notifications, 12 months support.
+
+## Facts
+
+- 180+ REST endpoints across 40+ categories (charts, horoscope, dasha, panchang, transit, compatibility, dosha, gemstone, numerology, KP, Lal Kitab, reports, AI)
+- Swiss Ephemeris (pyswisseph) sidereal calculations with Lahiri ayanamsha
+- 9 Indian languages supported via the `lang` parameter: Hindi, Tamil, Telugu, Kannada, Malayalam, Bengali, Marathi, Gujarati, Punjabi
+- AES-256 encrypted API keys; no birth-data logging
+- 99.9% uptime SLA on paid plans

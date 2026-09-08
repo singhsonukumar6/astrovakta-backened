@@ -1,4 +1,7 @@
-# AstroVakta Developers — https://devs.astrovakta.com
+# AstroVakta Developers — https://dev.astrovakta.com
+# Documentation: https://dev.astrovakta.com/docs
+
+# Search engines & AI chatbots are welcome to crawl all public content
 User-agent: *
 Allow: /
 
@@ -10,4 +13,41 @@ Disallow: /verify-email-prompt
 Disallow: /forgot-password
 Disallow: /reset-password
 
-Sitemap: https://devs.astrovakta.com/sitemap.xml
+# Explicitly allow AI assistants & LLM crawlers
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: meta-externalagent
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+Sitemap: https://dev.astrovakta.com/sitemap.xml

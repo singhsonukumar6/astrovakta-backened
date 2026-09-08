@@ -12,7 +12,7 @@
     <meta name="publisher" content="AstroVakta" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="googlebot" content="index, follow" />
-    <link rel="canonical" href="https://devs.astrovakta.com/" />
+    <link rel="canonical" href="https://dev.astrovakta.com/" />
 
     <!-- International targeting -->
     <meta name="geo.region" content="IN" />
@@ -24,11 +24,11 @@
     <!-- ═══════════ Open Graph (Facebook / LinkedIn / WhatsApp) ═══════════ -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="AstroVakta" />
-    <meta property="og:url" content="https://devs.astrovakta.com/" />
+    <meta property="og:url" content="https://dev.astrovakta.com/" />
     <meta property="og:title" content="AstroVakta — The Complete Vedic Astrology API for Developers" />
     <meta property="og:description" content="180+ endpoints: kundli birth charts, divisional charts D1–D60, horoscopes, kundali milan, dosha analysis, panchang, dasha, branded PDF reports & AI predictions. Swiss Ephemeris accuracy." />
-    <meta property="og:image" content="https://devs.astrovakta.com/og-image.png" />
-    <meta property="og:image:secure_url" content="https://devs.astrovakta.com/og-image.png" />
+    <meta property="og:image" content="https://dev.astrovakta.com/og-image.png" />
+    <meta property="og:image:secure_url" content="https://dev.astrovakta.com/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="AstroVakta — Vedic Astrology API" />
@@ -38,12 +38,13 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="AstroVakta — The Complete Vedic Astrology API for Developers" />
     <meta name="twitter:description" content="180+ endpoints: kundli charts, horoscopes, compatibility, doshas, panchang, PDFs & AI readings. Free tier available." />
-    <meta name="twitter:image" content="https://devs.astrovakta.com/og-image.png" />
+    <meta name="twitter:image" content="https://dev.astrovakta.com/og-image.png" />
     <meta name="twitter:image:alt" content="AstroVakta — Vedic Astrology API" />
 
     <!-- ═══════════ Icons ═══════════ -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 
     <!-- ═══════════ Performance: fonts ═══════════ -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -52,92 +53,139 @@
 
     <!-- ═══════════ Structured Data (JSON-LD) ═══════════ -->
     <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
     {
-      "@context": "https://schema.org",
-      "@graph": [
+      "@type": "Organization",
+      "@id": "https://dev.astrovakta.com/#organization",
+      "name": "AstroVakta",
+      "url": "https://dev.astrovakta.com/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://dev.astrovakta.com/favicon.svg"
+      },
+      "email": "hello@astrovakta.com",
+      "contactPoint": [
         {
-          "@type": "Organization",
-          "@id": "https://devs.astrovakta.com/#organization",
-          "name": "AstroVakta",
-          "url": "https://devs.astrovakta.com/",
-          "logo": {
-            "@type": "ImageObject",
-            "url": "https://devs.astrovakta.com/favicon.svg"
-          },
-          "email": "hello@astrovakta.com",
-          "contactPoint": [
-            {
-              "@type": "ContactPoint",
-              "telephone": "+91-62394-02519",
-              "contactType": "customer support",
-              "availableLanguage": ["English", "Hindi"]
-            }
+          "@type": "ContactPoint",
+          "telephone": "+91-62394-02519",
+          "contactType": "customer support",
+          "availableLanguage": [
+            "English",
+            "Hindi"
           ]
+        }
+      ],
+      "sameAs": [
+        "https://www.astrovakta.com/",
+        "https://api.astrovakta.com/"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://dev.astrovakta.com/#website",
+      "url": "https://dev.astrovakta.com/",
+      "name": "AstroVakta",
+      "description": "The complete Vedic Astrology API for developers",
+      "publisher": {
+        "@id": "https://dev.astrovakta.com/#organization"
+      },
+      "inLanguage": "en"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://dev.astrovakta.com/#software",
+      "name": "AstroVakta",
+      "applicationCategory": "DeveloperApplication",
+      "applicationSubCategory": "Astrology API",
+      "operatingSystem": "Web, REST API",
+      "url": "https://dev.astrovakta.com/",
+      "description": "Cloud-based Vedic astrology REST API with 180+ endpoints covering kundli birth charts, 16 chart types, D1\u2013D60 divisional charts, daily to yearly horoscopes, Ashtakoot guna milan compatibility, 12+ dosha detections, panchang, muhurat, vimshottari dasha, gemstone recommendations, branded PDF report generation and BYO-key AI interpretations (OpenAI, Claude, Groq, Together). Powered by Swiss Ephemeris sidereal calculations.",
+      "featureList": "Birth Chart (Kundli), Divisional Charts D1-D60, Navamsa, Sudarshana Chakra, Daily Horoscope, Kundali Milan / Guna Matching, Mangal Dosha, Kaal Sarp Dosha, Sade Sati, Panchang, Muhurat, Vimshottari Dasha, Gemstone Advisor, Rudraksha Guide, PDF Report Generation, AI Astrology Interpretations",
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Free",
+          "price": "0",
+          "priceCurrency": "USD",
+          "description": "500 API calls per month"
         },
         {
-          "@type": "WebSite",
-          "@id": "https://devs.astrovakta.com/#website",
-          "url": "https://devs.astrovakta.com/",
-          "name": "AstroVakta",
-          "description": "The complete Vedic Astrology API for developers",
-          "publisher": { "@id": "https://devs.astrovakta.com/#organization" },
-          "inLanguage": "en"
+          "@type": "Offer",
+          "name": "Starter",
+          "price": "29",
+          "priceCurrency": "USD",
+          "description": "5,000 API calls per month"
         },
         {
-          "@type": "SoftwareApplication",
-          "@id": "https://devs.astrovakta.com/#software",
-          "name": "AstroVakta",
-          "applicationCategory": "DeveloperApplication",
-          "applicationSubCategory": "Astrology API",
-          "operatingSystem": "Web, REST API",
-          "url": "https://devs.astrovakta.com/",
-          "description": "Cloud-based Vedic astrology REST API with 180+ endpoints covering kundli birth charts, 16 chart types, D1–D60 divisional charts, daily to yearly horoscopes, Ashtakoot guna milan compatibility, 12+ dosha detections, panchang, muhurat, vimshottari dasha, gemstone recommendations, branded PDF report generation and BYO-key AI interpretations (OpenAI, Claude, Groq, Together). Powered by Swiss Ephemeris sidereal calculations.",
-          "featureList": "Birth Chart (Kundli), Divisional Charts D1-D60, Navamsa, Sudarshana Chakra, Daily Horoscope, Kundali Milan / Guna Matching, Mangal Dosha, Kaal Sarp Dosha, Sade Sati, Panchang, Muhurat, Vimshottari Dasha, Gemstone Advisor, Rudraksha Guide, PDF Report Generation, AI Astrology Interpretations",
-          "offers": [
-            { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "500 API calls per month" },
-            { "@type": "Offer", "name": "Starter", "price": "29", "priceCurrency": "USD", "description": "5,000 API calls per month" },
-            { "@type": "Offer", "name": "Pro", "price": "99", "priceCurrency": "USD", "description": "50,000 API calls per month" }
-          ],
-          "publisher": { "@id": "https://devs.astrovakta.com/#organization" }
+          "@type": "Offer",
+          "name": "Pro",
+          "price": "99",
+          "priceCurrency": "USD",
+          "description": "50,000 API calls per month"
+        }
+      ],
+      "publisher": {
+        "@id": "https://dev.astrovakta.com/#organization"
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://dev.astrovakta.com/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How accurate are the charts and predictions?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "AstroVakta uses the Swiss Ephemeris (pyswisseph) which is the NASA JPL-based calculation engine used by professional astrologers worldwide. Our sidereal calculations include Lahiri ayanamsha with sub-arcsecond precision for all planetary positions, nakshatras, and divisional charts."
+          }
         },
         {
-          "@type": "FAQPage",
-          "@id": "https://devs.astrovakta.com/#faq",
-          "mainEntity": [
-            {
-              "@type": "Question",
-              "name": "How accurate are the charts and predictions?",
-              "acceptedAnswer": { "@type": "Answer", "text": "AstroVakta uses the Swiss Ephemeris (pyswisseph) which is the NASA JPL-based calculation engine used by professional astrologers worldwide. Our sidereal calculations include Lahiri ayanamsha with sub-arcsecond precision for all planetary positions, nakshatras, and divisional charts." }
-            },
-            {
-              "@type": "Question",
-              "name": "What is the rate limit on the free tier?",
-              "acceptedAnswer": { "@type": "Answer", "text": "The free tier includes 500 API calls per month with no credit card required. You get full access to all 180+ endpoints. Rate limiting is applied per API key, and you can monitor your usage from the dashboard at any time." }
-            },
-            {
-              "@type": "Question",
-              "name": "Can I use my own AI provider keys?",
-              "acceptedAnswer": { "@type": "Answer", "text": "Yes! AstroVakta supports BYO (Bring Your Own) API keys for OpenAI, Anthropic Claude, Groq, and Together AI. You can configure multiple providers and switch between them seamlessly. Your keys are encrypted with AES-256 and never logged." }
-            },
-            {
-              "@type": "Question",
-              "name": "Is my data private and secure?",
-              "acceptedAnswer": { "@type": "Answer", "text": "Absolutely. All API keys are AES-256 encrypted at rest. We do not store or log birth chart data unless you explicitly request report generation. For enterprise customers, we offer on-premise deployment for complete data sovereignty." }
-            },
-            {
-              "@type": "Question",
-              "name": "Can I self-host AstroVakta?",
-              "acceptedAnswer": { "@type": "Answer", "text": "Yes, enterprise customers can self-host the entire AstroVakta stack on their own infrastructure. We provide deployment guides for Docker, Kubernetes, and bare-metal setups. Self-hosted instances include all features and endpoints." }
-            },
-            {
-              "@type": "Question",
-              "name": "Do you offer custom mobile app development?",
-              "acceptedAnswer": { "@type": "Answer", "text": "Yes! Our custom development package includes branded web apps and native mobile apps for iOS and Android. We build with React Native or Flutter, integrate the full API stack, and handle app store submissions. Check the Custom Development section above for pricing." }
-            }
-          ]
+          "@type": "Question",
+          "name": "What is the rate limit on the free tier?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The free tier includes 500 API calls per month with no credit card required. You get full access to all 180+ endpoints. Rate limiting is applied per API key, and you can monitor your usage from the dashboard at any time."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I use my own AI provider keys?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes! AstroVakta supports BYO (Bring Your Own) API keys for OpenAI, Anthropic Claude, Groq, and Together AI. You can configure multiple providers and switch between them seamlessly. Your keys are encrypted with AES-256 and never logged."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my data private and secure?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Absolutely. All API keys are AES-256 encrypted at rest. We do not store or log birth chart data unless you explicitly request report generation. For enterprise customers, we offer on-premise deployment for complete data sovereignty."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I self-host AstroVakta?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, enterprise customers can self-host the entire AstroVakta stack on their own infrastructure. We provide deployment guides for Docker, Kubernetes, and bare-metal setups. Self-hosted instances include all features and endpoints."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do you offer custom mobile app development?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes! Our custom development package includes branded web apps and native mobile apps for iOS and Android. We build with React Native or Flutter, integrate the full API stack, and handle app store submissions. Check the Custom Development section above for pricing."
+          }
         }
       ]
     }
+  ]
+}
     </script>
   </head>
   <body>
