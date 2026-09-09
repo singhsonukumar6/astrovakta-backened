@@ -49,7 +49,7 @@ export default function Login() {
           display: 'none',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #0a0a1a 0%, #1a1040 50%, #0a0a1a 100%)',
+          background: 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #f8fafc 100%)',
           position: 'relative',
           overflow: 'hidden',
         }}
@@ -96,7 +96,7 @@ export default function Login() {
           >
             Welcome to AstroVakta
           </h2>
-          <p style={{ color: '#94a3b8', marginTop: 8, maxWidth: 300 }}>
+          <p style={{ color: '#475569', marginTop: 8, maxWidth: 300 }}>
             The universe awaits. Access the most powerful Vedic Astrology API.
           </p>
         </motion.div>
@@ -119,16 +119,16 @@ export default function Login() {
           style={{ width: '100%', maxWidth: 420 }}
         >
           <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 8 }}>Log In</h1>
-          <p style={{ color: '#94a3b8', marginBottom: 32 }}>
+          <p style={{ color: '#475569', marginBottom: 32 }}>
             Don't have an account?{' '}
-            <Link to="/register" style={{ color: '#a78bfa', fontWeight: 600 }}>
+            <Link to="/register" style={{ color: '#4f46e5', fontWeight: 600 }}>
               Sign up
             </Link>
           </p>
 
           <form onSubmit={handleSubmit}>
             <div style={{ marginBottom: 20 }}>
-              <label style={{ display: 'block', fontSize: 14, color: '#94a3b8', marginBottom: 8 }}>
+              <label style={{ display: 'block', fontSize: 14, color: '#475569', marginBottom: 8 }}>
                 Email
               </label>
               <div style={{ position: 'relative' }}>
@@ -150,8 +150,8 @@ export default function Login() {
 
             <div style={{ marginBottom: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <label style={{ fontSize: 14, color: '#94a3b8' }}>Password</label>
-                <Link to="/forgot-password" style={{ fontSize: 13, color: '#a78bfa', fontWeight: 500, textDecoration: 'none' }}>
+                <label style={{ fontSize: 14, color: '#475569' }}>Password</label>
+                <Link to="/forgot-password" style={{ fontSize: 13, color: '#4f46e5', fontWeight: 500, textDecoration: 'none' }}>
                   Forgot password?
                 </Link>
               </div>

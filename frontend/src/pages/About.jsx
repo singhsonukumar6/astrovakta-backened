@@ -24,7 +24,7 @@ export default function About() {
           <h1 style={{ fontSize: 'clamp(32px, 5vw, 52px)', fontWeight: 900, textAlign: 'center', marginBottom: 20, letterSpacing: '-1px' }}>
             Powering the Future of <span className="gradient-text">Vedic Astrology</span>
           </h1>
-          <p style={{ color: '#94a3b8', fontSize: 18, textAlign: 'center', maxWidth: 700, margin: '0 auto 60px', lineHeight: 1.8 }}>
+          <p style={{ color: '#475569', fontSize: 18, textAlign: 'center', maxWidth: 700, margin: '0 auto 60px', lineHeight: 1.8 }}>
             AstroVakta started with a simple idea: make accurate Vedic astrology accessible to every developer.
             What began as an internal tool is now a comprehensive API platform serving thousands of requests daily.
           </p>
@@ -33,7 +33,7 @@ export default function About() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 24, maxWidth: 1000, margin: '0 auto 80px' }}>
           {[
             { icon: Target, title: 'Our Mission', desc: 'To democratize Vedic astrology by providing the most accurate, developer-friendly API on the planet. We believe astrology should be accessible, programmable, and infinitely scalable.', color: '#7c3aed' },
-            { icon: Globe, title: 'Our Reach', desc: 'Developers across 15+ countries use AstroVakta to build astrology apps, matrimony platforms, wellness tools, and research platforms. Every request is powered by Swiss Ephemeris precision.', color: '#3b82f6' },
+            { icon: Globe, title: 'Our Reach', desc: 'Developers across 15+ countries use AstroVakta to build astrology apps, matrimony platforms, wellness tools, and research platforms. Every request is powered by Swiss Ephemeris precision.', color: '#2563eb' },
             { icon: Shield, title: 'Our Promise', desc: 'Enterprise-grade security with AES-256 encryption, 99.9% uptime SLA, and a commitment to never log or mine your data. Your API keys and user data are always yours.', color: '#10b981' },
           ].map((v, i) => (
             <FadeIn key={v.title} delay={i * 0.1}>
@@ -49,7 +49,7 @@ export default function About() {
                   <v.icon size={24} color={v.color} />
                 </div>
                 <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 10 }}>{v.title}</h3>
-                <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.7 }}>{v.desc}</p>
+                <p style={{ color: '#475569', fontSize: 14, lineHeight: 1.7 }}>{v.desc}</p>
               </div>
             </FadeIn>
           ))}
@@ -63,7 +63,7 @@ export default function About() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 32, maxWidth: 900, margin: '0 auto' }}>
           {[
-            { n: '180+', l: 'API Endpoints' },
+            { n: '216+', l: 'API Endpoints' },
             { n: '16', l: 'Chart Types' },
             { n: '15+', l: 'Countries Served' },
             { n: '99.9%', l: 'Uptime SLA' },
@@ -85,7 +85,7 @@ export default function About() {
           <h2 style={{ fontSize: 28, fontWeight: 800, textAlign: 'center', marginBottom: 16 }}>
             Meet the <span className="gradient-text">Team</span>
           </h2>
-          <p style={{ color: '#94a3b8', fontSize: 16, textAlign: 'center', maxWidth: 500, margin: '0 auto 48px' }}>
+          <p style={{ color: '#475569', fontSize: 16, textAlign: 'center', maxWidth: 500, margin: '0 auto 48px' }}>
             A small team of engineers and astrologers passionate about blending ancient wisdom with modern technology.
           </p>
         </FadeIn>
@@ -108,8 +108,8 @@ export default function About() {
                   fontSize: 28, fontWeight: 700, color: '#fff',
                 }}>{member.name[0]}</div>
                 <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>{member.name}</h3>
-                <p style={{ color: '#a78bfa', fontSize: 13, fontWeight: 600, marginBottom: 12 }}>{member.role}</p>
-                <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.6 }}>{member.desc}</p>
+                <p style={{ color: '#4f46e5', fontSize: 13, fontWeight: 600, marginBottom: 12 }}>{member.role}</p>
+                <p style={{ color: '#475569', fontSize: 14, lineHeight: 1.6 }}>{member.desc}</p>
               </div>
             </FadeIn>
           ))}

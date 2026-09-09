@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { useUser, useAuth as useClerkAuth } from './clerk.jsx'
+import { useUser, useAuth as useClerkAuth, CLERK_ENABLED } from './clerk.jsx'
 import api, { getMe } from './api.js'
 
 const AuthContext = createContext(null)
@@ -15,6 +15,14 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!clerkLoaded) return
     if (!clerkSignedIn) {
+      // Clerk disabled (local/dev or key removed): email+password token auth
+      // stays valid — only clear when Clerk is actually enabled and signed out.
+      if (!CLERK_ENABLED) {
+        // A stored token is being hydrated by the getMe effect below —
+        // keep `loading` true until it settles so guards don't redirect early.
+        if (!localStorage.getItem('token')) setLoading(false)
+        return
+      }
       setToken(null)
       setUser(null)
       localStorage.removeItem('token')
@@ -54,12 +62,23 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!token || user) return
     let cancelled = false
-    localStorage.setItem('token', token)
+    // Hydrating a stored session — hold `loading` until we know who this is.
+    setLoading(true)
     getMe()
       .then((data) => {
         if (!cancelled) setUser(data.user || data)
       })
-      .catch(() => {})
+      .catch((err) => {
+        // Invalid/expired session — drop the token so guards settle to
+        // signed-out. Network errors keep the token (transient).
+        if (!cancelled && err?.response?.status === 401) {
+          setToken(null)
+          localStorage.removeItem('token')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
     return () => { cancelled = true }
   }, [token, user])
 

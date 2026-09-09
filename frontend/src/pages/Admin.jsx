@@ -98,16 +98,16 @@ const tabs = [
 ]
 
 const planColors = {
-  free: { bg: 'rgba(100,116,139,0.15)', text: '#94a3b8' },
-  starter: { bg: 'rgba(59,130,246,0.15)', text: '#60a5fa' },
-  pro: { bg: 'rgba(124,58,237,0.15)', text: '#a78bfa' },
-  enterprise: { bg: 'rgba(245,158,11,0.15)', text: '#fbbf24' },
+  free: { bg: 'rgba(100,116,139,0.15)', text: '#475569' },
+  starter: { bg: 'rgba(59,130,246,0.15)', text: '#2563eb' },
+  pro: { bg: 'rgba(124,58,237,0.15)', text: '#4f46e5' },
+  enterprise: { bg: 'rgba(245,158,11,0.15)', text: '#d97706' },
 }
 
 const statusColors = {
-  pending: { bg: 'rgba(245,158,11,0.15)', text: '#fbbf24', icon: Clock },
-  processing: { bg: 'rgba(59,130,246,0.15)', text: '#60a5fa', icon: RefreshCw },
-  completed: { bg: 'rgba(34,197,94,0.15)', text: '#22c55e', icon: CheckCircle2 },
+  pending: { bg: 'rgba(245,158,11,0.15)', text: '#d97706', icon: Clock },
+  processing: { bg: 'rgba(59,130,246,0.15)', text: '#2563eb', icon: RefreshCw },
+  completed: { bg: 'rgba(34,197,94,0.15)', text: '#16a34a', icon: CheckCircle2 },
   failed: { bg: 'rgba(239,68,68,0.15)', text: '#ef4444', icon: XCircle },
 }
 
@@ -117,9 +117,9 @@ function OverviewTab({ stats }) {
 
   const cards = [
     { label: 'Total Users', value: stats.total_users, sub: `+${stats.new_users_today} today`, icon: Users, color: '#7c3aed' },
-    { label: 'Active Keys', value: stats.active_keys, sub: `${stats.total_keys} total`, icon: Key, color: '#22c55e' },
-    { label: 'Requests Today', value: stats.requests_today, sub: `${stats.total_requests} all time`, icon: TrendingUp, color: '#3b82f6' },
-    { label: 'Pending Jobs', value: stats.pending_jobs, sub: `${stats.processing_jobs} processing`, icon: Briefcase, color: '#f59e0b' },
+    { label: 'Active Keys', value: stats.active_keys, sub: `${stats.total_keys} total`, icon: Key, color: '#16a34a' },
+    { label: 'Requests Today', value: stats.requests_today, sub: `${stats.total_requests} all time`, icon: TrendingUp, color: '#2563eb' },
+    { label: 'Pending Jobs', value: stats.pending_jobs, sub: `${stats.processing_jobs} processing`, icon: Briefcase, color: '#d97706' },
   ]
 
   const planDist = stats.plan_distribution || {}
@@ -129,13 +129,13 @@ function OverviewTab({ stats }) {
       <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>
         Admin <span className="gradient-text">Overview</span>
       </h2>
-      <p style={{ color: '#94a3b8', marginBottom: 32 }}>System-wide statistics and health.</p>
+      <p style={{ color: '#475569', marginBottom: 32 }}>System-wide statistics and health.</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20, marginBottom: 32 }}>
         {cards.map((c) => (
           <div key={c.label} className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 24 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 16 }}>
-              <span style={{ color: '#94a3b8', fontSize: 14 }}>{c.label}</span>
+              <span style={{ color: '#475569', fontSize: 14 }}>{c.label}</span>
               <div style={{
                 width: 36, height: 36, borderRadius: 10,
                 background: `${c.color}20`,
@@ -159,10 +159,10 @@ function OverviewTab({ stats }) {
               padding: '10px 18px', borderRadius: 10,
               background: planColors[plan]?.bg || planColors.free.bg,
             }}>
-              <span style={{ color: planColors[plan]?.text || '#94a3b8', fontWeight: 700, fontSize: 20 }}>
+              <span style={{ color: planColors[plan]?.text || '#475569', fontWeight: 700, fontSize: 20 }}>
                 {planDist[plan] || 0}
               </span>
-              <span style={{ color: '#94a3b8', fontSize: 13, textTransform: 'capitalize' }}>{plan}</span>
+              <span style={{ color: '#475569', fontSize: 13, textTransform: 'capitalize' }}>{plan}</span>
             </div>
           ))}
         </div>
@@ -271,7 +271,7 @@ function UsersTab({ refreshTrigger }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Users</h2>
-          <p style={{ color: '#94a3b8', fontSize: 14 }}>Manage users, passwords, plans, and keys.</p>
+          <p style={{ color: '#475569', fontSize: 14 }}>Manage users, passwords, plans, and keys.</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <input
@@ -308,13 +308,13 @@ function UsersTab({ refreshTrigger }) {
                   <tr key={u.id} style={{ borderBottom: '1px solid rgba(124,58,237,0.08)' }}>
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(124,58,237,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#a78bfa', fontSize: 14, flexShrink: 0 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(124,58,237,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#4f46e5', fontSize: 14, flexShrink: 0 }}>
                           {u.name?.charAt(0)?.toUpperCase() || '?'}
                         </div>
                         <div>
-                          <div style={{ fontWeight: 600, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{ fontWeight: 600, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 6 }}>
                             {u.name}
-                            {u.is_admin && <span style={{ fontSize: 10, background: 'rgba(245,158,11,0.15)', color: '#fbbf24', padding: '2px 6px', borderRadius: 6, fontWeight: 600 }}>ADMIN</span>}
+                            {u.is_admin && <span style={{ fontSize: 10, background: 'rgba(245,158,11,0.15)', color: '#d97706', padding: '2px 6px', borderRadius: 6, fontWeight: 600 }}>ADMIN</span>}
                           </div>
                           <div style={{ color: '#64748b', fontSize: 12 }}>{u.email}</div>
                         </div>
@@ -326,7 +326,7 @@ function UsersTab({ refreshTrigger }) {
                         onChange={(e) => handlePlanChange(u.id, e.target.value)}
                         style={{
                           background: planColors[u.plan]?.bg || planColors.free.bg,
-                          color: planColors[u.plan]?.text || '#94a3b8',
+                          color: planColors[u.plan]?.text || '#475569',
                           border: '1px solid transparent', borderRadius: 6,
                           padding: '5px 8px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
                         }}
@@ -351,12 +351,12 @@ function UsersTab({ refreshTrigger }) {
                             if (v !== (u.monthly_limit ?? 500) && v >= 0) handleSetMonthlyLimit(u.id, v)
                           }
                         }}
-                        style={{ background: 'rgba(10,10,26,0.6)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: 6, color: '#e2e8f0', padding: '4px 8px', fontSize: 12, width: 80, textAlign: 'center' }}
+                        style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: 6, color: '#1e293b', padding: '4px 8px', fontSize: 12, width: 80, textAlign: 'center' }}
                       />
                       <span style={{ color: '#64748b', fontSize: 12 }}>/mo</span>
                     </td>
-                    <td style={{ padding: '12px 16px', color: '#94a3b8' }}>{u.active_keys ?? 0}</td>
-                    <td style={{ padding: '12px 16px', color: '#94a3b8' }}>{u.total_requests ?? 0}</td>
+                    <td style={{ padding: '12px 16px', color: '#475569' }}>{u.active_keys ?? 0}</td>
+                    <td style={{ padding: '12px 16px', color: '#475569' }}>{u.total_requests ?? 0}</td>
                     <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 12 }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : '-'}</td>
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -369,7 +369,7 @@ function UsersTab({ refreshTrigger }) {
                         <button className="btn-secondary" onClick={() => { setKeyUser(u.id); setNewKeyName(''); setNewKeyTier('free') }} style={{ fontSize: 11, padding: '5px 10px' }}>
                           <Plus size={12} /> Key
                         </button>
-                        <button onClick={() => handleToggleAdmin(u.id)} title={u.is_admin ? 'Remove admin' : 'Make admin'} style={{ background: 'none', border: 'none', cursor: 'pointer', color: u.is_admin ? '#fbbf24' : '#475569', padding: '5px 6px', borderRadius: 6, fontSize: 12, display: 'flex', alignItems: 'center' }}>
+                        <button onClick={() => handleToggleAdmin(u.id)} title={u.is_admin ? 'Remove admin' : 'Make admin'} style={{ background: 'none', border: 'none', cursor: 'pointer', color: u.is_admin ? '#d97706' : '#475569', padding: '5px 6px', borderRadius: 6, fontSize: 12, display: 'flex', alignItems: 'center' }}>
                           {u.is_admin ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
                         </button>
                         <button onClick={() => handleDelete(u.id)} style={{ background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: 6, padding: '5px 8px', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
@@ -380,10 +380,10 @@ function UsersTab({ refreshTrigger }) {
                   </tr>
                   {expandedUser === u.id && userUsage && (
                     <tr key={`${u.id}-usage`} style={{ borderBottom: '1px solid rgba(124,58,237,0.08)' }}>
-                      <td colSpan={7} style={{ padding: '12px 16px', background: 'rgba(10,10,26,0.5)' }}>
+                      <td colSpan={7} style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.5)' }}>
                         <div style={{ padding: 12 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                            <h4 style={{ fontSize: 14, fontWeight: 600, color: '#e2e8f0' }}>Usage Stats - {u.name}</h4>
+                            <h4 style={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>Usage Stats - {u.name}</h4>
                             <button onClick={() => setExpandedUser(null)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={14} /></button>
                           </div>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 12 }}>
@@ -409,8 +409,8 @@ function UsersTab({ refreshTrigger }) {
                               <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>Top Endpoints</div>
                               {userUsage.top_endpoints.slice(0, 5).map((ep) => (
                                 <div key={ep.endpoint} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}>
-                                  <span style={{ fontFamily: 'var(--font-mono)', color: '#cbd5e1' }}>{ep.endpoint}</span>
-                                  <span style={{ color: '#94a3b8' }}>{ep.hits}</span>
+                                  <span style={{ fontFamily: 'var(--font-mono)', color: '#334155' }}>{ep.endpoint}</span>
+                                  <span style={{ color: '#475569' }}>{ep.hits}</span>
                                 </div>
                               ))}
                             </div>
@@ -421,9 +421,9 @@ function UsersTab({ refreshTrigger }) {
                   )}
                   {resetPwUser === u.id && (
                     <tr key={`${u.id}-pw`} style={{ borderBottom: '1px solid rgba(124,58,237,0.08)' }}>
-                      <td colSpan={7} style={{ padding: '12px 16px', background: 'rgba(10,10,26,0.5)' }}>
+                      <td colSpan={7} style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.5)' }}>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <span style={{ fontSize: 13, color: '#cbd5e1', flexShrink: 0 }}>Reset password for {u.name}:</span>
+                          <span style={{ fontSize: 13, color: '#334155', flexShrink: 0 }}>Reset password for {u.name}:</span>
                           <input className="input-field" type="password" placeholder="New password (min 6 chars)" value={resetPw} onChange={(e) => setResetPw(e.target.value)} style={{ flex: 1, fontSize: 13 }} />
                           <button className="btn-primary" onClick={() => handleResetPassword(u.id)} style={{ fontSize: 13, padding: '8px 16px' }}>Reset</button>
                           <button className="btn-secondary" onClick={() => setResetPwUser(null)} style={{ fontSize: 13, padding: '8px 12px' }}><X size={14} /></button>
@@ -433,9 +433,9 @@ function UsersTab({ refreshTrigger }) {
                   )}
                   {keyUser === u.id && (
                     <tr key={`${u.id}-key`} style={{ borderBottom: '1px solid rgba(124,58,237,0.08)' }}>
-                      <td colSpan={7} style={{ padding: '12px 16px', background: 'rgba(10,10,26,0.5)' }}>
+                      <td colSpan={7} style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.5)' }}>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <span style={{ fontSize: 13, color: '#cbd5e1', flexShrink: 0 }}>Create key for {u.name}:</span>
+                          <span style={{ fontSize: 13, color: '#334155', flexShrink: 0 }}>Create key for {u.name}:</span>
                           <input className="input-field" placeholder="Key name" value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)} style={{ flex: 1, fontSize: 13 }} />
                           <select className="input-field" value={newKeyTier} onChange={(e) => setNewKeyTier(e.target.value)} style={{ fontSize: 13, width: 130 }}>
                             <option value="free">Free</option>
@@ -461,7 +461,7 @@ function UsersTab({ refreshTrigger }) {
           <button className="btn-secondary" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1} style={{ padding: '8px 14px', fontSize: 13 }}>
             <ChevronLeft size={14} /> Prev
           </button>
-          <span style={{ color: '#94a3b8', fontSize: 13 }}>Page {page} of {totalPages}</span>
+          <span style={{ color: '#475569', fontSize: 13 }}>Page {page} of {totalPages}</span>
           <button className="btn-secondary" onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page >= totalPages} style={{ padding: '8px 14px', fontSize: 13 }}>
             Next <ChevronRight size={14} />
           </button>
@@ -514,7 +514,7 @@ function KeysTab({ refreshTrigger }) {
     <div>
       <div style={{ marginBottom: 24 }}>
         <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>API Keys</h2>
-        <p style={{ color: '#94a3b8', fontSize: 14 }}>{total} total keys across all users.</p>
+        <p style={{ color: '#475569', fontSize: 14 }}>{total} total keys across all users.</p>
       </div>
 
       <div className="glass" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
@@ -534,10 +534,10 @@ function KeysTab({ refreshTrigger }) {
             ) : keys.map((k) => (
               <tr key={k.id} style={{ borderBottom: '1px solid rgba(124,58,237,0.08)' }}>
                 <td style={{ padding: '12px 16px' }}>
-                  <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#94a3b8' }}>{maskKey(k.key)}</code>
+                  <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#475569' }}>{maskKey(k.key)}</code>
                 </td>
                 <td style={{ padding: '12px 16px' }}>
-                  <div style={{ color: '#e2e8f0', fontSize: 13 }}>{k.user_name || '-'}</div>
+                  <div style={{ color: '#1e293b', fontSize: 13 }}>{k.user_name || '-'}</div>
                   <div style={{ color: '#64748b', fontSize: 11 }}>{k.user_email || ''}</div>
                 </td>
                 <td style={{ padding: '12px 16px' }}>
@@ -546,7 +546,7 @@ function KeysTab({ refreshTrigger }) {
                     onChange={(e) => handleTierChange(k.id, e.target.value)}
                     style={{
                       background: planColors[k.tier]?.bg || planColors.free.bg,
-                      color: planColors[k.tier]?.text || '#94a3b8',
+                      color: planColors[k.tier]?.text || '#475569',
                       border: '1px solid transparent',
                       borderRadius: 6,
                       padding: '4px 8px',
@@ -561,7 +561,7 @@ function KeysTab({ refreshTrigger }) {
                     <option value="enterprise">Enterprise</option>
                   </select>
                 </td>
-                <td style={{ padding: '12px 16px', color: '#94a3b8' }}>{k.request_count || 0}</td>
+                <td style={{ padding: '12px 16px', color: '#475569' }}>{k.request_count || 0}</td>
                 <td style={{ padding: '12px 16px' }}>
                   <span style={{
                     display: 'inline-block',
@@ -570,7 +570,7 @@ function KeysTab({ refreshTrigger }) {
                     fontSize: 11,
                     fontWeight: 600,
                     background: k.is_active ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
-                    color: k.is_active ? '#22c55e' : '#ef4444',
+                    color: k.is_active ? '#16a34a' : '#ef4444',
                   }}>
                     {k.is_active ? 'Active' : 'Revoked'}
                   </span>
@@ -600,7 +600,7 @@ function KeysTab({ refreshTrigger }) {
           <button className="btn-secondary" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1} style={{ padding: '8px 14px', fontSize: 13 }}>
             <ChevronLeft size={14} /> Prev
           </button>
-          <span style={{ color: '#94a3b8', fontSize: 13 }}>Page {page} of {Math.ceil(total / 50)}</span>
+          <span style={{ color: '#475569', fontSize: 13 }}>Page {page} of {Math.ceil(total / 50)}</span>
           <button className="btn-secondary" onClick={() => setPage(page + 1)} disabled={page * 50 >= total} style={{ padding: '8px 14px', fontSize: 13 }}>
             Next <ChevronRight size={14} />
           </button>
@@ -633,7 +633,7 @@ function JobsTab({ refreshTrigger }) {
     <div>
       <div style={{ marginBottom: 24 }}>
         <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Background Jobs</h2>
-        <p style={{ color: '#94a3b8', fontSize: 14 }}>{total} total jobs. PDF and AI generation tasks.</p>
+        <p style={{ color: '#475569', fontSize: 14 }}>{total} total jobs. PDF and AI generation tasks.</p>
       </div>
 
       <div className="glass" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
@@ -655,16 +655,16 @@ function JobsTab({ refreshTrigger }) {
               const StatusIcon = sc.icon
               return (
                 <tr key={j.id} style={{ borderBottom: '1px solid rgba(124,58,237,0.08)' }}>
-                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: 12, color: '#94a3b8' }}>#{j.id}</td>
+                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: 12, color: '#475569' }}>#{j.id}</td>
                   <td style={{ padding: '12px 16px' }}>
                     <span className="badge" style={{
                       background: j.job_type === 'pdf' ? 'rgba(236,72,153,0.15)' : 'rgba(99,102,241,0.15)',
-                      color: j.job_type === 'pdf' ? '#f472b6' : '#818cf8',
+                      color: j.job_type === 'pdf' ? '#f472b6' : '#4338ca',
                     }}>
                       {j.job_type?.toUpperCase()}
                     </span>
                   </td>
-                  <td style={{ padding: '12px 16px', color: '#94a3b8' }}>{j.user_name || `#${j.user_id}`}</td>
+                  <td style={{ padding: '12px 16px', color: '#475569' }}>{j.user_name || `#${j.user_id}`}</td>
                   <td style={{ padding: '12px 16px' }}>
                     <span style={{
                       display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -719,7 +719,7 @@ function UsageTab() {
   return (
     <div>
       <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Analytics</h2>
-      <p style={{ color: '#94a3b8', marginBottom: 32 }}>Real usage data across all users.</p>
+      <p style={{ color: '#475569', marginBottom: 32 }}>Real usage data across all users.</p>
 
       {/* Daily Chart */}
       <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 24, marginBottom: 24 }}>
@@ -766,13 +766,13 @@ function UsageTab() {
               {byUser.map((u) => (
                 <div key={u.user_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid rgba(124,58,237,0.08)' }}>
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: 13, color: '#e2e8f0' }}>{u.name || u.email}</div>
+                    <div style={{ fontWeight: 600, fontSize: 13, color: '#1e293b' }}>{u.name || u.email}</div>
                     <div style={{ fontSize: 11, color: '#64748b' }}>{u.email}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontWeight: 700, fontSize: 15 }}>{u.total_requests || 0}</div>
                     <div style={{ fontSize: 11, color: '#64748b' }}>
-                      <span style={{ color: planColors[u.plan]?.text || '#94a3b8' }}>{u.plan}</span>
+                      <span style={{ color: planColors[u.plan]?.text || '#475569' }}>{u.plan}</span>
                       {u.errors > 0 && <span style={{ color: '#ef4444', marginLeft: 8 }}>{u.errors} err</span>}
                     </div>
                   </div>
@@ -793,10 +793,10 @@ function UsageTab() {
               return (
                 <div key={ep.endpoint} style={{ marginBottom: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: '#cbd5e1', maxWidth: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: '#334155', maxWidth: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {ep.endpoint}
                     </span>
-                    <span style={{ fontSize: 12, color: '#94a3b8' }}>{ep.hits}</span>
+                    <span style={{ fontSize: 12, color: '#475569' }}>{ep.hits}</span>
                   </div>
                   <div style={{ height: 5, background: 'rgba(124,58,237,0.1)', borderRadius: 3 }}>
                     <div style={{ height: '100%', width: `${pct}%`, background: 'var(--gradient-primary)', borderRadius: 3 }} />
@@ -903,10 +903,10 @@ function SandboxSvgViewer({ svgString }) {
 
   return (
     <div style={{ position: 'relative' }}>
-      <button onClick={() => setFullscreen(true)} style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(124,58,237,0.2)', border: 'none', borderRadius: 6, padding: 6, color: '#a78bfa', cursor: 'pointer', zIndex: 5 }}>
+      <button onClick={() => setFullscreen(true)} style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(124,58,237,0.2)', border: 'none', borderRadius: 6, padding: 6, color: '#4f46e5', cursor: 'pointer', zIndex: 5 }}>
         <Maximize2 size={14} />
       </button>
-      <div style={{ background: '#0d0d24', borderRadius: 'var(--radius)', padding: 20, textAlign: 'center', overflow: 'auto' }}>
+      <div style={{ background: '#0f172a', borderRadius: 'var(--radius)', padding: 20, textAlign: 'center', overflow: 'auto' }}>
         <img src={dataUrl} alt="Chart" style={{ maxWidth: '100%', height: 'auto', borderRadius: 8 }} />
       </div>
       {fullscreen && (
@@ -1010,7 +1010,7 @@ function SandboxTab() {
   return (
     <div>
       <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>API <span className="gradient-text">Sandbox</span></h2>
-      <p style={{ color: '#94a3b8', marginBottom: 24 }}>Test API endpoints directly. Your API key is auto-loaded.</p>
+      <p style={{ color: '#475569', marginBottom: 24 }}>Test API endpoints directly. Your API key is auto-loaded.</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 20, minHeight: 500 }}>
         {/* Endpoint List */}
@@ -1024,17 +1024,17 @@ function SandboxTab() {
                 width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: 8,
                 border: selected === ep ? '1px solid rgba(124,58,237,0.3)' : '1px solid transparent',
                 background: selected === ep ? 'rgba(124,58,237,0.1)' : 'transparent',
-                color: '#e2e8f0', cursor: 'pointer', marginBottom: 4,
+                color: '#1e293b', cursor: 'pointer', marginBottom: 4,
                 fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
               }}
             >
               <span style={{
                 fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
                 background: ep.method === 'GET' ? 'rgba(34,197,94,0.15)' : 'rgba(59,130,246,0.15)',
-                color: ep.method === 'GET' ? '#22c55e' : '#60a5fa',
+                color: ep.method === 'GET' ? '#16a34a' : '#2563eb',
               }}>{ep.method}</span>
               {ep.label}
-              {ep.needsKey && !apiKey && <Key size={10} color="#f59e0b" style={{ marginLeft: 'auto' }} />}
+              {ep.needsKey && !apiKey && <Key size={10} color="#d97706" style={{ marginLeft: 'auto' }} />}
             </button>
           ))}
 
@@ -1068,11 +1068,11 @@ function SandboxTab() {
                     <span style={{
                       fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 6,
                       background: selected.method === 'GET' ? 'rgba(34,197,94,0.15)' : 'rgba(59,130,246,0.15)',
-                      color: selected.method === 'GET' ? '#22c55e' : '#60a5fa',
+                      color: selected.method === 'GET' ? '#16a34a' : '#2563eb',
                     }}>{selected.method}</span>
-                    <code style={{ fontSize: 14, fontFamily: 'var(--font-mono)', color: '#e2e8f0' }}>{selected.path}</code>
+                    <code style={{ fontSize: 14, fontFamily: 'var(--font-mono)', color: '#1e293b' }}>{selected.path}</code>
                     {selected.needsKey && !apiKey && (
-                      <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600 }}>Needs API Key</span>
+                      <span style={{ fontSize: 11, color: '#d97706', fontWeight: 600 }}>Needs API Key</span>
                     )}
                   </div>
                   <button className="btn-primary" onClick={handleSend} disabled={loading} style={{ fontSize: 13, padding: '8px 20px' }}>
@@ -1100,15 +1100,15 @@ function SandboxTab() {
               {response && (
                 <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 20 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                    <span style={{ fontSize: 13, color: '#94a3b8' }}>Response</span>
+                    <span style={{ fontSize: 13, color: '#475569' }}>Response</span>
                     <span style={{
                       fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 6,
                       background: response.status >= 200 && response.status < 300 ? 'rgba(34,197,94,0.15)' : response.status === 0 ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)',
-                      color: response.status >= 200 && response.status < 300 ? '#22c55e' : response.status === 0 ? '#ef4444' : '#fbbf24',
+                      color: response.status >= 200 && response.status < 300 ? '#16a34a' : response.status === 0 ? '#ef4444' : '#d97706',
                     }}>
                       {response.status || 'Error'}
                     </span>
-                    {isSvg && <span style={{ fontSize: 11, color: '#a78bfa', fontWeight: 600 }}>SVG Detected</span>}
+                    {isSvg && <span style={{ fontSize: 11, color: '#4f46e5', fontWeight: 600 }}>SVG Detected</span>}
                   </div>
 
                   {isSvg ? (
@@ -1116,8 +1116,8 @@ function SandboxTab() {
                   ) : (
                     <pre style={{
                       fontFamily: 'var(--font-mono)', fontSize: 12, lineHeight: 1.5,
-                      background: 'rgba(10,10,26,0.6)', borderRadius: 8, padding: 16,
-                      maxHeight: 400, overflow: 'auto', color: '#cbd5e1', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+                      background: 'rgba(255,255,255,0.6)', borderRadius: 8, padding: 16,
+                      maxHeight: 400, overflow: 'auto', color: '#334155', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
                     }}>
                       {typeof response.data === 'string' ? response.data : JSON.stringify(response.data, null, 2)}
                     </pre>
@@ -1128,7 +1128,7 @@ function SandboxTab() {
           ) : (
             <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 48, textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
               <Terminal size={48} color="#475569" style={{ marginBottom: 16 }} />
-              <p style={{ color: '#94a3b8', fontSize: 16 }}>Select an endpoint to test</p>
+              <p style={{ color: '#475569', fontSize: 16 }}>Select an endpoint to test</p>
               <p style={{ color: '#64748b', fontSize: 13, marginTop: 8 }}>Choose from the list on the left</p>
             </div>
           )}
@@ -1167,19 +1167,19 @@ function EarningsTab() {
 
   const statusStyle = (st) => {
     const map = {
-      completed: { bg: 'rgba(34,197,94,0.15)', text: '#22c55e' },
-      paid: { bg: 'rgba(34,197,94,0.15)', text: '#22c55e' },
-      pending: { bg: 'rgba(245,158,11,0.15)', text: '#fbbf24' },
+      completed: { bg: 'rgba(34,197,94,0.15)', text: '#16a34a' },
+      paid: { bg: 'rgba(34,197,94,0.15)', text: '#16a34a' },
+      pending: { bg: 'rgba(245,158,11,0.15)', text: '#d97706' },
       failed: { bg: 'rgba(239,68,68,0.15)', text: '#ef4444' },
-      cancelled: { bg: 'rgba(148,163,184,0.15)', text: '#94a3b8' },
-      refunded: { bg: 'rgba(99,102,241,0.15)', text: '#818cf8' },
+      cancelled: { bg: 'rgba(148,163,184,0.15)', text: '#475569' },
+      refunded: { bg: 'rgba(99,102,241,0.15)', text: '#4338ca' },
     }
-    return map[st] || { bg: 'rgba(148,163,184,0.15)', text: '#94a3b8' }
+    return map[st] || { bg: 'rgba(148,163,184,0.15)', text: '#475569' }
   }
 
   const cards = [
-    { label: 'Total Revenue', value: totals ? fmtAmount(totals.total_revenue || 0, 'USD') : '...', sub: `${totals?.total_payments ?? 0} payments`, color: '#22c55e' },
-    { label: 'Revenue Today', value: totals ? fmtAmount(totals.today_revenue || 0, 'USD') : '...', sub: `${totals?.today_payments ?? 0} today`, color: '#3b82f6' },
+    { label: 'Total Revenue', value: totals ? fmtAmount(totals.total_revenue || 0, 'USD') : '...', sub: `${totals?.total_payments ?? 0} payments`, color: '#16a34a' },
+    { label: 'Revenue Today', value: totals ? fmtAmount(totals.today_revenue || 0, 'USD') : '...', sub: `${totals?.today_payments ?? 0} today`, color: '#2563eb' },
     { label: 'Revenue This Month', value: totals ? fmtAmount(totals.month_revenue || 0, 'USD') : '...', sub: `${totals?.month_payments ?? 0} this month`, color: '#7c3aed' },
   ]
 
@@ -1188,7 +1188,7 @@ function EarningsTab() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Earnings & <span className="gradient-text">Payments</span></h2>
-          <p style={{ color: '#94a3b8', fontSize: 14 }}>All payments made by users.</p>
+          <p style={{ color: '#475569', fontSize: 14 }}>All payments made by users.</p>
         </div>
         <select className="input-field" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} style={{ fontSize: 13, width: 160 }}>
           <option value="">All statuses</option>
@@ -1204,7 +1204,7 @@ function EarningsTab() {
         {cards.map((c) => (
           <div key={c.label} className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 24 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 16 }}>
-              <span style={{ color: '#94a3b8', fontSize: 14 }}>{c.label}</span>
+              <span style={{ color: '#475569', fontSize: 14 }}>{c.label}</span>
               <DollarSign size={18} color={c.color} />
             </div>
             <div style={{ fontSize: 26, fontWeight: 800 }}>{c.value}</div>
@@ -1233,21 +1233,21 @@ function EarningsTab() {
                 return (
                   <tr key={p.id} style={{ borderBottom: '1px solid rgba(124,58,237,0.08)' }}>
                     <td style={{ padding: '12px 16px' }}>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#94a3b8' }}>#{p.id}</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#475569' }}>#{p.id}</div>
                       <div style={{ fontSize: 11, color: '#64748b' }}>{p.dodo_payment_id ? p.dodo_payment_id.slice(0, 18) + '...' : 'dodo'}</div>
                     </td>
-                    <td style={{ padding: '12px 16px', fontWeight: 700, color: '#e2e8f0' }}>{fmtAmount(p.amount, p.currency)}</td>
+                    <td style={{ padding: '12px 16px', fontWeight: 700, color: '#1e293b' }}>{fmtAmount(p.amount, p.currency)}</td>
                     <td style={{ padding: '12px 16px' }}>
-                      <span className="badge" style={{ textTransform: 'capitalize', background: planColors[p.plan]?.bg || planColors.free.bg, color: planColors[p.plan]?.text || '#94a3b8' }}>{p.plan || '-'}</span>
+                      <span className="badge" style={{ textTransform: 'capitalize', background: planColors[p.plan]?.bg || planColors.free.bg, color: planColors[p.plan]?.text || '#475569' }}>{p.plan || '-'}</span>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
-                      <div style={{ color: '#e2e8f0', fontSize: 13 }}>{p.name || '-'}</div>
+                      <div style={{ color: '#1e293b', fontSize: 13 }}>{p.name || '-'}</div>
                       <div style={{ color: '#64748b', fontSize: 11 }}>{p.email || `#${p.user_id}`}</div>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600, background: st.bg, color: st.text, textTransform: 'capitalize' }}>{p.status}</span>
                     </td>
-                    <td style={{ padding: '12px 16px', color: '#94a3b8', fontSize: 12 }}>{p.payment_method || 'Dodo'}</td>
+                    <td style={{ padding: '12px 16px', color: '#475569', fontSize: 12 }}>{p.payment_method || 'Dodo'}</td>
                     <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 12 }}>{p.created_at ? new Date(p.created_at).toLocaleString() : '-'}</td>
                   </tr>
                 )
@@ -1262,7 +1262,7 @@ function EarningsTab() {
           <button className="btn-secondary" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1} style={{ padding: '8px 14px', fontSize: 13 }}>
             <ChevronLeft size={14} /> Prev
           </button>
-          <span style={{ color: '#94a3b8', fontSize: 13 }}>Page {page} of {totalPages}</span>
+          <span style={{ color: '#475569', fontSize: 13 }}>Page {page} of {totalPages}</span>
           <button className="btn-secondary" onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page >= totalPages} style={{ padding: '8px 14px', fontSize: 13 }}>
             Next <ChevronRight size={14} />
           </button>
@@ -1305,7 +1305,7 @@ function PageConfigTab() {
 
   const inputStyle = { width: '100%' }
   const sectionStyle = { marginBottom: 28 }
-  const labelStyle = { display: 'block', fontSize: 13, color: '#94a3b8', marginBottom: 6, fontWeight: 500 }
+  const labelStyle = { display: 'block', fontSize: 13, color: '#475569', marginBottom: 6, fontWeight: 500 }
 
   const sections = {
     general: {
@@ -1363,7 +1363,7 @@ function PageConfigTab() {
       style={{
         width: '100%', textAlign: 'left', padding: '10px 14px', borderRadius: 10,
         background: activeSection === id ? 'rgba(124,58,237,0.15)' : 'transparent',
-        color: activeSection === id ? '#a78bfa' : '#94a3b8',
+        color: activeSection === id ? '#4f46e5' : '#475569',
         fontSize: 14, fontWeight: 500, cursor: 'pointer', marginBottom: 4,
         display: 'flex', alignItems: 'center', gap: 10, border: 'none',
       }}
@@ -1377,7 +1377,7 @@ function PageConfigTab() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Page <span className="gradient-text">Configuration</span></h2>
-          <p style={{ color: '#94a3b8', fontSize: 14 }}>Manage homepage content, contact, footer, logo, branding & SEO.</p>
+          <p style={{ color: '#475569', fontSize: 14 }}>Manage homepage content, contact, footer, logo, branding & SEO.</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn-secondary" onClick={async () => {
@@ -1401,7 +1401,7 @@ function PageConfigTab() {
               <span style={{ width: 12, height: 12, borderRadius: 3, background: form.secondary_color || config.secondary_color }} />
               <span style={{ marginLeft: 4 }}>Brand preview</span>
             </div>
-            <div style={{ fontSize: 12, color: '#cbd5e1' }}>{form.site_title || config.site_title}</div>
+            <div style={{ fontSize: 12, color: '#334155' }}>{form.site_title || config.site_title}</div>
           </div>
         </div>
 
@@ -1529,7 +1529,7 @@ function BlogsTab() {
   const toolbarBtn = (onClick, label, title, active) => (
     <button type="button" onClick={onClick} title={title} style={{
       padding: '6px 9px', borderRadius: 6, border: active ? '1px solid rgba(124,58,237,0.5)' : '1px solid transparent',
-      background: active ? 'rgba(124,58,237,0.15)' : 'transparent', color: '#cbd5e1', cursor: 'pointer', fontSize: 13,
+      background: active ? 'rgba(124,58,237,0.15)' : 'transparent', color: '#334155', cursor: 'pointer', fontSize: 13,
     }}>{label}</button>
   )
 
@@ -1538,7 +1538,7 @@ function BlogsTab() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Blog <span className="gradient-text">Management</span></h2>
-          <p style={{ color: '#94a3b8', fontSize: 14 }}>{total} posts. Create, edit, and publish articles.</p>
+          <p style={{ color: '#475569', fontSize: 14 }}>{total} posts. Create, edit, and publish articles.</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <input className="input-field" placeholder="Search blogs..." value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} style={{ width: 200, fontSize: 13 }} />
@@ -1556,30 +1556,30 @@ function BlogsTab() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div>
-              <label style={{ display: 'block', fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>Title *</label>
+              <label style={{ display: 'block', fontSize: 13, color: '#475569', marginBottom: 6 }}>Title *</label>
               <input className="input-field" value={form.title} onChange={(e) => {
                 set('title', e.target.value)
                 if (!editing) set('slug', e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''))
               }} placeholder="Post title" />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>Slug</label>
+              <label style={{ display: 'block', fontSize: 13, color: '#475569', marginBottom: 6 }}>Slug</label>
               <input className="input-field" value={form.slug} onChange={(e) => set('slug', e.target.value)} placeholder="my-post-slug" />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>Author</label>
+              <label style={{ display: 'block', fontSize: 13, color: '#475569', marginBottom: 6 }}>Author</label>
               <input className="input-field" value={form.author} onChange={(e) => set('author', e.target.value)} placeholder="Author name" />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>Tag</label>
+              <label style={{ display: 'block', fontSize: 13, color: '#475569', marginBottom: 6 }}>Tag</label>
               <input className="input-field" value={form.tag} onChange={(e) => set('tag', e.target.value)} placeholder="e.g. Tutorial" />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>Read Time</label>
+              <label style={{ display: 'block', fontSize: 13, color: '#475569', marginBottom: 6 }}>Read Time</label>
               <input className="input-field" value={form.read_time} onChange={(e) => set('read_time', e.target.value)} placeholder="e.g. 5 min read" />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>Cover Image URL</label>
+              <label style={{ display: 'block', fontSize: 13, color: '#475569', marginBottom: 6 }}>Cover Image URL</label>
               <input className="input-field" value={form.cover_image} onChange={(e) => set('cover_image', e.target.value)} placeholder="https://... or /path/to.jpg" />
             </div>
           </div>
@@ -1591,13 +1591,13 @@ function BlogsTab() {
           )}
 
           <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>Excerpt</label>
+            <label style={{ display: 'block', fontSize: 13, color: '#475569', marginBottom: 6 }}>Excerpt</label>
             <textarea className="input-field" rows={2} value={form.excerpt} onChange={(e) => set('excerpt', e.target.value)} placeholder="Short summary shown on blog listing" />
           </div>
 
           <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>Content (Rich Text) *</label>
-            <div style={{ display: 'flex', gap: 4, padding: '6px 8px', border: '1px solid var(--border-color)', borderBottom: 'none', borderTopLeftRadius: 8, borderTopRightRadius: 8, background: 'rgba(10,10,26,0.6)', flexWrap: 'wrap' }}>
+            <label style={{ display: 'block', fontSize: 13, color: '#475569', marginBottom: 6 }}>Content (Rich Text) *</label>
+            <div style={{ display: 'flex', gap: 4, padding: '6px 8px', border: '1px solid var(--border-color)', borderBottom: 'none', borderTopLeftRadius: 8, borderTopRightRadius: 8, background: 'rgba(255,255,255,0.6)', flexWrap: 'wrap' }}>
               {toolbarBtn(() => applyFormatting('bold'), <Bold size={15} />, 'Bold')}
               {toolbarBtn(() => applyFormatting('italic'), <Italic size={15} />, 'Italic')}
               {toolbarBtn(() => applyFormatting('formatBlock', 'h2'), <Heading size={15} />, 'Heading')}
@@ -1611,7 +1611,7 @@ function BlogsTab() {
                 const url = prompt('Enter link URL:')
                 if (url) applyFormatting('createLink', url)
               }, <LinkIcon size={15} />, 'Insert link')}
-              <button type="button" onClick={() => applyFormatting('removeFormat')} title="Clear formatting" style={{ padding: '6px 9px', borderRadius: 6, background: 'transparent', color: '#cbd5e1', cursor: 'pointer', border: '1px solid transparent' }}><X size={15} /></button>
+              <button type="button" onClick={() => applyFormatting('removeFormat')} title="Clear formatting" style={{ padding: '6px 9px', borderRadius: 6, background: 'transparent', color: '#334155', cursor: 'pointer', border: '1px solid transparent' }}><X size={15} /></button>
             </div>
             <div
               id="blog-body-editor"
@@ -1620,7 +1620,7 @@ function BlogsTab() {
               onInput={(e) => set('body', e.currentTarget.innerHTML)}
               style={{
                 minHeight: 260, border: '1px solid var(--border-color)', borderBottomLeftRadius: 8, borderBottomRightRadius: 8,
-                padding: 16, background: 'rgba(10,10,26,0.4)', color: '#e2e8f0', fontSize: 14, lineHeight: 1.7,
+                padding: 16, background: 'rgba(255,255,255,0.4)', color: '#1e293b', fontSize: 14, lineHeight: 1.7,
                 outline: 'none', whiteSpace: 'pre-wrap',
               }}
               dangerouslySetInnerHTML={{ __html: form.body }}
@@ -1628,7 +1628,7 @@ function BlogsTab() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: '#cbd5e1', fontSize: 14 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: '#334155', fontSize: 14 }}>
               <input type="checkbox" checked={form.is_published} onChange={(e) => set('is_published', e.target.checked)} />
               Published (visible on site)
             </label>
@@ -1662,20 +1662,20 @@ function BlogsTab() {
                       {b.cover_image ? (
                         <img src={b.cover_image} alt="" style={{ width: 56, height: 40, objectFit: 'cover', borderRadius: 6, background: 'rgba(124,58,237,0.1)' }} onError={(e) => { e.target.style.display = 'none' }} />
                       ) : (
-                        <div style={{ width: 56, height: 40, borderRadius: 6, background: 'rgba(124,58,237,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Image size={16} color="#a78bfa" /></div>
+                        <div style={{ width: 56, height: 40, borderRadius: 6, background: 'rgba(124,58,237,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Image size={16} color="#4f46e5" /></div>
                       )}
                       <div>
-                        <div style={{ fontWeight: 600, color: '#e2e8f0' }}>{b.title}</div>
+                        <div style={{ fontWeight: 600, color: '#1e293b' }}>{b.title}</div>
                           <div style={{ fontSize: 11, color: '#64748b', fontFamily: 'var(--font-mono)' }}>{b.slug}</div>
                       </div>
                     </div>
                   </td>
                   <td style={{ padding: '12px 16px' }}>
-                    {b.tag ? <span className="badge" style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa' }}>{b.tag}</span> : '-'}
+                    {b.tag ? <span className="badge" style={{ background: 'rgba(124,58,237,0.15)', color: '#4f46e5' }}>{b.tag}</span> : '-'}
                   </td>
-                  <td style={{ padding: '12px 16px', color: '#94a3b8' }}>{b.author || '-'}</td>
+                  <td style={{ padding: '12px 16px', color: '#475569' }}>{b.author || '-'}</td>
                   <td style={{ padding: '12px 16px' }}>
-                    <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600, background: b.is_published ? 'rgba(34,197,94,0.15)' : 'rgba(148,163,184,0.15)', color: b.is_published ? '#22c55e' : '#94a3b8' }}>
+                    <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600, background: b.is_published ? 'rgba(34,197,94,0.15)' : 'rgba(148,163,184,0.15)', color: b.is_published ? '#16a34a' : '#475569' }}>
                       {b.is_published ? 'Published' : 'Draft'}
                     </span>
                   </td>
@@ -1699,7 +1699,7 @@ function BlogsTab() {
           <button className="btn-secondary" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1} style={{ padding: '8px 14px', fontSize: 13 }}>
             <ChevronLeft size={14} /> Prev
           </button>
-          <span style={{ color: '#94a3b8', fontSize: 13 }}>Page {page} of {totalPages}</span>
+          <span style={{ color: '#475569', fontSize: 13 }}>Page {page} of {totalPages}</span>
           <button className="btn-secondary" onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page >= totalPages} style={{ padding: '8px 14px', fontSize: 13 }}>
             Next <ChevronRight size={14} />
           </button>
@@ -1760,7 +1760,7 @@ function AdminProfileTab({ user, onUserUpdate }) {
   return (
     <div>
       <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Admin <span className="gradient-text">Profile</span></h2>
-      <p style={{ color: '#94a3b8', marginBottom: 32 }}>Manage your admin account details and password.</p>
+      <p style={{ color: '#475569', marginBottom: 32 }}>Manage your admin account details and password.</p>
 
       <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 32, maxWidth: 500, marginBottom: 24 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
@@ -1776,19 +1776,19 @@ function AdminProfileTab({ user, onUserUpdate }) {
         </div>
 
         <div style={{ marginBottom: 20 }}>
-          <label style={{ display: 'block', fontSize: 14, color: '#94a3b8', marginBottom: 8 }}>Name</label>
+          <label style={{ display: 'block', fontSize: 14, color: '#475569', marginBottom: 8 }}>Name</label>
           <input className="input-field" value={name} onChange={(e) => setName(e.target.value)} readOnly={!editing} style={{ opacity: editing ? 1 : 0.7 }} />
         </div>
         <div style={{ marginBottom: 20 }}>
-          <label style={{ display: 'block', fontSize: 14, color: '#94a3b8', marginBottom: 8 }}>Email</label>
+          <label style={{ display: 'block', fontSize: 14, color: '#475569', marginBottom: 8 }}>Email</label>
           <input className="input-field" type="email" value={email} onChange={(e) => setEmail(e.target.value)} readOnly={!editing} style={{ opacity: editing ? 1 : 0.7 }} />
         </div>
         <div style={{ marginBottom: 20 }}>
-          <label style={{ display: 'block', fontSize: 14, color: '#94a3b8', marginBottom: 8 }}>Role</label>
-          <span className="badge" style={{ background: 'rgba(245,158,11,0.15)', color: '#fbbf24', textTransform: 'capitalize', fontSize: 14, padding: '6px 14px' }}>Admin</span>
+          <label style={{ display: 'block', fontSize: 14, color: '#475569', marginBottom: 8 }}>Role</label>
+          <span className="badge" style={{ background: 'rgba(245,158,11,0.15)', color: '#d97706', textTransform: 'capitalize', fontSize: 14, padding: '6px 14px' }}>Admin</span>
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: 14, color: '#94a3b8', marginBottom: 8 }}>Member Since</label>
+          <label style={{ display: 'block', fontSize: 14, color: '#475569', marginBottom: 8 }}>Member Since</label>
           <input className="input-field" value={user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'} readOnly />
         </div>
       </div>
@@ -1806,15 +1806,15 @@ function AdminProfileTab({ user, onUserUpdate }) {
         {showPassword && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
             <div style={{ marginBottom: 20 }}>
-              <label style={{ display: 'block', fontSize: 14, color: '#94a3b8', marginBottom: 8 }}>Current Password</label>
+              <label style={{ display: 'block', fontSize: 14, color: '#475569', marginBottom: 8 }}>Current Password</label>
               <input className="input-field" type="password" placeholder="Enter current password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
             </div>
             <div style={{ marginBottom: 20 }}>
-              <label style={{ display: 'block', fontSize: 14, color: '#94a3b8', marginBottom: 8 }}>New Password</label>
+              <label style={{ display: 'block', fontSize: 14, color: '#475569', marginBottom: 8 }}>New Password</label>
               <input className="input-field" type="password" placeholder="Min 6 characters" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
             </div>
             <div style={{ marginBottom: 24 }}>
-              <label style={{ display: 'block', fontSize: 14, color: '#94a3b8', marginBottom: 8 }}>Confirm New Password</label>
+              <label style={{ display: 'block', fontSize: 14, color: '#475569', marginBottom: 8 }}>Confirm New Password</label>
               <input className="input-field" type="password" placeholder="Re-enter new password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
             </div>
             <button className="btn-primary" onClick={handlePasswordChange} disabled={saving} style={{ width: '100%', justifyContent: 'center' }}>
@@ -1881,8 +1881,8 @@ export default function Admin() {
       >
         <div style={{ padding: '0 14px', marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <Shield size={18} color="#fbbf24" />
-            <span style={{ fontSize: 14, fontWeight: 700, color: '#fbbf24' }}>Admin Panel</span>
+            <Shield size={18} color="#d97706" />
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#d97706' }}>Admin Panel</span>
           </div>
         </div>
 
@@ -1895,7 +1895,7 @@ export default function Admin() {
                 width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                 padding: '10px 14px', borderRadius: 10, border: 'none',
                 background: activeTab === tab.id ? 'rgba(124,58,237,0.15)' : 'transparent',
-                color: activeTab === tab.id ? '#a78bfa' : '#94a3b8',
+                color: activeTab === tab.id ? '#4f46e5' : '#475569',
                 fontSize: 14, fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s',
                 marginBottom: 4, textAlign: 'left',
               }}
@@ -1906,10 +1906,10 @@ export default function Admin() {
           ))}
         </div>
 
-        <button onClick={refresh} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, border: 'none', background: 'transparent', color: '#94a3b8', fontSize: 14, cursor: 'pointer', textAlign: 'left', marginBottom: 4 }}>
+        <button onClick={refresh} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, border: 'none', background: 'transparent', color: '#475569', fontSize: 14, cursor: 'pointer', textAlign: 'left', marginBottom: 4 }}>
           <RefreshCw size={18} /> Refresh
         </button>
-        <button onClick={() => navigate('/dashboard')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, border: 'none', background: 'transparent', color: '#94a3b8', fontSize: 14, cursor: 'pointer', textAlign: 'left' }}>
+        <button onClick={() => navigate('/dashboard')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, border: 'none', background: 'transparent', color: '#475569', fontSize: 14, cursor: 'pointer', textAlign: 'left' }}>
           <ExternalLink size={18} /> Developer Dashboard
         </button>
       </aside>

@@ -48,7 +48,7 @@ export default function Blogs() {
   }, [])
 
   const tagColor = (tag) => {
-    const colors = ['#7c3aed', '#3b82f6', '#ec4899', '#8b5cf6', '#f59e0b']
+    const colors = ['#7c3aed', '#2563eb', '#db2777', '#7c3aed', '#d97706']
     let hash = 0
     for (let i = 0; i < (tag || 'x').length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash)
     return colors[Math.abs(hash) % colors.length]
@@ -64,7 +64,7 @@ export default function Blogs() {
         <h1 style={{ fontSize: 'clamp(32px, 5vw, 52px)', fontWeight: 900, textAlign: 'center', marginBottom: 16, letterSpacing: '-1px' }}>
           Insights & <span className="gradient-text">Guides</span>
         </h1>
-        <p style={{ color: '#94a3b8', fontSize: 18, textAlign: 'center', maxWidth: 500, margin: '0 auto 60px', lineHeight: 1.8 }}>
+        <p style={{ color: '#475569', fontSize: 18, textAlign: 'center', maxWidth: 500, margin: '0 auto 60px', lineHeight: 1.8 }}>
           Tutorials, technical deep-dives, and best practices for building astrology applications.
         </p>
 
@@ -118,13 +118,13 @@ export default function Blogs() {
                           </div>
                         )}
                       </div>
-                      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, lineHeight: 1.4, color: '#e2e8f0' }}>{post.title}</h2>
-                      <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.6, marginBottom: 16, flex: 1 }}>{post.excerpt}</p>
+                      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, lineHeight: 1.4, color: '#1e293b' }}>{post.title}</h2>
+                      <p style={{ color: '#475569', fontSize: 14, lineHeight: 1.6, marginBottom: 16, flex: 1 }}>{post.excerpt}</p>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#64748b', fontSize: 13 }}>
                           <User size={13} /> {post.author} · {post.created_at ? new Date(post.created_at).toLocaleDateString() : ''}
                         </div>
-                        <span style={{ color: '#a78bfa', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span style={{ color: '#4f46e5', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                           Read <ArrowRight size={14} />
                         </span>
                       </div>

@@ -17,7 +17,7 @@ function FadeIn({ children, delay = 0 }) {
 
 const sectionStyle = { marginBottom: 24 }
 const headingStyle = { fontSize: 20, fontWeight: 700, marginBottom: 10 }
-const textStyle = { color: '#94a3b8', fontSize: 15, lineHeight: 1.8, marginBottom: 12 }
+const textStyle = { color: '#475569', fontSize: 15, lineHeight: 1.8, marginBottom: 12 }
 
 export default function Privacy() {
   return (

@@ -242,6 +242,86 @@ CREATE TABLE IF NOT EXISTS payments (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
+CREATE TABLE IF NOT EXISTS sites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    slug TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    tagline TEXT,
+    template TEXT DEFAULT 'aurora',
+    theme TEXT,
+    status TEXT DEFAULT 'draft',
+    custom_domain TEXT,
+    domain_status TEXT DEFAULT 'none',
+    logo_url TEXT,
+    hero_image TEXT,
+    settings TEXT,
+    published_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE TABLE IF NOT EXISTS site_pages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER NOT NULL,
+    page_key TEXT NOT NULL,
+    title TEXT,
+    content TEXT,
+    is_published BOOLEAN DEFAULT 1,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (site_id) REFERENCES sites(id),
+    UNIQUE (site_id, page_key)
+);
+CREATE TABLE IF NOT EXISTS site_services (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    duration_minutes INTEGER DEFAULT 30,
+    price INTEGER DEFAULT 0,
+    currency TEXT DEFAULT 'INR',
+    is_active BOOLEAN DEFAULT 1,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (site_id) REFERENCES sites(id)
+);
+CREATE TABLE IF NOT EXISTS site_availability (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER NOT NULL,
+    weekday INTEGER NOT NULL,
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    FOREIGN KEY (site_id) REFERENCES sites(id)
+);
+CREATE TABLE IF NOT EXISTS site_bookings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER NOT NULL,
+    service_id INTEGER,
+    client_name TEXT NOT NULL,
+    client_phone TEXT,
+    client_email TEXT,
+    notes TEXT,
+    date TEXT NOT NULL,
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    status TEXT DEFAULT 'confirmed',
+    amount INTEGER DEFAULT 0,
+    currency TEXT DEFAULT 'INR',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (site_id) REFERENCES sites(id),
+    FOREIGN KEY (service_id) REFERENCES site_services(id)
+);
+CREATE TABLE IF NOT EXISTS site_leads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER NOT NULL,
+    tool TEXT DEFAULT 'kundli',
+    name TEXT,
+    phone TEXT,
+    email TEXT,
+    details TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (site_id) REFERENCES sites(id)
+);
 """
 
 _PG_DDL = """
@@ -356,6 +436,79 @@ CREATE TABLE IF NOT EXISTS payments (
     metadata TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE TABLE IF NOT EXISTS sites (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    slug TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    tagline TEXT,
+    template TEXT DEFAULT 'aurora',
+    theme TEXT,
+    status TEXT DEFAULT 'draft',
+    custom_domain TEXT,
+    domain_status TEXT DEFAULT 'none',
+    logo_url TEXT,
+    hero_image TEXT,
+    settings TEXT,
+    published_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ
+);
+CREATE TABLE IF NOT EXISTS site_pages (
+    id SERIAL PRIMARY KEY,
+    site_id INTEGER NOT NULL REFERENCES sites(id),
+    page_key TEXT NOT NULL,
+    title TEXT,
+    content TEXT,
+    is_published BOOLEAN DEFAULT TRUE,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (site_id, page_key)
+);
+CREATE TABLE IF NOT EXISTS site_services (
+    id SERIAL PRIMARY KEY,
+    site_id INTEGER NOT NULL REFERENCES sites(id),
+    name TEXT NOT NULL,
+    description TEXT,
+    duration_minutes INTEGER DEFAULT 30,
+    price INTEGER DEFAULT 0,
+    currency TEXT DEFAULT 'INR',
+    is_active BOOLEAN DEFAULT TRUE,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS site_availability (
+    id SERIAL PRIMARY KEY,
+    site_id INTEGER NOT NULL REFERENCES sites(id),
+    weekday INTEGER NOT NULL,
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS site_bookings (
+    id SERIAL PRIMARY KEY,
+    site_id INTEGER NOT NULL REFERENCES sites(id),
+    service_id INTEGER REFERENCES site_services(id),
+    client_name TEXT NOT NULL,
+    client_phone TEXT,
+    client_email TEXT,
+    notes TEXT,
+    date TEXT NOT NULL,
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    status TEXT DEFAULT 'confirmed',
+    amount INTEGER DEFAULT 0,
+    currency TEXT DEFAULT 'INR',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS site_leads (
+    id SERIAL PRIMARY KEY,
+    site_id INTEGER NOT NULL REFERENCES sites(id),
+    tool TEXT DEFAULT 'kundli',
+    name TEXT,
+    phone TEXT,
+    email TEXT,
+    details TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 """
 
 
@@ -402,6 +555,9 @@ def init_db() -> None:
                 ("usage_logs", "response_time_ms", "INTEGER"),
                 ("usage_logs", "endpoint_group", "TEXT"),
                 ("usage_logs", "credits_used", "INTEGER DEFAULT 0"),
+                ("sites", "logo_url", "TEXT"),
+                ("sites", "hero_image", "TEXT"),
+                ("sites", "settings", "TEXT"),
             ]:
                 try:
                     row = conn.execute(
@@ -433,4 +589,7 @@ def init_db() -> None:
         _migrate_sqlite(cursor, "usage_logs", "response_time_ms", "INTEGER")
         _migrate_sqlite(cursor, "usage_logs", "endpoint_group", "TEXT")
         _migrate_sqlite(cursor, "usage_logs", "credits_used", "INTEGER DEFAULT 0")
+        _migrate_sqlite(cursor, "sites", "logo_url", "TEXT")
+        _migrate_sqlite(cursor, "sites", "hero_image", "TEXT")
+        _migrate_sqlite(cursor, "sites", "settings", "TEXT")
         conn.commit()

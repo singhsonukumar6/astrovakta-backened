@@ -8,6 +8,7 @@ Allow: /
 # Private / authenticated areas
 Disallow: /dashboard
 Disallow: /admin
+Disallow: /mysite
 Disallow: /verify-email
 Disallow: /verify-email-prompt
 Disallow: /forgot-password

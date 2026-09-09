@@ -6,7 +6,7 @@ import { SITE_URL, OG_IMAGE } from '../components/SEO.jsx'
 import blogData from './blogData.js'
 
 const tagColor = (tag) => {
-  const colors = ['#7c3aed', '#3b82f6', '#ec4899', '#8b5cf6', '#f59e0b']
+  const colors = ['#7c3aed', '#2563eb', '#db2777', '#7c3aed', '#d97706']
   let hash = 0
   for (let i = 0; i < (tag || 'x').length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash)
   return colors[Math.abs(hash) % colors.length]
@@ -142,7 +142,7 @@ export default function BlogPost() {
       <div style={{ paddingTop: 140, textAlign: 'center' }}>
         <BookOpen size={48} color="#64748b" style={{ margin: '0 auto 16px' }} />
         <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 12 }}>Post Not Found</h1>
-        <p style={{ color: '#94a3b8', fontSize: 16, marginBottom: 32 }}>The blog post you're looking for doesn't exist or isn't published yet.</p>
+        <p style={{ color: '#475569', fontSize: 16, marginBottom: 32 }}>The blog post you're looking for doesn't exist or isn't published yet.</p>
         <Link to="/blogs" className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           <ArrowLeft size={16} /> Back to Blog
         </Link>
@@ -155,7 +155,7 @@ export default function BlogPost() {
   return (
     <div style={{ paddingTop: 100 }}>
       <section className="section" style={{ maxWidth: 800, margin: '0 auto' }}>
-        <Link to="/blogs" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#94a3b8', fontSize: 14, marginBottom: 32 }}>
+        <Link to="/blogs" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#475569', fontSize: 14, marginBottom: 32 }}>
           <ArrowLeft size={14} /> Back to all posts
         </Link>
 
@@ -185,7 +185,7 @@ export default function BlogPost() {
           {post.title}
         </h1>
         {post.excerpt && (
-          <p style={{ color: '#94a3b8', fontSize: 16, lineHeight: 1.7, marginBottom: 32 }}>{post.excerpt}</p>
+          <p style={{ color: '#475569', fontSize: 16, lineHeight: 1.7, marginBottom: 32 }}>{post.excerpt}</p>
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingBottom: 32, borderBottom: '1px solid var(--border-color)', marginBottom: 32 }}>
@@ -206,7 +206,7 @@ export default function BlogPost() {
         <div
           className="blog-prose"
           style={{
-            color: '#cbd5e1', fontSize: 16, lineHeight: 1.85, wordBreak: 'break-word',
+            color: '#334155', fontSize: 16, lineHeight: 1.85, wordBreak: 'break-word',
           }}
           dangerouslySetInnerHTML={{ __html: post.body || '' }}
         />

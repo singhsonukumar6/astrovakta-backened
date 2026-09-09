@@ -1,16 +1,12 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { motion, useInView, useScroll, useTransform, AnimatePresence } from 'framer-motion'
-import { SignedOut, SignUpButton } from '../lib/clerk.jsx'
+import { motion, useInView, useScroll, useTransform } from 'framer-motion'
 import { useConfig } from '../lib/ConfigContext.jsx'
 import {
-  Sparkles, BookOpen, Heart, Sun, Shield, Brain, Code, Zap, Globe,
-  Clock, Cpu, TrendingUp, Star, Check, X as XIcon, ChevronRight,
-  Terminal, Layers, BarChart3, Moon, Compass, Gem,
-  ArrowRight, Play, Rocket, FileText, Bot, Lock, Gauge, Key,
-  MessageCircle, DollarSign, IndianRupee, MonitorSmartphone, Palette, Server,
-  ShoppingCart, Users, CreditCard, Smartphone, Database, Cog, Cloud, Languages,
-  HelpCircle, Building2, GraduationCap, HeartHandshake, ExternalLink,
+  Sparkles, Globe, CalendarCheck, MessageCircle, Camera, ShoppingCart,
+  Search, Check, ArrowRight, Star, Users, TrendingUp, Zap,
+  MonitorSmartphone, HelpCircle, Globe2, BadgeCheck, ChevronRight,
+  Store, Megaphone, BarChart3, Wand2, ChevronDown, Code2,
 } from 'lucide-react'
 
 function FadeIn({ children, delay = 0, direction = 'up', className = '', style = {} }) {
@@ -24,113 +20,6 @@ function FadeIn({ children, delay = 0, direction = 'up', className = '', style =
       animate={isInView ? { opacity: 1, y: 0, x: 0 } : {}}
       transition={{ duration: 0.65, delay, ease: [0.22, 1, 0.36, 1] }}>
       {children}
-    </motion.div>
-  )
-}
-
-const TERMINAL_LINES = [
-  { text: '# Get your birth chart in one request\n', color: '#64748b' },
-  { text: 'curl', color: '#a78bfa' },
-  { text: ' ', color: '' },
-  { text: '-X POST', color: '#22c55e' },
-  { text: ' ', color: '' },
-  { text: '"https://api.astrovakta.com/api/kundli"', color: '#fbbf24' },
-  { text: ' \\\n', color: '#64748b' },
-  { text: '  ', color: '' },
-  { text: '-H', color: '#a78bfa' },
-  { text: ' ', color: '' },
-  { text: '"X-API-Key: avk_live_xxx"', color: '#fbbf24' },
-  { text: ' \\\n', color: '#64748b' },
-  { text: '  ', color: '' },
-  { text: '-d', color: '#a78bfa' },
-  { text: ' ', color: '' },
-  { text: '{"dateOfBirth":"1990-05-15","timeOfBirth":"14:30","latitude":28.6139,"longitude":77.2090,"timezone":"Asia/Kolkata"}', color: '#fbbf24' },
-]
-
-function TypingTerminal() {
-  const [displayed, setDisplayed] = useState([])
-  const [charIndex, setCharIndex] = useState(0)
-  const cursorRef = useRef(true)
-  const [showCursor, setShowCursor] = useState(true)
-
-  const flatChars = TERMINAL_LINES.flatMap(line => [...line.text])
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCharIndex(prev => {
-        if (prev >= flatChars.length) {
-          cursorRef.current = true
-          return prev
-        }
-        cursorRef.current = true
-        return prev + 1
-      })
-    }, 30)
-
-    const cursorBlink = setInterval(() => {
-      setShowCursor(c => !c)
-    }, 530)
-
-    return () => {
-      clearInterval(interval)
-      clearInterval(cursorBlink)
-    }
-  }, [flatChars.length])
-
-  useEffect(() => {
-    if (charIndex >= flatChars.length) {
-      const timeout = setTimeout(() => {
-        setCharIndex(0)
-        setDisplayed([])
-      }, 3500)
-      return () => clearTimeout(timeout)
-    }
-  }, [charIndex, flatChars.length])
-
-  let pos = 0
-  let built = []
-  for (const line of TERMINAL_LINES) {
-    const remaining = charIndex - pos
-    const take = Math.min(Math.max(0, remaining), line.text.length)
-
-    if (take > 0) {
-      if (built.length > 0 && built[built.length - 1].color === line.color) {
-        built[built.length - 1].text += line.text.slice(0, take)
-      } else {
-        built.push({ text: line.text.slice(0, take), color: line.color })
-      }
-    }
-
-    pos += line.text.length
-    if (charIndex < pos) break
-  }
-
-  return (
-    <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, delay: 0.9 }}
-      style={{
-        marginTop: 56, background: '#0a0a1f', border: '1px solid rgba(124,58,237,0.2)',
-        borderRadius: 16, overflow: 'hidden', maxWidth: 680, margin: '56px auto 0',
-      }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: '1px solid rgba(124,58,237,0.12)' }}>
-        <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#ef4444' }} />
-        <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#eab308' }} />
-        <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#22c55e' }} />
-        <span style={{ marginLeft: 10, fontSize: 12, color: '#475569' }}>birth-chart.sh</span>
-      </div>
-      <pre style={{ padding: '20px 24px', fontSize: 13, lineHeight: 1.9, fontFamily: 'var(--font-mono)', color: '#e2e8f0', overflow: 'auto', textAlign: 'left', minHeight: 90 }}>
-        <code>
-          {built.map((seg, i) => (
-            <span key={i} style={{ color: seg.color || undefined }}>{seg.text}</span>
-          ))}
-          <span style={{
-            display: 'inline-block', width: 8, height: 18, background: '#22c55e',
-            verticalAlign: 'text-bottom',
-            animation: 'blink-cursor 1s step-end infinite',
-            opacity: showCursor ? 1 : 0,
-          }} />
-        </code>
-      </pre>
     </motion.div>
   )
 }
@@ -160,64 +49,204 @@ function GlowOrb() {
       style={{
         position: 'absolute', top: '10%', left: '50%', transform: 'translate(-50%,0)',
         width: 700, height: 700, borderRadius: '50%', pointerEvents: 'none',
-        background: 'radial-gradient(circle, rgba(124,58,237,0.18) 0%, rgba(99,102,241,0.08) 40%, transparent 70%)',
+        background: 'radial-gradient(circle, rgba(79,70,229,0.10) 0%, rgba(124,58,237,0.05) 40%, transparent 70%)',
         filter: 'blur(40px)',
       }}
     />
   )
 }
 
-function GridDots() {
-  const dots = useRef(Array.from({ length: 60 }, (_, i) => ({
-    x: Math.random() * 100, y: Math.random() * 100,
-    delay: Math.random() * 3, size: Math.random() * 2 + 1,
-  })))
-  return (
-    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
-      {dots.current.map((d, i) => (
-        <motion.div key={i}
-          animate={{ opacity: [0.1, 0.5, 0.1] }}
-          transition={{ duration: 3 + Math.random() * 2, repeat: Infinity, delay: d.delay }}
-          style={{
-            position: 'absolute', left: `${d.x}%`, top: `${d.y}%`,
-            width: d.size, height: d.size, borderRadius: '50%',
-            background: 'rgba(124,58,237,0.6)',
-          }}
-        />
-      ))}
-    </div>
-  )
-}
+/* ── Mock browser: the branded website an astrologer gets in a few clicks ── */
+function WebsiteMockup() {
+  const [activeStep, setActiveStep] = useState(0)
+  const steps = ['Your Website', 'Your Domain', 'Your Business']
+  useEffect(() => {
+    const t = setInterval(() => setActiveStep((s) => (s + 1) % steps.length), 2600)
+    return () => clearInterval(t)
+  }, [steps.length])
 
-function FloatingIcon({ icon: Icon, top, left, delay = 0, size = 40, color = '#7c3aed' }) {
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay, duration: 0.5 }}
+      initial={{ opacity: 0, y: 40 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.7, delay: 0.7 }}
       style={{
-        position: 'absolute', top, left,
-        width: size, height: size, borderRadius: 12,
-        background: `${color}18`, border: `1px solid ${color}30`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}
-    >
-      <motion.div
-        animate={{ y: [0, -8, 0] }}
-        transition={{ duration: 3 + delay, repeat: Infinity, ease: 'easeInOut' }}
-      >
-        <Icon size={size * 0.5} color={color} />
-      </motion.div>
+        marginTop: 56, maxWidth: 680, width: '100%', margin: '56px auto 0', position: 'relative',
+        background: '#ffffff', border: '1px solid rgba(124,58,237,0.25)',
+        borderRadius: 16, overflow: 'hidden',
+        boxShadow: '0 30px 80px rgba(15,23,42,0.12), 0 0 60px rgba(124,58,237,0.08)',
+      }}>
+      {/* browser chrome */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: '1px solid rgba(124,58,237,0.12)' }}>
+        <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#ef4444' }} />
+        <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#d97706' }} />
+        <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#16a34a' }} />
+        <div style={{
+          marginLeft: 10, flex: 1, display: 'flex', alignItems: 'center', gap: 6,
+          background: 'rgba(124,58,237,0.08)', borderRadius: 8, padding: '5px 12px',
+          fontSize: 12, color: '#475569', fontFamily: 'var(--font-mono)',
+        }}>
+          <Check size={12} color="#16a34a" />
+          {activeStep === 0 ? 'astrovakra.example.com' : activeStep === 1 ? 'www.astrovakra.com' : 'book.astrovakra.com'}
+        </div>
+      </div>
+
+      {/* fake site content */}
+      <div style={{ padding: '22px 26px 26px', minHeight: 300 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22, flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--gradient-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Star size={16} color="#fff" />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>AstroVakra</div>
+              <div style={{ fontSize: 9, color: '#64748b' }}>Vedic Astrology · Since 1998</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 14, fontSize: 11, color: '#475569' }}>
+            <span>Home</span><span>Services</span><span>Book</span><span>Shop</span><span>Blog</span>
+          </div>
+        </div>
+
+        <AnimatePresenceStep activeStep={activeStep} />
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+          <div style={{ flex: 1, background: 'var(--gradient-primary)', borderRadius: 8, padding: '8px 0', fontSize: 11, fontWeight: 700, color: '#fff', textAlign: 'center' }}>Book Consultation</div>
+          <div style={{ flex: 1, border: '1px solid rgba(124,58,237,0.3)', borderRadius: 8, padding: '8px 0', fontSize: 11, fontWeight: 600, color: '#1e293b', textAlign: 'center' }}>Free Kundli</div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+          {[CalendarCheck, MessageCircle, Camera, ShoppingCart, Search].map((Icon, i) => (
+            <motion.div key={i}
+              animate={{ opacity: [0.35, 1, 0.35] }}
+              transition={{ duration: 2.4, repeat: Infinity, delay: i * 0.3 }}
+              style={{
+                flex: 1, border: '1px solid rgba(124,58,237,0.2)', borderRadius: 8,
+                padding: '7px 0', display: 'flex', justifyContent: 'center', background: 'rgba(124,58,237,0.05)',
+              }}>
+              <Icon size={14} color="#4f46e5" />
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* step labels */}
+      <div style={{
+        position: 'absolute', bottom: -14, left: '50%', transform: 'translateX(-50%)',
+        display: 'flex', gap: 4, background: '#ffffff', border: '1px solid rgba(124,58,237,0.25)',
+        borderRadius: 20, padding: '4px 6px',
+      }}>
+        {steps.map((_, i) => (
+          <div key={i} style={{
+            width: i === activeStep ? 22 : 8, height: 8, borderRadius: 4,
+            background: i === activeStep ? '#4f46e5' : 'rgba(124,58,237,0.3)',
+            transition: 'all 0.4s ease',
+          }} />
+        ))}
+      </div>
     </motion.div>
   )
 }
 
-const EXCHANGE_RATE = 83
+function AnimatePresenceStep({ activeStep }) {
+  const contents = [
+    {
+      title: 'Pandit Rajesh Vakra',
+      subtitle: 'Vedic Astrologer · 25,000+ consultations',
+      body: 'Get your complete Vedic kundli, career & marriage guidance, dosha remedies — online and in person.',
+      badge: 'Your website is live in minutes',
+    },
+    {
+      title: 'www.astrovakra.com',
+      subtitle: 'Your own domain, your own brand',
+      body: 'Connect any domain you own in one click. Free SSL, automatic HTTPS, lightning-fast global hosting.',
+      badge: 'Your domain — live',
+    },
+    {
+      title: 'Your complete business',
+      subtitle: 'Bookings · Payments · WhatsApp · Social',
+      body: 'Appointments with reminders, online payments, WhatsApp alerts, Instagram posts, products store — all in one dashboard.',
+      badge: 'Everything managed for you',
+    },
+  ]
+  const c = contents[activeStep]
+  return (
+    <motion.div
+      key={activeStep}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 16,
+        background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)',
+        fontSize: 10, fontWeight: 700, color: '#16a34a', marginBottom: 14,
+      }}>
+        <BadgeCheck size={12} /> {c.badge}
+      </div>
+      <h3 style={{ fontSize: 24, fontWeight: 900, color: '#0f172a', marginBottom: 4, letterSpacing: '-0.5px' }}>{c.title}</h3>
+      <p style={{ fontSize: 12, color: '#4f46e5', fontWeight: 600, marginBottom: 10 }}>{c.subtitle}</p>
+      <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.7, maxWidth: 440 }}>{c.body}</p>
+    </motion.div>
+  )
+}
+
+/* ── Phone mockup showing the booking + WhatsApp flow ── */
+function PhoneMockup({ floating = false }) {
+  return (
+    <div style={{
+      width: '100%', maxWidth: 250, borderRadius: 28, border: '1px solid rgba(124,58,237,0.3)',
+      background: 'linear-gradient(180deg, #ffffff, #f8fafc)',
+      padding: 12, boxShadow: '0 24px 60px rgba(15,23,42,0.12)',
+      position: floating ? 'absolute' : 'relative',
+      right: floating ? 0 : undefined, bottom: floating ? 24 : undefined,
+      zIndex: floating ? 2 : undefined,
+    }}>
+      <div style={{ background: '#ffffff', borderRadius: 18, overflow: 'hidden', border: '1px solid rgba(124,58,237,0.15)' }}>
+        {/* notch */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '6px 0' }}>
+          <div style={{ width: 60, height: 4, borderRadius: 4, background: 'rgba(124,58,237,0.4)' }} />
+        </div>
+        <div style={{ padding: '4px 12px 14px' }}>
+          <div style={{ fontSize: 10, color: '#64748b', marginBottom: 8 }}>Today · 3 slots left</div>
+          {[['Mon', '09:00 AM', true], ['Mon', '11:30 AM', false], ['Mon', '04:00 PM', true]].map(([d, t, free], i) => (
+            <div key={i} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              border: `1px solid ${free ? 'rgba(34,197,94,0.25)' : 'rgba(124,58,237,0.15)'}`,
+              borderRadius: 10, padding: '7px 10px', marginBottom: 6,
+              background: free ? 'rgba(34,197,94,0.06)' : 'transparent',
+            }}>
+              <span style={{ fontSize: 11, color: '#334155' }}>{t}</span>
+              <span style={{ fontSize: 9, fontWeight: 700, color: free ? '#16a34a' : '#64748b' }}>
+                {free ? 'Book' : 'Full'}
+              </span>
+            </div>
+          ))}
+          <div style={{
+            marginTop: 8, background: 'var(--gradient-primary)', borderRadius: 10,
+            padding: '8px 0', textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#fff',
+          }}>Confirm · ₹499</div>
+          <div style={{
+            marginTop: 10, display: 'flex', alignItems: 'center', gap: 6,
+            background: 'rgba(37,211,102,0.1)', border: '1px solid rgba(37,211,102,0.3)',
+            borderRadius: 10, padding: '7px 10px',
+          }}>
+            <MessageCircle size={13} color="#25D366" />
+            <div>
+              <div style={{ fontSize: 9, color: '#25D366', fontWeight: 700 }}>WhatsApp reminder sent</div>
+              <div style={{ fontSize: 8, color: '#475569' }}>Your slot is confirmed for Mon 09:00</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function Landing() {
   const { scrollYProgress } = useScroll()
   const heroY = useTransform(scrollYProgress, [0, 0.3], [0, -80])
-  const [currency, setCurrency] = useState('usd')
+  const [openFaq, setOpenFaq] = useState(null)
   const { config } = useConfig()
 
   return (
@@ -230,7 +259,6 @@ export default function Landing() {
         padding: '140px 24px 100px', position: 'relative',
       }}>
         <GlowOrb />
-        <GridDots />
 
         <motion.div style={{ y: heroY, maxWidth: 900, position: 'relative', zIndex: 1 }}>
           <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
@@ -239,65 +267,44 @@ export default function Landing() {
               display: 'inline-flex', alignItems: 'center', gap: 8,
               padding: '8px 18px', borderRadius: 24,
               background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.25)',
-              marginBottom: 32, fontSize: 13, color: '#a78bfa', fontWeight: 600,
+              marginBottom: 32, fontSize: 13, color: '#4f46e5', fontWeight: 600,
             }}>
-            <Zap size={14} /> 180+ Endpoints {'\u00B7'} AI-Powered {'\u00B7'} Sidereal Engine
+            <Wand2 size={14} /> No coding · No designers · No agencies
           </motion.div>
 
           <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.3 }}
             style={{
-              fontSize: 'clamp(40px, 7vw, 80px)', fontWeight: 900,
-              lineHeight: 1.05, marginBottom: 28, letterSpacing: '-1.5px',
+              fontSize: 'clamp(38px, 6.5vw, 72px)', fontWeight: 900,
+              lineHeight: 1.08, marginBottom: 24, letterSpacing: '-1.5px',
+              color: '#0f172a',
             }}>
-            <span style={{ color: '#ffffff' }}>{config.homepage_hero_title || 'Astro'}</span>
-            <span style={{ color: '#eab308' }}>{config.homepage_hero_subtitle || 'Vakta'}</span>
-            <motion.span
-              initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.45 }}
-              style={{
-                display: 'block', color: '#64748b', fontSize: 15,
-                fontWeight: 500, letterSpacing: 0, marginTop: 10,
-              }}
-            >{config.site_tagline || 'for developers'}</motion.span>
+            Your Complete Astrology Business,
+            <span className="gradient-text" style={{ display: 'block' }}>Live in a Few Clicks</span>
           </motion.h1>
 
-          <motion.h2 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+          <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.5 }}
             style={{
-              fontSize: 'clamp(18px, 2.5vw, 28px)', fontWeight: 600,
-              color: '#94a3b8', marginBottom: 16, lineHeight: 1.4,
+              fontSize: 'clamp(16px, 2vw, 20px)', color: '#475569',
+              maxWidth: 660, margin: '0 auto 44px', lineHeight: 1.75,
             }}>
-            The {config.homepage_tagline || 'Vedic Astrology API for Modern Developers'}
-          </motion.h2>
-
-          <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.55 }}
-            style={{
-              fontSize: 'clamp(15px, 1.8vw, 18px)', color: '#94a3b8',
-              maxWidth: 640, margin: '0 auto 44px', lineHeight: 1.75,
-            }}>
-            {config.homepage_description || 'Birth charts, horoscopes, doshas, compatibility, panchang, divisional charts, PDF reports, and AI interpretations \u2014 a complete sidereal astrology engine behind a single REST API.'}
+            AstroVakta gives every astrologer a beautiful branded website with your own domain —
+            plus appointment booking, WhatsApp alerts, online payments, social media management,
+            an online store, and complete SEO. <strong style={{ color: '#1e293b' }}>Built for astrologers, not programmers.</strong>
           </motion.p>
 
           <motion.div id="start-free" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.7 }}
             style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <SignedOut>
-              <SignUpButton mode="modal">
-                <button className="btn-primary" style={{ padding: '16px 40px', fontSize: 16 }}>
-                  <Rocket size={18} /> Try for Free
-                </button>
-              </SignUpButton>
-            </SignedOut>
-            <Link to="/docs">
-              <button className="btn-secondary" style={{ padding: '16px 40px', fontSize: 16 }}>
-                <BookOpen size={18} /> API Docs
+            <Link to="/mysite">
+              <button className="btn-primary" style={{ padding: '16px 40px', fontSize: 16 }}>
+                <Sparkles size={18} /> Create Your Website — Free
               </button>
             </Link>
-            <Link to="/sandbox">
+            <Link to="/pricing">
               <button className="btn-secondary" style={{ padding: '16px 40px', fontSize: 16 }}>
-                <Play size={18} /> Try Sandbox
+                See Plans <ArrowRight size={18} />
               </button>
             </Link>
           </motion.div>
@@ -305,10 +312,10 @@ export default function Landing() {
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             transition={{ delay: 0.9 }}
             style={{ color: '#64748b', fontSize: 13, marginTop: 16 }}>
-            No credit card required · 500 API calls per month free
+            Free subdomain included · Connect your own domain anytime · No credit card required
           </motion.p>
 
-          <TypingTerminal />
+          <WebsiteMockup />
         </motion.div>
       </section>
 
@@ -316,11 +323,11 @@ export default function Landing() {
       <section style={{ padding: '48px 24px', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 32, maxWidth: 1000, margin: '0 auto' }}>
           {[
-            { v: 180, s: '+', l: 'API Endpoints' },
-            { v: 16, s: '', l: 'Vedic Chart Types' },
-            { v: 8, s: '', l: 'Divisional Charts' },
-            { v: 4, s: '', l: 'AI Providers' },
-            { v: 99, s: '.9%', l: 'Uptime SLA' },
+            { v: 216, s: '+', l: 'Astrology Calculations' },
+            { v: 9, s: '', l: 'Indian Languages' },
+            { v: 30, s: 's', l: 'Website Setup Time' },
+            { v: 100, s: '%', l: 'Mobile Responsive' },
+            { v: 24, s: '/7', l: 'Hosting & Security' },
           ].map((s) => (
             <FadeIn key={s.l}>
               <div style={{ textAlign: 'center' }}>
@@ -334,28 +341,77 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ═══════════ FEATURES ═══════════ */}
+      {/* ═══════════ THE PROBLEM ═══════════ */}
+      <section className="section" style={{ background: 'var(--bg-secondary)' }}>
+        <FadeIn>
+          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>The Old Way</p>
+          <h2 className="section-title">Building Your Online Presence <span className="gradient-text">Shouldn't Be This Hard</span></h2>
+        </FadeIn>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, maxWidth: 1000, margin: '0 auto' }}>
+          <FadeIn>
+            <div style={{
+              background: 'var(--bg-card)', border: '1px solid rgba(239,68,68,0.2)',
+              borderRadius: 'var(--radius-lg)', padding: 28, height: '100%',
+            }}>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: '#dc2626', marginBottom: 20 }}>❌ The DIY / Agency Route</h3>
+              {[
+                'Hire a web agency: ₹30,000–₹2,00,000 + weeks of back-and-forth',
+                'A developer for the booking system: another ₹50,000+',
+                'Separate tools for WhatsApp, Instagram, payments, SEO — all stitched together',
+                'Every small change needs another call, another invoice',
+                'Hosting, SSL, backups, speed — your problem forever',
+              ].map((item) => (
+                <div key={item} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 0', fontSize: 14, color: '#475569', lineHeight: 1.6 }}>
+                  <span style={{ color: '#ef4444', fontWeight: 700, flexShrink: 0 }}>✗</span> {item}
+                </div>
+              ))}
+            </div>
+          </FadeIn>
+          <FadeIn delay={0.12}>
+            <div style={{
+              background: 'var(--bg-card)', border: '1px solid rgba(34,197,94,0.25)',
+              borderRadius: 'var(--radius-lg)', padding: 28, height: '100%',
+              boxShadow: '0 0 40px rgba(34,197,94,0.06)',
+            }}>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: '#4ade80', marginBottom: 20 }}>✓ The AstroVakta Way</h3>
+              {[
+                'Sign up, pick a template, add your name & photo — site is live in ~30 seconds',
+                'Booking, payments, WhatsApp, store, SEO: built in from day one',
+                'Connect your own domain in one click — free SSL included',
+                'Change anything yourself: text, colors, services, prices — no developer',
+                'Hosting, security, speed, backups: all handled for you',
+              ].map((item) => (
+                <div key={item} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 0', fontSize: 14, color: '#334155', lineHeight: 1.6 }}>
+                  <Check size={16} color="#16a34a" style={{ flexShrink: 0, marginTop: 3 }} /> {item}
+                </div>
+              ))}
+            </div>
+          </FadeIn>
+        </div>
+      </section>
+
+      {/* ═══════════ EVERYTHING YOU GET ═══════════ */}
       <section className="section" id="features">
         <FadeIn>
-          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>Features</p>
-          <h2 className="section-title">Everything You Need to <span className="gradient-text">Build</span></h2>
-          <p className="section-subtitle">From birth charts to AI-powered insights, our API covers every aspect of Vedic astrology.</p>
+          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>Everything You Get</p>
+          <h2 className="section-title">A Complete Business, <span className="gradient-text">Not Just a Website</span></h2>
+          <p className="section-subtitle">
+            Everything an astrology practice needs online — one platform, one dashboard, one bill.
+          </p>
         </FadeIn>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
           {[
-            { icon: Compass, title: 'Birth Charts (Kundli)', desc: 'Generate accurate D1 Rasi charts with all 9 Vedic planets, house placements, dignities, nakshatras, and combustion status.', color: '#7c3aed' },
-            { icon: Layers, title: 'Divisional Charts (Vargas)', desc: 'D1 through D60 divisional charts \u2014 Navamsa, Hora, Drekkana, Dashamamsa and more for fine-grained life-area analysis.', color: '#6366f1' },
-            { icon: Moon, title: 'Daily Horoscopes', desc: 'Daily, weekly, monthly & yearly horoscopes generated from real-time transits over the natal chart.', color: '#3b82f6' },
-            { icon: Heart, title: 'Compatibility (Milan)', desc: 'Ashtakoot gun milan, Nadi dosha, Bhakoot dosha, and Gana matching for matrimonial analysis.', color: '#ec4899' },
-            { icon: Shield, title: 'Dosha Analysis', desc: 'Mangal, Kaal Sarp, Sade Sati, Pitra, Shani doshas with severity ratings and personalized remedies.', color: '#ef4444' },
-            { icon: Brain, title: 'AI Interpretations', desc: 'Bring your own OpenAI, Claude, Groq, or Together key. AI reads your chart context and gives natural-language predictions.', color: '#8b5cf6' },
-            { icon: Clock, title: 'Panchang & Muhurat', desc: 'Full Panchang \u2014 Tithi, Nakshatra, Yoga, Karana, Vara \u2014 plus auspicious muhurat windows for events.', color: '#f59e0b' },
-            { icon: Gem, title: 'Gemstone & Rudraksha', desc: 'Personalized gemstone and rudraksha recommendations based on ascendant lord, afflictions, and yoga positions.', color: '#10b981' },
-            { icon: FileText, title: 'PDF Report Generation', desc: 'Branded 22-section PDF reports with cover page, charts, predictions, remedies, and downloadable output.', color: '#06b6d4' },
-            { icon: Terminal, title: 'Developer Sandbox', desc: 'Interactive API playground in the browser \u2014 try every endpoint with your API key before writing a single line of code.', color: '#64748b' },
-            { icon: Lock, title: 'API Key Auth & Tiers', desc: 'AES-encrypted key storage, rate limiting by tier (Free / Starter / Pro / Enterprise), and usage analytics.', color: '#a78bfa' },
-            { icon: Bot, title: 'Multi-Provider AI', desc: 'OpenAI, Anthropic, Groq, Together \u2014 configure multiple providers, test connectivity, and switch seamlessly.', color: '#f472b6' },
+            { icon: Globe, title: 'Branded Website + Your Own Domain', desc: 'A gorgeous mobile-first website with your name, photo, services and testimonials. Start on a free subdomain, connect your own domain in one click — free SSL and HTTPS included.', color: '#7c3aed' },
+            { icon: CalendarCheck, title: 'Appointment Booking', desc: 'Your clients see real-time availability and book consultations in 60 seconds. Automatic confirmations, reminders before every appointment, and rescheduling without phone tag.', color: '#2563eb' },
+            { icon: MessageCircle, title: 'WhatsApp Alerts', desc: 'Every booking, payment and reminder automatically reaches your clients on WhatsApp — the channel Indians actually read. No-shows drop dramatically.', color: '#16a34a' },
+            { icon: Search, title: 'Complete SEO, Done For You', desc: 'Google-optimized pages out of the box: meta tags, sitemap, fast loading, structured data. Clients searching "astrologer near me" or "kundli online" find you.', color: '#d97706' },
+            { icon: ShoppingCart, title: 'Online Store (Ecommerce)', desc: 'Sell gemstones, rudraksha, puja items and reports online with built-in payments and inventory. Your products, your prices, your margins.', color: '#db2777' },
+            { icon: Camera, title: 'Instagram & Social Management', desc: 'Auto-publish daily horoscopes, festival posts and reels to Instagram and other social networks — a steady content calendar that grows your following.', color: '#7c3aed' },
+            { icon: Sparkles, title: 'Free Kundli & Astrology Tools', desc: 'Give visitors free kundli, matching, panchang and daily horoscope tools powered by our 216+ endpoint engine. Free tools = more traffic, more leads.', color: '#06b6d4' },
+            { icon: Store, title: 'Payments & Orders', desc: 'Accept UPI, cards and netbanking for consultations, reports and products. Track every order, invoice and payment in one place.', color: '#10b981' },
+            { icon: BarChart3, title: 'Client & Business Dashboard', desc: 'See appointments, revenue, top services and website visitors at a glance. Understand your business like never before.', color: '#4f46e5' },
           ].map((f, i) => (
             <FadeIn key={f.title} delay={i * 0.05}>
               <div className="card-glow" style={{
@@ -370,368 +426,7 @@ export default function Landing() {
                   <f.icon size={22} color={f.color} />
                 </div>
                 <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{f.title}</h3>
-                <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.7 }}>{f.desc}</p>
-              </div>
-            </FadeIn>
-          ))}
-        </div>
-      </section>
-
-      {/* ═══════════ ANIMATED SHOWCASE ═══════════ */}
-      <section className="section" style={{ background: 'var(--bg-secondary)' }}>
-        <FadeIn>
-          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>What We Offer</p>
-          <h2 className="section-title">See <span className="gradient-text">AstroVakta</span> in Action</h2>
-          <p className="section-subtitle">A visual tour of what you can build with our API.</p>
-        </FadeIn>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 24 }}>
-          {[
-            {
-              title: 'Birth Chart Visualization',
-              desc: 'Generate beautiful North Indian, South Indian, and East Indian style charts. Full D1-D60 divisional chart support with SVG output.',
-              color: '#7c3aed',
-              items: ['North Indian Diamond', 'South Indian Grid', 'East Indian Style', 'Moon Chart', 'Navamsa D9', 'Sudarshana Chakra'],
-            },
-            {
-              title: 'Horoscope & Predictions',
-              desc: 'Daily, weekly, monthly, and yearly horoscopes. Transit analysis, dasha predictions, and personalized AI readings.',
-              color: '#3b82f6',
-              items: ['Daily Horoscope', 'Weekly Forecast', 'Yearly Predictions', 'Vimshottari Dasha', 'Transit Analysis', 'AI Chat'],
-            },
-            {
-              title: 'Compatibility & Analysis',
-              desc: 'Ashtakoot Guna Milan, dosha detection, yoga analysis, and gemstone recommendations with detailed reports.',
-              color: '#ec4899',
-              items: ['Guna Milan', 'Mangal Dosha', 'Kaal Sarp Dosha', 'Sade Sati', 'Gemstone Advisor', 'Rudraksha Guide'],
-            },
-          ].map((showcase, i) => (
-            <FadeIn key={showcase.title} delay={i * 0.12}>
-              <motion.div
-                whileHover={{ y: -6 }}
-                transition={{ type: 'spring', stiffness: 200 }}
-                className="card-glow"
-                style={{
-                  background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-                  borderRadius: 'var(--radius-lg)', padding: 28, height: '100%',
-                }}>
-                <div style={{
-                  width: 48, height: 48, borderRadius: 14,
-                  background: `${showcase.color}18`, display: 'flex',
-                  alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-                }}>
-                  <Star size={24} color={showcase.color} />
-                </div>
-                <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 10 }}>{showcase.title}</h3>
-                <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>{showcase.desc}</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {showcase.items.map((item) => (
-                    <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#cbd5e1' }}>
-                      <Check size={14} color="#22c55e" />
-                      {item}
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            </FadeIn>
-          ))}
-        </div>
-      </section>
-
-      {/* ═══════════ PRICING ═══════════ */}
-      <section className="section" id="api-pricing">
-        <FadeIn>
-          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>API Pricing</p>
-          <h2 className="section-title">Start <span className="gradient-text">Free</span>, Scale When Ready</h2>
-          <p className="section-subtitle">No credit card required. Upgrade when you need more.</p>
-        </FadeIn>
-
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center',
-            background: 'var(--bg-card)', borderRadius: 12,
-            border: '1px solid var(--border-color)', padding: 4,
-          }}>
-            <button
-              onClick={() => setCurrency('inr')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '10px 20px', borderRadius: 10,
-                border: 'none', background: currency === 'inr' ? 'var(--gradient-primary)' : 'transparent',
-                color: currency === 'inr' ? '#fff' : '#94a3b8',
-                fontWeight: 600, fontSize: 14, cursor: 'pointer',
-              }}>
-              <IndianRupee size={16} /> INR
-            </button>
-            <button
-              onClick={() => setCurrency('usd')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '10px 20px', borderRadius: 10,
-                border: 'none', background: currency === 'usd' ? 'var(--gradient-primary)' : 'transparent',
-                color: currency === 'usd' ? '#fff' : '#94a3b8',
-                fontWeight: 600, fontSize: 14, cursor: 'pointer',
-              }}>
-              <DollarSign size={16} /> USD
-            </button>
-          </div>
-        </div>
-
-        <div className="scrollable-row" style={{ maxWidth: 1100, margin: '0 auto' }}>
-          {[
-            {
-              name: 'Free', usdPrice: 0, inrPrice: 0,
-              limit: '500 calls/month',
-              color: '#64748b',
-              features: ['All 180+ endpoints', 'Birth charts & predictions', 'Divisional charts', 'AI chat (BYO key)', 'Community support'],
-              cta: 'Get Started Free',
-              highlight: false,
-            },
-            {
-              name: 'Starter', usdPrice: 29, inrPrice: 1499,
-              limit: '5,000 calls/month',
-              color: '#3b82f6',
-              features: ['Everything in Free', 'PDF report generation', 'Email support', 'Usage analytics', '1 API key'],
-              cta: 'Start Free Trial',
-              highlight: false,
-            },
-            {
-              name: 'Pro', usdPrice: 99, inrPrice: 4999,
-              limit: '50,000 calls/month',
-              color: '#7c3aed',
-              features: ['Everything in Starter', 'Priority support', '99.9% SLA', '10 API keys', 'Custom rate limits'],
-              cta: 'Start Free Trial',
-              highlight: true,
-            },
-            {
-              name: 'Enterprise', usdPrice: null, inrPrice: null,
-              limit: 'Unlimited calls',
-              color: '#f59e0b',
-              features: ['Everything in Pro', 'Dedicated infrastructure', 'Custom SLA', 'Phone support', 'On-premise deployment', 'Unlimited API keys'],
-              cta: 'Contact Sales',
-              highlight: false,
-            },
-          ].map((p, i) => (
-            <FadeIn key={p.name} delay={i * 0.1}>
-              <div style={{
-                background: 'var(--bg-card)',
-                border: `1px solid ${p.highlight ? 'var(--accent-purple)' : 'var(--border-color)'}`,
-                borderRadius: 'var(--radius-lg)', padding: 32, height: '100%',
-                position: 'relative', overflow: 'hidden',
-                boxShadow: p.highlight ? '0 0 60px rgba(124,58,237,0.12)' : 'none',
-                minHeight: 440,
-              }}>
-                {p.highlight && (
-                  <div style={{
-                    position: 'absolute', top: 16, right: -28,
-                    background: 'var(--gradient-primary)', color: '#fff',
-                    fontSize: 10, fontWeight: 700, padding: '4px 36px',
-                    transform: 'rotate(45deg)', textTransform: 'uppercase', letterSpacing: 1,
-                  }}>Popular</div>
-                )}
-                <div style={{ fontSize: 13, fontWeight: 700, color: p.color, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 16 }}>{p.name}</div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 8 }}>
-                  <span style={{ fontSize: 44, fontWeight: 900 }}>
-                    {p.usdPrice !== null
-                      ? (currency === 'usd' ? `$${p.usdPrice}` : `₹${p.inrPrice}`)
-                      : 'Custom'}
-                  </span>
-                  {p.usdPrice !== null && <span style={{ color: '#64748b', fontSize: 15 }}>/month</span>}
-                </div>
-                <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 24 }}>{p.limit}</p>
-                {p.cta === 'Contact Sales' ? (
-                  <a href="https://wa.me/916239402519?text=Hi%20AstroVakta%2C%20I%20am%20interested%20in%20the%20Enterprise%20plan" target="_blank" rel="noopener noreferrer">
-                    <button style={{
-                      width: '100%', padding: '12px 0', borderRadius: 12,
-                      border: '1px solid var(--border-color)',
-                      background: 'transparent', color: '#e2e8f0',
-                      fontWeight: 600, fontSize: 14, cursor: 'pointer', marginBottom: 24,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    }}>
-                      <MessageCircle size={16} /> {p.cta}
-                    </button>
-                  </a>
-                ) : p.name === 'Free' ? (
-                  <SignedOut>
-                    <SignUpButton mode="modal">
-                      <button style={{
-                        width: '100%', padding: '12px 0', borderRadius: 12,
-                        border: p.highlight ? 'none' : '1px solid var(--border-color)',
-                        background: p.highlight ? 'var(--gradient-primary)' : 'transparent',
-                        color: p.highlight ? '#fff' : '#e2e8f0',
-                        fontWeight: 600, fontSize: 14, cursor: 'pointer', marginBottom: 24,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                      }}>
-                        {p.cta} <ArrowRight size={16} />
-                      </button>
-                    </SignUpButton>
-                  </SignedOut>
-                ) : (
-                  <Link to="/register">
-                    <button style={{
-                      width: '100%', padding: '12px 0', borderRadius: 12,
-                      border: p.highlight ? 'none' : '1px solid var(--border-color)',
-                      background: p.highlight ? 'var(--gradient-primary)' : 'transparent',
-                      color: p.highlight ? '#fff' : '#e2e8f0',
-                      fontWeight: 600, fontSize: 14, cursor: 'pointer', marginBottom: 24,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    }}>
-                      {p.cta} <ArrowRight size={16} />
-                    </button>
-                  </Link>
-                )}
-                {p.features.map((feat) => (
-                  <div key={feat} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', fontSize: 13, color: '#cbd5e1' }}>
-                    <Check size={15} color="#22c55e" style={{ flexShrink: 0 }} />
-                    {feat}
-                  </div>
-                ))}
-              </div>
-            </FadeIn>
-          ))}
-        </div>
-      </section>
-      {/* ═══════════ CUSTOM BRANDED WEBAPPS & MOBILE APPS ═══════════ */}
-      <section className="section" id="custom-websites">
-        <FadeIn>
-          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>Custom Development</p>
-          <h2 className="section-title">Your Branded <span className="gradient-text">Webapp & Mobile App</span></h2>
-          <p className="section-subtitle">We design, develop & deploy fully branded astrology web and mobile apps — powered by AstroVakta's complete API stack.</p>
-        </FadeIn>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, marginBottom: 48 }}>
-          {[
-            { icon: MonitorSmartphone, title: 'Responsive Web App', desc: 'Beautiful, mobile-first web applications optimized for all screen sizes. Stunning UI/UX tailored to your brand identity.' },
-            { icon: Smartphone, title: 'Native Mobile Apps', desc: 'iOS & Android apps built with React Native or Flutter. Push notifications, offline charts, and full API integration.' },
-            { icon: Palette, title: 'White-Label Branding', desc: 'Your logo, colors, domain & app store listing. 100% branded astrology platform under your name.' },
-            { icon: Server, title: 'Full API Integration', desc: 'All 180+ AstroVakta endpoints — birth charts, horoscopes, compatibility, doshas, AI, PDF reports.' },
-            { icon: ShoppingCart, title: 'Payment Gateway', desc: 'Integrated Stripe / Razorpay for consultation bookings, report sales, and subscription plans.' },
-            { icon: Users, title: 'Client Portal & Dashboard', desc: 'Client management, booking calendar, report history, and analytics dashboard for your customers.' },
-          ].map((f, i) => (
-            <FadeIn key={f.title} delay={i * 0.06}>
-              <motion.div whileHover={{ y: -4 }} className="card-glow"
-                style={{
-                  background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-                  borderRadius: 'var(--radius-lg)', padding: 24, height: '100%',
-                }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: 12,
-                  background: 'rgba(234,179,8,0.12)', display: 'flex',
-                  alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-                }}>
-                  <f.icon size={22} color="#eab308" />
-                </div>
-                <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 8 }}>{f.title}</h3>
-                <p style={{ color: '#94a3b8', fontSize: 13, lineHeight: 1.6 }}>{f.desc}</p>
-              </motion.div>
-            </FadeIn>
-          ))}
-        </div>
-
-        {/* Custom Webapp & Mobile App Pricing */}
-        <FadeIn>
-          <h3 style={{ textAlign: 'center', fontSize: 24, fontWeight: 700, marginBottom: 32 }}>
-            Custom Branded Webapps & Mobile Apps <span className="gradient-text">Packages</span>
-          </h3>
-        </FadeIn>
-
-        {/* Currency Toggle */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center',
-            background: 'var(--bg-card)', borderRadius: 12,
-            border: '1px solid var(--border-color)', padding: 4,
-          }}>
-            <button
-              onClick={() => setCurrency('inr')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '10px 20px', borderRadius: 10,
-                border: 'none', background: currency === 'inr' ? 'var(--gradient-primary)' : 'transparent',
-                color: currency === 'inr' ? '#fff' : '#94a3b8',
-                fontWeight: 600, fontSize: 14, cursor: 'pointer',
-              }}>
-              <IndianRupee size={16} /> INR
-            </button>
-            <button
-              onClick={() => setCurrency('usd')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '10px 20px', borderRadius: 10,
-                border: 'none', background: currency === 'usd' ? 'var(--gradient-primary)' : 'transparent',
-                color: currency === 'usd' ? '#fff' : '#94a3b8',
-                fontWeight: 600, fontSize: 14, cursor: 'pointer',
-              }}>
-              <DollarSign size={16} /> USD
-            </button>
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, maxWidth: 960, margin: '0 auto' }}>
-          {[
-            {
-              name: 'Starter', color: '#64748b',
-              usd: 36, inr: 2999,
-              features: ['5-Page Custom Web App', 'Mobile Responsive Design', 'Basic API Integration (Birth Charts, Horoscopes)', 'Contact Form + WhatsApp Chat', '1 Month Maintenance Support', 'Branded with Your Logo'],
-            },
-            {
-              name: 'Professional', color: '#7c3aed',
-              usd: 72, inr: 5999,
-              features: ['10-Page Custom Web App', 'iOS + Android App (PWA)', 'Full API Integration (All 180+ Endpoints)', 'Payment Gateway (Stripe / Razorpay)', 'Client Login & Dashboard', 'PDF Report System', 'SEO Optimization', '3 Months Support'],
-              highlight: true,
-            },
-            {
-              name: 'Enterprise', color: '#eab308',
-              usd: 120, inr: 9999,
-              features: ['Unlimited Pages Custom Web App', 'Native iOS & Android Apps', 'Full API Stack + Custom Endpoints', 'Multi-Payment Gateway', 'Advanced Admin Dashboard', 'Client Management Portal', 'Push Notifications System', '12 Months Premium Support', 'Priority Feature Updates'],
-            },
-          ].map((p, i) => (
-            <FadeIn key={p.name} delay={i * 0.1}>
-              <div style={{
-                background: 'var(--bg-card)',
-                border: `1px solid ${p.highlight ? 'var(--accent-purple)' : 'var(--border-color)'}`,
-                borderRadius: 'var(--radius-lg)', padding: 32, height: '100%',
-                position: 'relative', overflow: 'hidden',
-                boxShadow: p.highlight ? '0 0 60px rgba(124,58,237,0.12)' : 'none',
-              }}>
-                {p.highlight && (
-                  <div style={{
-                    position: 'absolute', top: 16, right: -28,
-                    background: 'var(--gradient-primary)', color: '#fff',
-                    fontSize: 10, fontWeight: 700, padding: '4px 36px',
-                    transform: 'rotate(45deg)', textTransform: 'uppercase', letterSpacing: 1,
-                  }}>Popular</div>
-                )}
-                <div style={{ fontSize: 13, fontWeight: 700, color: p.color, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 16 }}>{p.name}</div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 24 }}>
-                  <span style={{ fontSize: 40, fontWeight: 900 }}>
-                    {currency === 'usd' ? `$${p.usd.toLocaleString()}` : `₹${p.inr.toLocaleString()}`}
-                  </span>
-                  <span style={{ color: '#64748b', fontSize: 14 }}>/month</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28, flex: 1 }}>
-                  {p.features.map((f) => (
-                    <div key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 13, color: '#cbd5e1', lineHeight: 1.5 }}>
-                      <Check size={15} color="#22c55e" style={{ flexShrink: 0, marginTop: 2 }} />
-                      {f}
-                    </div>
-                  ))}
-                </div>
-                <a
-                  href="https://wa.me/916239402519?text=Hi%20AstroVakta%2C%20I%20am%20interested%20in%20the%20custom%20webapp%20or%20mobile%20app%20package"
-                  target="_blank" rel="noopener noreferrer"
-                >
-                  <button style={{
-                    width: '100%', padding: '14px 0', borderRadius: 12,
-                    border: p.highlight ? 'none' : '1px solid var(--border-color)',
-                    background: p.highlight ? 'var(--gradient-primary)' : 'transparent',
-                    color: p.highlight ? '#fff' : '#e2e8f0',
-                    fontWeight: 600, fontSize: 14, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  }}>
-                    <MessageCircle size={16} /> Discuss on WhatsApp
-                  </button>
-                </a>
+                <p style={{ color: '#475569', fontSize: 14, lineHeight: 1.7 }}>{f.desc}</p>
               </div>
             </FadeIn>
           ))}
@@ -739,18 +434,18 @@ export default function Landing() {
       </section>
 
       {/* ═══════════ HOW IT WORKS ═══════════ */}
-      <section className="section" style={{ background: 'var(--bg-secondary)' }}>
+      <section className="section" style={{ background: 'var(--bg-secondary)' }} id="how-it-works">
         <FadeIn>
           <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>How It Works</p>
-          <h2 className="section-title">Three Steps to <span className="gradient-text">Cosmic Data</span></h2>
-          <p className="section-subtitle">Get from zero to a working birth chart integration in under 5 minutes.</p>
+          <h2 className="section-title">Live in <span className="gradient-text">3 Simple Steps</span></h2>
+          <p className="section-subtitle">No coding. No designers. No waiting.</p>
         </FadeIn>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 32, maxWidth: 1000, margin: '0 auto' }}>
           {[
-            { n: '01', title: 'Sign Up & Get Key', desc: 'Create a free account. You instantly get an API key with 100 calls/month \u2014 no credit card.', icon: Key },
-            { n: '02', title: 'Call the API', desc: 'Send birth details (date, time, place) to any endpoint. Get charts, predictions, or AI readings in JSON.', icon: Terminal },
-            { n: '03', title: 'Build Your App', desc: 'Integrate into astrology apps, SaaS platforms, wellness products, or research tools. Ship fast.', icon: Rocket },
+            { n: '01', title: 'Sign Up & Pick Your Style', desc: 'Create your free account and choose from beautiful astrology templates. Add your name, photo, services and prices — a simple form, like filling a WhatsApp profile.', icon: Wand2 },
+            { n: '02', title: 'Your Site Goes Live Instantly', desc: 'You get a free subdomain (you.astrovakta.com) immediately. Add your domain — astrovakra.com — whenever you\'re ready with one click. SSL and hosting are on us.', icon: Globe2 },
+            { n: '03', title: 'Run Your Entire Business', desc: 'Accept bookings, get paid, chat on WhatsApp, publish to Instagram, sell products — all from one simple dashboard on your phone or laptop.', icon: TrendingUp },
           ].map((s, i) => (
             <FadeIn key={s.n} delay={i * 0.15}>
               <div style={{ textAlign: 'center', padding: '32px 20px' }}>
@@ -764,33 +459,132 @@ export default function Landing() {
                   background: 'rgba(124,58,237,0.12)', display: 'flex',
                   alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px',
                 }}>
-                  <s.icon size={26} color="#a78bfa" />
+                  <s.icon size={26} color="#4f46e5" />
                 </div>
                 <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 10 }}>{s.title}</h3>
-                <p style={{ color: '#94a3b8', fontSize: 15, lineHeight: 1.7 }}>{s.desc}</p>
+                <p style={{ color: '#475569', fontSize: 15, lineHeight: 1.7 }}>{s.desc}</p>
               </div>
             </FadeIn>
           ))}
         </div>
+
+        <FadeIn delay={0.2}>
+          <div style={{ textAlign: 'center', marginTop: 24 }}>
+            <Link to="/mysite">
+              <button className="btn-primary" style={{ padding: '14px 36px', fontSize: 15 }}>
+                <Zap size={18} /> Start Step 1 Now — Free
+              </button>
+            </Link>
+          </div>
+        </FadeIn>
       </section>
 
+      {/* ═══════════ BOOKING + WHATSAPP SHOWCASE ═══════════ */}
+      <section className="section">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 64, alignItems: 'center', maxWidth: 1000, margin: '0 auto' }}>
+          <FadeIn direction="right">
+            <p style={{ color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>Bookings & WhatsApp</p>
+            <h2 style={{ fontSize: 36, fontWeight: 800, marginBottom: 20, letterSpacing: '-0.5px', lineHeight: 1.15 }}>
+              Clients Book in Seconds.<br /><span className="gradient-text">You Never Miss One.</span>
+            </h2>
+            <p style={{ color: '#475569', fontSize: 16, lineHeight: 1.8, marginBottom: 28 }}>
+              Share one link — on Instagram, WhatsApp, or your visiting card. Your clients pick a slot,
+              pay online if you want, and everything else is automatic.
+            </p>
+            {[
+              'Real-time availability — no double bookings, ever',
+              'Instant WhatsApp confirmation when a slot is booked',
+              'Automatic reminders 24 hours and 1 hour before',
+              'Payments collected at booking — no-shows eliminated',
+              'Daily summary of tomorrow\'s appointments on WhatsApp',
+            ].map((item) => (
+              <div key={item} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '7px 0', fontSize: 15, color: '#334155' }}>
+                <Check size={17} color="#16a34a" style={{ flexShrink: 0 }} /> {item}
+              </div>
+            ))}
+          </FadeIn>
+          <FadeIn direction="left" delay={0.15}>
+            <div style={{ display: 'flex', justifyContent: 'center', position: 'relative', minHeight: 380 }}>
+              <PhoneMockup />
+            </div>
+          </FadeIn>
+        </div>
+      </section>
 
-      {/* ═══════════ API ENDPOINTS SHOWCASE ═══════════ */}
+      {/* ═══════════ SEO + SOCIAL SHOWCASE ═══════════ */}
       <section className="section" style={{ background: 'var(--bg-secondary)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 64, alignItems: 'center', maxWidth: 1000, margin: '0 auto' }}>
+          <FadeIn direction="right" delay={0.15}>
+            <div style={{ position: 'relative', minHeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {/* Google search result mock */}
+              <div style={{
+                width: '100%', maxWidth: 420, background: '#fff', borderRadius: 12,
+                padding: '20px 22px', fontFamily: 'Arial, sans-serif',
+                boxShadow: '0 24px 60px rgba(15,23,42,0.14)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'linear-gradient(135deg,#7c3aed,#db2777)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff', fontWeight: 700 }}>A</div>
+                  <div>
+                    <div style={{ fontSize: 13, color: '#202124' }}>AstroVakra</div>
+                    <div style={{ fontSize: 11, color: '#5f6368' }}>https://astrovakra.com</div>
+                  </div>
+                </div>
+                <div style={{ fontSize: 17, color: '#1a0dab', marginBottom: 4, fontWeight: 500 }}>Best Astrologer in Jaipur — Kundli, Match...</div>
+                <div style={{ fontSize: 12, color: '#4d5156', lineHeight: 1.6 }}>
+                  Pandit Rajesh Vakra — 25,000+ consultations. Online kundli, matching & consultation.
+                  Book on WhatsApp. ⭐ 4.9 (312 reviews)…
+                </div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+                  {['★ 4.9 rating', '300+ reviews', 'Accepts online booking'].map((b) => (
+                    <span key={b} style={{ fontSize: 9, background: '#f1f3f4', color: '#3c4043', borderRadius: 10, padding: '3px 8px', fontWeight: 600 }}>{b}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </FadeIn>
+          <FadeIn direction="left">
+            <p style={{ color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>SEO & Social Media</p>
+            <h2 style={{ fontSize: 36, fontWeight: 800, marginBottom: 20, letterSpacing: '-0.5px', lineHeight: 1.15 }}>
+              Get Found on Google.<br /><span className="gradient-text">Stay Famous on Instagram.</span>
+            </h2>
+            <p style={{ color: '#475569', fontSize: 16, lineHeight: 1.8, marginBottom: 28 }}>
+              When someone searches "astrologer in <em>your city</em>" or "online kundli", your website is
+              technically perfect for Google — automatically. Meanwhile your social feeds stay active
+              without you lifting a finger.
+            </p>
+            {[
+              { icon: Search, text: 'Google-optimized pages, sitemap, schema markup — all automatic' },
+              { icon: Megaphone, text: 'Auto-post daily horoscopes & festival greetings to Instagram' },
+              { icon: MonitorSmartphone, text: 'Perfect score on Google PageSpeed — site loads instantly' },
+              { icon: Globe, text: 'Built-in Hindi + 8 regional languages for wider reach' },
+            ].map((item) => (
+              <div key={item.text} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '8px 0', fontSize: 15, color: '#334155' }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(124,58,237,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <item.icon size={16} color="#4f46e5" />
+                </div>
+                {item.text}
+              </div>
+            ))}
+          </FadeIn>
+        </div>
+      </section>
+
+      {/* ═══════════ WHAT'S INSIDE YOUR WEBSITE ═══════════ */}
+      <section className="section">
         <FadeIn>
-          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>API Endpoints</p>
-          <h2 className="section-title">Powerful & <span className="gradient-text">Comprehensive</span></h2>
-          <p className="section-subtitle">Every aspect of Vedic astrology exposed through clean REST endpoints.</p>
+          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>Powered by AstroVakta</p>
+          <h2 className="section-title">Your Site Includes <span className="gradient-text">Every Astrology Tool</span></h2>
+          <p className="section-subtitle">
+            The same engine behind our 216+ endpoint professional API runs your website's tools — the most complete Vedic astrology platform in India.
+          </p>
         </FadeIn>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20, maxWidth: 1100, margin: '0 auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20, maxWidth: 1100, margin: '0 auto' }}>
           {[
-            { cat: 'Charts', items: ['Birth Chart', 'Navamsa (D9)', 'Hora (D2)', 'Sudarshana Chakra', 'Divisional D1-D60', 'Bhava Chalit', 'East / Grid / Moon'], color: '#7c3aed' },
-            { cat: 'Predictions', items: ['Daily Horoscope', 'Weekly / Monthly', 'Yearly Forecast', 'Transit Analysis', 'Business Prediction', 'Education Prediction'], color: '#3b82f6' },
-            { cat: 'Timing', items: ['Vimshottari Dasha', 'Chara Dasha', 'Yogini Dasha', 'Panchang', 'Muhurat', 'Varshaphal'], color: '#f59e0b' },
-            { cat: 'Analysis', items: ['Compatibility', 'Dosha Detection', 'Yoga Detection', 'Shadbala', 'Ashtakavarga', 'Numerology'], color: '#ec4899' },
-            { cat: 'AI & Reports', items: ['AI Chat', 'AI Interpretation', 'AI Horoscope Gen', 'PDF Reports', 'Gemstone Advisor', 'Career Analysis'], color: '#8b5cf6' },
-            { cat: 'Infrastructure', items: ['JWT Auth', 'API Key Management', 'Rate Limiting', 'Admin Panel', 'Job Queue', 'Usage Analytics'], color: '#10b981' },
+            { cat: 'Kundli & Charts', items: ['Full Kundli (Birth Chart)', 'North & South Indian styles', 'Divisional Charts (D1–D60)', 'Online PDF Kundli download'], color: '#7c3aed' },
+            { cat: 'Matching', items: ['Kundali Milan (Guna)', 'Mangal Dosha check', 'Nadi Dosha analysis', 'Marriage compatibility report'], color: '#db2777' },
+            { cat: 'Daily Content', items: ['Daily horoscope (raashi fal)', 'Panchang & festivals', 'Muhurat timings', 'Today\'s lucky color & number'], color: '#d97706' },
+            { cat: 'Advanced Tools', items: ['Vimshottari Dasha', 'Sade Sati calculator', 'Gemstone & Rudraksha advisor', 'Lal Kitab remedies'], color: '#06b6d4' },
           ].map((g, i) => (
             <FadeIn key={g.cat} delay={i * 0.06}>
               <div style={{
@@ -799,12 +593,55 @@ export default function Landing() {
               }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: g.color, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 14 }}>{g.cat}</div>
                 {g.items.map((item) => (
-                  <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 13, color: '#cbd5e1' }}>
+                  <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 13, color: '#334155' }}>
                     <ChevronRight size={13} color={g.color} style={{ flexShrink: 0 }} />
                     {item}
                   </div>
                 ))}
               </div>
+            </FadeIn>
+          ))}
+        </div>
+
+        <FadeIn delay={0.15}>
+          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 14, marginTop: 32 }}>
+            Want the raw API behind these tools instead?{' '}
+            <Link to="/developer" style={{ color: '#4f46e5', fontWeight: 600 }}>
+              Visit our developer portal <ArrowRight size={13} style={{ display: 'inline', verticalAlign: 'middle' }} />
+            </Link>
+          </p>
+        </FadeIn>
+      </section>
+
+      {/* ═══════════ FOR EVERY KIND OF ASTROLOGER ═══════════ */}
+      <section className="section" style={{ background: 'var(--bg-secondary)' }}>
+        <FadeIn>
+          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>Built For You</p>
+          <h2 className="section-title">For Every Kind of <span className="gradient-text">Astrology Practice</span></h2>
+        </FadeIn>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 24, maxWidth: 1100, margin: '0 auto' }}>
+          {[
+            { icon: Star, title: 'Independent Astrologers', desc: 'Take your practice online without depending on marketplaces that take 40–60% commission. Your clients, your brand, your pricing.', color: '#7c3aed' },
+            { icon: Users, title: 'Astrology Centers', desc: 'Multiple astrologers, one branded website. Manage everyone\'s calendars, services and payouts from a single dashboard.', color: '#2563eb' },
+            { icon: Store, title: 'Gemstone & Puja Sellers', desc: 'Sell online with a full ecommerce store — catalog, cart, payments, orders — plus astrology content that attracts buyers.', color: '#db2777' },
+            { icon: TrendingUp, title: 'Content Creators', desc: 'Growing on Instagram or YouTube? Convert followers into paying clients with a professional booking site.', color: '#10b981' },
+          ].map((u, i) => (
+            <FadeIn key={u.title} delay={i * 0.08}>
+              <motion.div whileHover={{ y: -4 }} className="card-glow" style={{
+                background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-lg)', padding: 28, height: '100%',
+              }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: 14,
+                  background: `${u.color}18`, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+                }}>
+                  <u.icon size={24} color={u.color} />
+                </div>
+                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{u.title}</h3>
+                <p style={{ color: '#475569', fontSize: 14, lineHeight: 1.7 }}>{u.desc}</p>
+              </motion.div>
             </FadeIn>
           ))}
         </div>
@@ -814,26 +651,33 @@ export default function Landing() {
       <section className="section">
         <FadeIn>
           <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>Testimonials</p>
-          <h2 className="section-title">Loved by <span className="gradient-text">Developers</span></h2>
+          <h2 className="section-title">Astrologers <span className="gradient-text">Love AstroVakta</span></h2>
         </FadeIn>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, maxWidth: 1000, margin: '48px auto 0' }}>
           {[
-            { quote: "AstroVakta replaced three separate APIs we were stitching together. The divisional charts alone saved us months of development.", name: 'Priya S.', role: 'CTO, ZodiacApp' },
-            { quote: "The BYO AI provider feature is genius. We use Claude for detailed readings and Groq for quick summaries \u2014 all through one API.", name: 'Arjun M.', role: 'Founder, JyotishAI' },
-            { quote: "Most astrology APIs give you raw data. AstroVakta gives you charts, predictions, AND PDF reports. It's a complete platform.", name: 'Sarah K.', role: 'Lead Dev, CosmicTech' },
+            { quote: "I used to pay an agency ₹8,000 every time I wanted to change a price on my website. Now I do it myself in 30 seconds. Bookings doubled in 3 months.", name: 'Pandit Rajesh S.', role: 'Vedic Astrologer, Jaipur', stat: '2x bookings in 3 months' },
+            { quote: "The WhatsApp reminders alone are worth it. Earlier 3–4 clients out of 10 wouldn't show up. Now almost everyone arrives on time with payment already done.", name: 'Sunita M.', role: 'Tarot & Vedic Astrologer, Pune', stat: 'No-shows down 80%' },
+            { quote: "Clients from Instagram used to DM and ask a hundred questions. Now my link has prices, slots and instant booking. I just wake up to confirmed appointments.", name: 'Acharya Vikram', role: 'Astro-content creator, 180k followers', stat: 'Zero DM back-and-forth' },
           ].map((t, i) => (
             <FadeIn key={i} delay={i * 0.12}>
               <div className="card-glow" style={{
                 background: 'var(--bg-card)', border: '1px solid var(--border-color)',
                 borderRadius: 'var(--radius-lg)', padding: 28, height: '100%',
               }}>
-                <div style={{ display: 'flex', gap: 2, marginBottom: 16 }}>
+                <div style={{ display: 'flex', gap: 2, marginBottom: 14 }}>
                   {Array.from({ length: 5 }, (_, j) => (
-                    <Star key={j} size={16} fill="#fbbf24" color="#fbbf24" />
+                    <Star key={j} size={16} fill="#d97706" color="#d97706" />
                   ))}
                 </div>
-                <p style={{ color: '#cbd5e1', fontSize: 15, lineHeight: 1.7, marginBottom: 20, fontStyle: 'italic' }}>"{t.quote}"</p>
+                <p style={{ color: '#334155', fontSize: 15, lineHeight: 1.7, marginBottom: 16, fontStyle: 'italic' }}>"{t.quote}"</p>
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px',
+                  borderRadius: 16, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)',
+                  fontSize: 11, fontWeight: 700, color: '#16a34a', marginBottom: 18,
+                }}>
+                  <TrendingUp size={12} /> {t.stat}
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{
                     width: 40, height: 40, borderRadius: '50%',
@@ -850,160 +694,15 @@ export default function Landing() {
             </FadeIn>
           ))}
         </div>
-      </section>
-
-      {/* ═══════════ COMPARISON TABLE ═══════════ */}
-      <section className="section" style={{ background: 'var(--bg-secondary)' }}>
-        <FadeIn>
-          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>Why AstroVakta</p>
-          <h2 className="section-title">Compare with <span className="gradient-text">Alternatives</span></h2>
-          <p className="section-subtitle">See how AstroVakta stacks up against popular astrology API providers.</p>
+        <FadeIn delay={0.2}>
+          <p style={{ textAlign: 'center', color: '#475569', fontSize: 12, marginTop: 24, fontStyle: 'italic' }}>
+            Early-access feedback from our pilot astrologers.
+          </p>
         </FadeIn>
-
-        <FadeIn delay={0.15}>
-          <div style={{ overflowX: 'auto', maxWidth: 1000, margin: '0 auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 14 }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left', padding: '16px 20px', color: '#64748b', fontWeight: 600, fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '2px solid var(--border-color)', minWidth: 200 }}>Feature</th>
-                  {['AstroVakta', 'AstroYogi API', 'Prokerala', 'ClickAstro'].map((name, i) => (
-                    <th key={name} style={{
-                      textAlign: 'center', padding: '16px 20px', fontWeight: 700,
-                      fontSize: i === 0 ? 15 : 14, color: i === 0 ? '#a78bfa' : '#94a3b8',
-                      borderBottom: `2px solid ${i === 0 ? 'var(--accent-purple)' : 'var(--border-color)'}`,
-                      background: i === 0 ? 'rgba(124,58,237,0.05)' : 'transparent',
-                    }}>
-                      {i === 0 && <span style={{ display: 'inline-block', background: 'var(--gradient-primary)', color: '#fff', fontSize: 10, padding: '2px 8px', borderRadius: 8, fontWeight: 700, marginRight: 8, verticalAlign: 'middle' }}>US</span>}
-                      {name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  { f: 'Free Tier', a: '500 calls/month', b: 'Limited trial', c: '50 req/day', d: 'Paid only' },
-                  { f: 'Total Endpoints', a: '180+', b: '~40', c: '~60', d: '~30' },
-                  { f: 'Sidereal Engine', a: 'Swiss Ephemeris', b: 'Proprietary', c: 'Swiss Ephemeris', d: 'Proprietary' },
-                  { f: 'Divisional Charts (D1-D60)', a: true, b: 'Partial', c: 'D9 only', d: false },
-                  { f: 'Navamsa / Hora SVG', a: true, b: false, c: false, d: false },
-                  { f: 'Sudarshana Chakra', a: true, b: false, c: false, d: false },
-                  { f: 'AI Interpretations', a: 'BYO Key (4 providers)', b: 'Built-in (limited)', c: false, d: 'Built-in (basic)' },
-                  { f: 'PDF Report Generation', a: '22-section branded', b: 'Basic PDF', c: false, d: 'Basic PDF' },
-                  { f: 'Compatibility (Milan)', a: true, b: true, c: true, d: true },
-                  { f: 'Dosha Analysis', a: '12+ doshas', b: '~5', c: '~6', d: '~4' },
-                  { f: 'Panchang & Muhurat', a: true, b: true, c: true, d: 'Partial' },
-                  { f: 'Vimshottari Dasha (4 levels)', a: true, b: '2 levels', c: '2 levels', d: '2 levels' },
-                  { f: 'Developer Sandbox', a: true, b: false, c: false, d: false },
-                  { f: 'Admin Panel & Analytics', a: true, b: false, c: false, d: false },
-                  { f: 'Background Job Queue', a: 'Redis + Celery', b: 'Sync only', c: 'Sync only', d: 'Sync only' },
-                  { f: 'OpenAPI / Swagger', a: true, b: false, c: 'Partial', d: false },
-                  { f: 'AES Encrypted Keys', a: true, b: 'N/A', c: 'N/A', d: 'N/A' },
-                  { f: 'Self-Hostable', a: true, b: false, c: false, d: false },
-                  { f: 'Pricing (Pro)', a: '$29/mo', b: '$49/mo', c: '$39/mo', d: '$45/mo' },
-                ].map((row, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid rgba(124,58,237,0.08)' }}>
-                    <td style={{ padding: '13px 20px', color: '#e2e8f0', fontWeight: 500, fontSize: 13 }}>{row.f}</td>
-                    {[row.a, row.b, row.c, row.d].map((val, j) => (
-                      <td key={j} style={{
-                        textAlign: 'center', padding: '13px 16px', fontSize: 13,
-                        color: j === 0 ? '#e2e8f0' : '#94a3b8',
-                        fontWeight: j === 0 ? 600 : 400,
-                        background: j === 0 ? 'rgba(124,58,237,0.04)' : 'transparent',
-                      }}>
-                        {val === true ? (
-                          <span style={{ color: '#22c55e', fontWeight: 700 }}><Check size={16} style={{ display: 'inline' }} /></span>
-                        ) : val === false ? (
-                          <span style={{ color: '#475569' }}><XIcon size={16} style={{ display: 'inline' }} /></span>
-                        ) : (
-                          <span>{val}</span>
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </FadeIn>
-      </section>
-
-      {/* ═══════════ TECH STACK ═══════════ */}
-      <section className="section">
-        <FadeIn>
-          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>Tech Stack</p>
-          <h2 className="section-title">Built on <span className="gradient-text">Proven Tech</span></h2>
-          <p className="section-subtitle">Enterprise-grade infrastructure powering every API call.</p>
-        </FadeIn>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 20, maxWidth: 1000, margin: '0 auto' }}>
-          {[
-            { icon: Code, name: 'FastAPI', desc: 'High-performance Python framework', color: '#10b981' },
-            { icon: Database, name: 'Swiss Ephemeris', desc: 'NASA-grade sidereal calculations', color: '#7c3aed' },
-            { icon: Cog, name: 'Redis + Celery', desc: 'Background job processing', color: '#ef4444' },
-            { icon: Cloud, name: 'PostgreSQL', desc: 'Reliable data persistence', color: '#3b82f6' },
-            { icon: Lock, name: 'AES-256', desc: 'API key encryption at rest', color: '#f59e0b' },
-            { icon: Bot, name: 'Multi-AI', desc: 'OpenAI / Claude / Groq / Together', color: '#ec4899' },
-            { icon: FileText, name: 'ReportLab', desc: '22-section branded PDF reports', color: '#8b5cf6' },
-            { icon: Globe, name: 'CairoSVG', desc: 'Vector chart rendering', color: '#06b6d4' },
-          ].map((stack, i) => (
-            <FadeIn key={stack.name} delay={i * 0.06}>
-              <div style={{
-                background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-                borderRadius: 'var(--radius-lg)', padding: 24, textAlign: 'center',
-              }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: 12,
-                  background: `${stack.color}18`, display: 'flex',
-                  alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px',
-                }}>
-                  <stack.icon size={22} color={stack.color} />
-                </div>
-                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{stack.name}</h3>
-                <p style={{ color: '#94a3b8', fontSize: 12, lineHeight: 1.5 }}>{stack.desc}</p>
-              </div>
-            </FadeIn>
-          ))}
-        </div>
-      </section>
-
-      {/* ═══════════ BUILT FOR ═══════════ */}
-      <section className="section" style={{ background: 'var(--bg-secondary)' }}>
-        <FadeIn>
-          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>Use Cases</p>
-          <h2 className="section-title">Built for <span className="gradient-text">Every Project</span></h2>
-          <p className="section-subtitle">From indie developers to enterprise platforms, AstroVakta fits your needs.</p>
-        </FadeIn>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 24, maxWidth: 1100, margin: '0 auto' }}>
-          {[
-            { icon: Smartphone, title: 'Astrology Apps', desc: 'Build consumer-facing astrology apps with real-time birth charts, daily horoscopes, and AI-powered readings.', color: '#7c3aed' },
-            { icon: HeartHandshake, title: 'Matrimony Platforms', desc: 'Integrate kundali matching, guna milan, and dosha detection directly into your matrimonial website.', color: '#ec4899' },
-            { icon: Brain, title: 'Wellness & Mental Health', desc: 'Offer personalized gemstone recommendations, rudraksha advice, and spiritual guidance based on Vedic charts.', color: '#10b981' },
-            { icon: GraduationCap, title: 'Research & Academia', desc: 'Access raw astrological data for research papers, statistical analysis, and educational platforms.', color: '#3b82f6' },
-            { icon: Building2, title: 'SaaS Platforms', desc: 'White-label our API into your SaaS product. Resell astrology services under your own brand with custom pricing.', color: '#f59e0b' },
-          ].map((useCase, i) => (
-            <FadeIn key={useCase.title} delay={i * 0.08}>
-              <motion.div whileHover={{ y: -4 }} className="card-glow" style={{
-                background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-                borderRadius: 'var(--radius-lg)', padding: 28, height: '100%',
-              }}>
-                <div style={{
-                  width: 48, height: 48, borderRadius: 14,
-                  background: `${useCase.color}18`, display: 'flex',
-                  alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-                }}>
-                  <useCase.icon size={24} color={useCase.color} />
-                </div>
-                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{useCase.title}</h3>
-                <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.7 }}>{useCase.desc}</p>
-              </motion.div>
-            </FadeIn>
-          ))}
-        </div>
       </section>
 
       {/* ═══════════ FAQ ═══════════ */}
-      <section className="section">
+      <section className="section" style={{ background: 'var(--bg-secondary)' }} id="faq">
         <FadeIn>
           <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 12, fontWeight: 600 }}>FAQ</p>
           <h2 className="section-title">Frequently <span className="gradient-text">Asked Questions</span></h2>
@@ -1011,25 +710,42 @@ export default function Landing() {
 
         <div style={{ maxWidth: 800, margin: '48px auto 0' }}>
           {[
-            { q: 'How accurate are the charts and predictions?', a: 'AstroVakta uses the Swiss Ephemeris (pyswisseph) which is the NASA JPL-based calculation engine used by professional astrologers worldwide. Our sidereal calculations include Lahiri ayanamsha with sub-arcsecond precision for all planetary positions, nakshatras, and divisional charts.' },
-            { q: 'What is the rate limit on the free tier?', a: 'The free tier includes 500 API calls per month with no credit card required. You get full access to all 180+ endpoints. Rate limiting is applied per API key, and you can monitor your usage from the dashboard at any time.' },
-            { q: 'Can I use my own AI provider keys?', a: 'Yes! AstroVakta supports BYO (Bring Your Own) API keys for OpenAI, Anthropic Claude, Groq, and Together AI. You can configure multiple providers and switch between them seamlessly. Your keys are encrypted with AES-256 and never logged.' },
-            { q: 'Is my data private and secure?', a: 'Absolutely. All API keys are AES-256 encrypted at rest. We do not store or log birth chart data unless you explicitly request report generation. For enterprise customers, we offer on-premise deployment for complete data sovereignty.' },
-            { q: 'Can I self-host AstroVakta?', a: 'Yes, enterprise customers can self-host the entire AstroVakta stack on their own infrastructure. We provide deployment guides for Docker, Kubernetes, and bare-metal setups. Self-hosted instances include all features and endpoints.' },
-            { q: 'Do you offer custom mobile app development?', a: 'Yes! Our custom development package includes branded web apps and native mobile apps for iOS and Android. We build with React Native or Flutter, integrate the full API stack, and handle app store submissions. Check the Custom Development section above for pricing.' },
+            { q: 'I am not technical at all. Can I really do this myself?', a: 'Yes — that is exactly who we built this for. If you can use WhatsApp, you can use AstroVakta. You fill simple forms (your name, photo, services, prices) and pick a design. Everything else — hosting, security, speed, backups — is handled automatically. And if you ever get stuck, our support chat in Hindi and English is one tap away.' },
+            { q: 'Do I really get my own domain?', a: 'Yes. You start immediately on a free subdomain (yourname.astrovakta.com). When you\'re ready, connect your own domain — like astrovakra.com — in one click from your dashboard. If you don\'t own a domain yet, we\'ll help you buy one and connect it. Free SSL (the padlock icon) is included automatically.' },
+            { q: 'Will my website show up on Google?', a: 'Yes — your site is built SEO-first: proper page titles, meta descriptions, sitemap, structured data (star ratings, business info) and near-perfect Google PageSpeed scores. Clients searching for "astrologer near me", "online kundli" and similar phrases will find you. You can also add your Google Business Profile for local search.' },
+            { q: 'How do bookings and WhatsApp alerts work?', a: 'You set your working hours and services. Clients see only your free slots, book, and (optionally) pay online. They instantly get a WhatsApp confirmation, then automatic reminders before the appointment. You get a daily summary of the next day\'s bookings. No app to install, no manual follow-ups.' },
+            { q: 'Can I sell gemstones and other products on my site?', a: 'Yes — every plan includes a full online store: product catalog with photos, prices, cart, UPI/card/netbanking payments and order tracking. Gemstones, rudraksha, puja kits, reports — whatever you sell, you can list it in minutes.' },
+            { q: 'How does the Instagram / social media feature work?', a: 'Our engine auto-generates daily horoscope posts, festival greetings and panchang updates in your branding. You approve them (or let them auto-publish on a schedule you choose) and they go out to your Instagram and other connected social accounts — so your profile stays active and professional even when you\'re busy with consultations.' },
+            { q: 'What do I need to get started?', a: 'Just your phone. Sign up free, fill in your details, pick a template — your site is live in about 30 seconds. You can add your photo, services, pricing, domain, and products whenever you like. No documents, no developer, no credit card to start.' },
+            { q: 'Can the free tools like kundli really be free on my site?', a: 'Yes. Your website includes unlimited free kundli, matching, panchang and daily horoscope tools powered by our astrology engine (the same one behind our professional API with 216+ endpoints). Free tools bring visitors from Google — visitors become clients.' },
+            { q: 'I am a developer and want the API instead. Where do I go?', a: 'We built a whole portal just for you: 216+ REST endpoints, an interactive sandbox, and complete documentation with free API calls every month. Visit our developer portal at astrovakta.com/developer.' },
           ].map((faq, i) => (
-            <FadeIn key={i} delay={i * 0.08}>
+            <FadeIn key={i} delay={i * 0.05}>
               <div style={{
                 background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-                borderRadius: 'var(--radius-lg)', padding: '24px 28px', marginBottom: 16,
+                borderRadius: 'var(--radius-lg)', marginBottom: 14, overflow: 'hidden',
               }}>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                  <HelpCircle size={20} color="#7c3aed" style={{ flexShrink: 0, marginTop: 2 }} />
-                  <div>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{faq.q}</h3>
-                    <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.7 }}>{faq.a}</p>
-                  </div>
-                </div>
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  style={{
+                    width: '100%', display: 'flex', gap: 12, alignItems: 'center',
+                    padding: '20px 24px', textAlign: 'left', background: 'transparent',
+                    color: 'inherit',
+                  }}>
+                  <HelpCircle size={20} color="#7c3aed" style={{ flexShrink: 0 }} />
+                  <span style={{ fontSize: 16, fontWeight: 600, flex: 1 }}>{faq.q}</span>
+                  <ChevronDown size={18} color="#64748b" style={{
+                    transform: openFaq === i ? 'rotate(180deg)' : 'none',
+                    transition: 'transform 0.3s ease', flexShrink: 0,
+                  }} />
+                </button>
+                <motion.div
+                  initial={false}
+                  animate={{ height: openFaq === i ? 'auto' : 0, opacity: openFaq === i ? 1 : 0 }}
+                  transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                  style={{ overflow: 'hidden' }}>
+                  <p style={{ color: '#475569', fontSize: 14, lineHeight: 1.75, padding: '0 24px 22px 56px' }}>{faq.a}</p>
+                </motion.div>
               </div>
             </FadeIn>
           ))}
@@ -1039,34 +755,36 @@ export default function Landing() {
       {/* ═══════════ FINAL CTA ═══════════ */}
       <section className="section" style={{ textAlign: 'center' }}>
         <FadeIn>
-          <h2 style={{
-            fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 800, marginBottom: 24,
-          }}>
-            Start Building for <span className="gradient-text">Free</span>
+          <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 800, marginBottom: 20 }}>
+            Your Clients Are Already<br />Searching for You <span className="gradient-text">Online</span>
           </h2>
-          <p style={{ color: '#94a3b8', fontSize: 18, maxWidth: 500, margin: '0 auto 40px', lineHeight: 1.7 }}>
-            No credit card required. 500 free API calls per month. Full access to all endpoints.
+          <p style={{ color: '#475569', fontSize: 18, maxWidth: 520, margin: '0 auto 40px', lineHeight: 1.7 }}>
+            Create your complete astrology website and business system today. Free to start, live in minutes.
           </p>
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <SignedOut>
-              <SignUpButton mode="modal">
-                <button className="btn-primary" style={{ padding: '18px 48px', fontSize: 18 }}>
-                  Get Your API Key <Sparkles size={20} />
-                </button>
-              </SignUpButton>
-            </SignedOut>
-            <Link to="/sandbox">
-              <button className="btn-secondary" style={{ padding: '18px 48px', fontSize: 18 }}>
-                <Play size={18} /> Try the Sandbox
+            <Link to="/mysite">
+              <button className="btn-primary" style={{ padding: '18px 48px', fontSize: 18 }}>
+                Create Your Website — Free <Sparkles size={20} />
               </button>
             </Link>
+            <a href="https://wa.me/916239402519?text=Hi%20AstroVakta%2C%20I%20am%20an%20astrologer%20and%20want%20my%20own%20website" target="_blank" rel="noopener noreferrer">
+              <button className="btn-secondary" style={{ padding: '18px 48px', fontSize: 18 }}>
+                <MessageCircle size={18} /> Talk to Us on WhatsApp
+              </button>
+            </a>
           </div>
+          <p style={{ color: '#64748b', fontSize: 13, marginTop: 20 }}>
+            Are you a developer?{' '}
+            <Link to="/developer" style={{ color: '#4f46e5', fontWeight: 600 }}>
+              Explore the AstroVakta API <Code2 size={13} style={{ display: 'inline', verticalAlign: 'middle' }} />
+            </Link>
+          </p>
         </FadeIn>
       </section>
 
       {/* ═══════════ WHATSAPP FLOATING BUTTON ═══════════ */}
       <a
-        href="https://wa.me/916239402519?text=Hi%20AstroVakta%2C%20I%20have%20a%20question"
+        href="https://wa.me/916239402519?text=Hi%20AstroVakta%2C%20I%20have%20a%20question%20about%20creating%20my%20astrology%20website"
         target="_blank"
         rel="noopener noreferrer"
         style={{
@@ -1084,8 +802,8 @@ export default function Landing() {
           boxShadow: '0 4px 20px rgba(37,211,102,0.4)',
           transition: 'transform 0.2s',
         }}
-        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+        onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.1)')}
+        onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
       >
         <MessageCircle size={28} color="#fff" />
       </a>
@@ -1096,8 +814,8 @@ export default function Landing() {
         transition={{ delay: 1 }}
         style={{
           position: 'fixed', bottom: 24, right: 92, zIndex: 1000,
-          color: '#94a3b8', fontSize: 12, fontWeight: 500,
-          background: 'rgba(10,10,26,0.85)', padding: '8px 14px',
+          color: '#475569', fontSize: 12, fontWeight: 500,
+          background: 'rgba(255,255,255,0.85)', padding: '8px 14px',
           borderRadius: 20, border: '1px solid rgba(124,58,237,0.15)',
           backdropFilter: 'blur(10px)',
         }}>

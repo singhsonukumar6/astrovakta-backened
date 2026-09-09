@@ -15,7 +15,7 @@ const tiers = [
     desc: 'Perfect for trying out the API',
     icon: Zap,
     color: '#64748b',
-    features: ['500 calls/month', 'All 180+ endpoints', 'Community support'],
+    features: ['500 calls/month', 'All 216+ endpoints', 'Community support'],
     cta: 'Get Started Free',
     popular: false,
   },
@@ -25,8 +25,8 @@ const tiers = [
     inrPrice: 1499,
     desc: 'For indie developers & small apps',
     icon: Star,
-    color: '#3b82f6',
-    features: ['5,000 calls/month', 'All 180+ endpoints', 'Email support', 'Usage analytics'],
+    color: '#2563eb',
+    features: ['5,000 calls/month', 'All 216+ endpoints', 'Email support', 'Usage analytics'],
     cta: 'Start Free Trial',
     popular: false,
   },
@@ -37,7 +37,7 @@ const tiers = [
     desc: 'For growing businesses',
     icon: Crown,
     color: '#7c3aed',
-    features: ['50,000 calls/month', 'All 180+ endpoints', 'Priority support', '99.9% SLA', '10 API keys', 'Custom rate limits'],
+    features: ['50,000 calls/month', 'All 216+ endpoints', 'Priority support', '99.9% SLA', '10 API keys', 'Custom rate limits'],
     cta: 'Start Free Trial',
     popular: true,
   },
@@ -47,8 +47,8 @@ const tiers = [
     inrPrice: null,
     desc: 'For large-scale deployments',
     icon: Star,
-    color: '#f59e0b',
-    features: ['Unlimited calls', 'All 180+ endpoints', 'Dedicated support', '99.99% SLA', 'Custom endpoints', 'On-premise option', 'SLA contract'],
+    color: '#d97706',
+    features: ['Unlimited calls', 'All 216+ endpoints', 'Dedicated support', '99.99% SLA', 'Custom endpoints', 'On-premise option', 'SLA contract'],
     cta: 'Contact Sales',
     popular: false,
   },
@@ -119,7 +119,7 @@ export default function Pricing() {
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '10px 20px', borderRadius: 10,
                 border: 'none', background: currency === 'inr' ? 'var(--gradient-primary)' : 'transparent',
-                color: currency === 'inr' ? '#fff' : '#94a3b8',
+                color: currency === 'inr' ? '#fff' : '#475569',
                 fontWeight: 600, fontSize: 14, cursor: 'pointer',
               }}>
               <IndianRupee size={16} /> INR
@@ -130,7 +130,7 @@ export default function Pricing() {
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '10px 20px', borderRadius: 10,
                 border: 'none', background: currency === 'usd' ? 'var(--gradient-primary)' : 'transparent',
-                color: currency === 'usd' ? '#fff' : '#94a3b8',
+                color: currency === 'usd' ? '#fff' : '#475569',
                 fontWeight: 600, fontSize: 14, cursor: 'pointer',
               }}>
               <DollarSign size={16} /> USD
@@ -218,8 +218,8 @@ export default function Pricing() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 32, flex: 1 }}>
                 {tier.features.map((f) => (
                   <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Check size={16} color="#22c55e" />
-                    <span style={{ color: '#cbd5e1', fontSize: 14 }}>{f}</span>
+                    <Check size={16} color="#16a34a" />
+                    <span style={{ color: '#334155', fontSize: 14 }}>{f}</span>
                   </div>
                 ))}
               </div>
@@ -275,7 +275,7 @@ export default function Pricing() {
           transition={{ duration: 0.5 }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, justifyContent: 'center' }}>
-            <MonitorSmartphone size={24} color="#eab308" />
+            <MonitorSmartphone size={24} color="#d97706" />
             <p style={{ color: '#64748b', fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, fontWeight: 600 }}>
               Custom Development
             </p>
@@ -309,7 +309,7 @@ export default function Pricing() {
               name: 'Professional',
               usd: 72,
               inr: 5999,
-              features: ['10-Page Custom Web App', 'iOS + Android App (PWA)', 'Full API Integration (All 180+ Endpoints)', 'Payment Gateway (Stripe / Razorpay)', 'Client Login & Dashboard', 'PDF Report System', 'SEO Optimization', '3 Months Support'],
+              features: ['10-Page Custom Web App', 'iOS + Android App (PWA)', 'Full API Integration (All 216+ Endpoints)', 'Payment Gateway (Stripe / Razorpay)', 'Client Login & Dashboard', 'PDF Report System', 'SEO Optimization', '3 Months Support'],
               popular: true,
             },
             {
@@ -344,8 +344,8 @@ export default function Pricing() {
                     top: -12,
                     left: '50%',
                     transform: 'translateX(-50%)',
-                    background: '#eab308',
-                    color: '#0a0a1f',
+                    background: '#d97706',
+                    color: '#ffffff',
                     padding: '4px 16px',
                     borderRadius: 20,
                     fontSize: 12,
@@ -359,7 +359,7 @@ export default function Pricing() {
               )}
 
               <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(234,179,8,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-                <Smartphone size={22} color="#eab308" />
+                <Smartphone size={22} color="#d97706" />
               </div>
 
               <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>{pkg.name}</h3>
@@ -375,8 +375,8 @@ export default function Pricing() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 32, flex: 1 }}>
                 {pkg.features.map((f) => (
                   <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Check size={16} color="#eab308" />
-                    <span style={{ color: '#cbd5e1', fontSize: 14 }}>{f}</span>
+                    <Check size={16} color="#d97706" />
+                    <span style={{ color: '#334155', fontSize: 14 }}>{f}</span>
                   </div>
                 ))}
               </div>
@@ -422,7 +422,7 @@ export default function Pricing() {
                   alignItems: 'center',
                   padding: '20px 0',
                   background: 'none',
-                  color: '#e2e8f0',
+                  color: '#1e293b',
                   fontSize: 16,
                   fontWeight: 600,
                   textAlign: 'left',
@@ -444,7 +444,7 @@ export default function Pricing() {
                 <motion.p
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
-                  style={{ color: '#94a3b8', fontSize: 15, paddingBottom: 20, lineHeight: 1.7 }}
+                  style={{ color: '#475569', fontSize: 15, paddingBottom: 20, lineHeight: 1.7 }}
                 >
                   {faq.a}
                 </motion.p>

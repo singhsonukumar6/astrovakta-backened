@@ -48,18 +48,18 @@ export default function VerifyEmailPrompt() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           margin: '0 auto 32px',
         }}>
-          <MailCheck size={42} color="#fbbf24" />
+          <MailCheck size={42} color="#d97706" />
         </div>
 
         <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>
           Verify your email
         </h1>
-        <p style={{ color: '#94a3b8', fontSize: 15, lineHeight: 1.6, marginBottom: 8 }}>
+        <p style={{ color: '#475569', fontSize: 15, lineHeight: 1.6, marginBottom: 8 }}>
           Your account is not yet verified. Please check your inbox and click the
           verification link we sent you.
         </p>
         {email && (
-          <p style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14, marginBottom: 32 }}>
+          <p style={{ color: '#1e293b', fontWeight: 600, fontSize: 14, marginBottom: 32 }}>
             {email}
           </p>
         )}
@@ -72,8 +72,8 @@ export default function VerifyEmailPrompt() {
           marginBottom: 28,
           textAlign: 'left',
         }}>
-          <p style={{ color: '#94a3b8', fontSize: 13, lineHeight: 1.6, margin: 0 }}>
-            <strong style={{ color: '#fbbf24' }}>Didn't receive the email?</strong><br />
+          <p style={{ color: '#475569', fontSize: 13, lineHeight: 1.6, margin: 0 }}>
+            <strong style={{ color: '#d97706' }}>Didn't receive the email?</strong><br />
             Check your spam/junk folder, or click the button below to resend.
           </p>
         </div>
@@ -101,7 +101,7 @@ export default function VerifyEmailPrompt() {
             onClick={handleLogout}
             style={{
               background: 'none', border: '1px solid rgba(148,163,184,0.2)',
-              color: '#94a3b8', padding: '12px 24px', borderRadius: 10,
+              color: '#475569', padding: '12px 24px', borderRadius: 10,
               cursor: 'pointer', fontSize: 14, fontWeight: 500,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
@@ -111,7 +111,7 @@ export default function VerifyEmailPrompt() {
         </div>
 
         <p style={{ color: '#475569', fontSize: 12, marginTop: 24 }}>
-          Need help? <a href="mailto:support@astrovakta.com" style={{ color: '#a78bfa' }}>Contact Support</a>
+          Need help? <a href="mailto:support@astrovakta.com" style={{ color: '#4f46e5' }}>Contact Support</a>
         </p>
       </motion.div>
     </div>

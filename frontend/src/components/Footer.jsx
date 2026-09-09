@@ -31,38 +31,47 @@ export default function Footer() {
               <Star size={22} color="#7c3aed" fill="#7c3aed" />
             )}
             <span>
-              <span style={{ fontSize: 18, fontWeight: 700, color: '#ffffff' }}>Astro</span>
-              <span style={{ fontSize: 18, fontWeight: 700, color: '#eab308' }}>Vakta</span>
+              <span style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>Astro</span>
+              <span style={{ fontSize: 18, fontWeight: 700, color: '#d97706' }}>Vakta</span>
             </span>
           </Link>
           <p style={{ color: '#64748b', fontSize: 14, lineHeight: 1.7 }}>
-            {config.footer_text || 'The most comprehensive Vedic Astrology API. Build astrological applications with ease.'}
+            {config.footer_text || 'Create your complete astrology website and business — bookings, payments, WhatsApp, store, SEO — in a few clicks. Plus a 216+ endpoint astrology API for developers.'}
           </p>
         </div>
 
         <div style={{ display: 'flex', gap: 48, flexWrap: 'wrap' }}>
           <div>
-            <h4 style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
+            <h4 style={{ color: '#1e293b', fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
               Product
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <Link to="/pricing" style={{ color: '#64748b', fontSize: 14 }}>Pricing</Link>
-              <Link to="/docs" style={{ color: '#64748b', fontSize: 14 }}>Documentation</Link>
-              <Link to="/sandbox" style={{ color: '#64748b', fontSize: 14 }}>API Sandbox</Link>
+              <Link to="/developer" style={{ color: '#64748b', fontSize: 14 }}>Developer Portal</Link>
+              <Link to="/kundali-report" style={{ color: '#64748b', fontSize: 14 }}>Free Kundli Report</Link>
             </div>
           </div>
           <div>
-            <h4 style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
+            <h4 style={{ color: '#1e293b', fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
+              Developers
+            </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <Link to="/docs" style={{ color: '#64748b', fontSize: 14 }}>API Documentation</Link>
+              <Link to="/sandbox" style={{ color: '#64748b', fontSize: 14 }}>API Sandbox</Link>
+              <Link to="/blogs" style={{ color: '#64748b', fontSize: 14 }}>Blog</Link>
+            </div>
+          </div>
+          <div>
+            <h4 style={{ color: '#1e293b', fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
               Company
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <Link to="/about" style={{ color: '#64748b', fontSize: 14 }}>About</Link>
-              <Link to="/blogs" style={{ color: '#64748b', fontSize: 14 }}>Blog</Link>
               <Link to="/contact" style={{ color: '#64748b', fontSize: 14 }}>Contact</Link>
             </div>
           </div>
           <div>
-            <h4 style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
+            <h4 style={{ color: '#1e293b', fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
               Legal
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

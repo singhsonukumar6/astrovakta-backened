@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Star, Menu, X, LogIn, LayoutDashboard } from 'lucide-react'
-import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '../lib/clerk.jsx'
+import { Star, Menu, X, LogIn, LayoutDashboard, Globe } from 'lucide-react'
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, CLERK_ENABLED } from '../lib/clerk.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import { useConfig } from '../lib/ConfigContext.jsx'
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, logout } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const { config } = useConfig()
@@ -25,9 +25,9 @@ export default function Navbar() {
   const links = [
     { to: '/', label: 'Home' },
     { to: '/pricing', label: 'Pricing' },
-    { to: '/docs', label: 'Docs' },
-    { to: '/sandbox', label: 'Sandbox' },
+    { to: '/developer', label: 'Developers' },
     { to: '/blogs', label: 'Blog' },
+    { to: '/contact', label: 'Contact' },
   ]
 
   return (
@@ -39,7 +39,7 @@ export default function Navbar() {
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
         padding: '0 24px', height: 72, display: 'flex', alignItems: 'center',
         justifyContent: 'center',
-        background: scrolled ? 'rgba(10,10,26,0.85)' : 'transparent',
+        background: scrolled ? 'rgba(255,255,255,0.85)' : 'transparent',
         backdropFilter: scrolled ? 'blur(20px)' : 'none',
         WebkitBackdropFilter: scrolled ? 'blur(20px)' : 'none',
         borderBottom: scrolled ? '1px solid rgba(124,58,237,0.15)' : '1px solid transparent',
@@ -53,10 +53,12 @@ export default function Navbar() {
           ) : null}
           <div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 0 }}>
-              <span style={{ fontSize: 22, fontWeight: 800, color: '#ffffff' }}>Astro</span>
-              <span style={{ fontSize: 22, fontWeight: 800, color: '#eab308' }}>Vakta</span>
+              <span style={{ fontSize: 22, fontWeight: 800, color: '#0f172a' }}>Astro</span>
+              <span style={{ fontSize: 22, fontWeight: 800, color: '#d97706' }}>Vakta</span>
             </div>
-            <span style={{ fontSize: 10, color: '#64748b', fontWeight: 500, display: 'block', marginTop: -2 }}>{config.site_tagline || 'for developers'}</span>
+            <span style={{ fontSize: 10, color: '#64748b', fontWeight: 500, display: 'block', marginTop: -2 }}>
+              {config.site_tagline && !location.pathname.startsWith('/developer') ? config.site_tagline : location.pathname.startsWith('/developer') ? 'for developers' : 'for astrologers'}
+            </span>
           </div>
         </Link>
 
@@ -64,36 +66,54 @@ export default function Navbar() {
           {links.map((l) => (
             <Link key={l.to} to={l.to}
               style={{
-                color: location.pathname === l.to ? '#a78bfa' : '#94a3b8',
+                color: location.pathname === l.to ? '#4f46e5' : '#475569',
                 fontWeight: 500, fontSize: 15, transition: 'color 0.2s',
               }}
-              onMouseEnter={(e) => (e.target.style.color = '#e2e8f0')}
-              onMouseLeave={(e) => (e.target.style.color = location.pathname === l.to ? '#a78bfa' : '#94a3b8')}
+              onMouseEnter={(e) => (e.target.style.color = '#1e293b')}
+              onMouseLeave={(e) => (e.target.style.color = location.pathname === l.to ? '#4f46e5' : '#475569')}
             >{l.label}</Link>
           ))}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }} className="nav-desktop">
-          <SignedIn>
-            <button onClick={() => navigate('/dashboard')} className="btn-primary" style={{ padding: '10px 20px', fontSize: 14 }}>
-              <LayoutDashboard size={16} /> Dashboard
-            </button>
-            <UserButton appearance={{ elements: { avatarBox: { width: 36, height: 36 } } }} />
-          </SignedIn>
-          <SignedOut>
-            <SignInButton mode="modal">
-              <button className="btn-secondary" style={{ padding: '10px 20px', fontSize: 14 }}>Log In</button>
-            </SignInButton>
-            <SignUpButton mode="modal">
-              <button className="btn-primary" style={{ padding: '10px 20px', fontSize: 14 }}>
-                <LogIn size={16} /> Sign Up
+          {isAuthenticated ? (
+            <>
+              <button onClick={() => navigate('/mysite')} className="btn-secondary" style={{ padding: '10px 18px', fontSize: 14 }}>
+                <Globe size={15} /> My Website
               </button>
-            </SignUpButton>
-          </SignedOut>
+              <button onClick={() => navigate('/dashboard')} className="btn-primary" style={{ padding: '10px 20px', fontSize: 14 }}>
+                <LayoutDashboard size={16} /> Dashboard
+              </button>
+              {CLERK_ENABLED && <UserButton appearance={{ elements: { avatarBox: { width: 36, height: 36 } } }} />}
+              {!CLERK_ENABLED && (
+                <button onClick={() => { logout(); navigate('/') }} className="btn-secondary" style={{ padding: '10px 18px', fontSize: 14 }}>
+                  Log Out
+                </button>
+              )}
+            </>
+          ) : CLERK_ENABLED ? (
+            <SignedOut>
+              <SignInButton mode="modal">
+                <button className="btn-secondary" style={{ padding: '10px 20px', fontSize: 14 }}>Log In</button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <button className="btn-primary" style={{ padding: '10px 20px', fontSize: 14 }}>
+                  <LogIn size={16} /> Sign Up
+                </button>
+              </SignUpButton>
+            </SignedOut>
+          ) : (
+            <>
+              <Link to="/login" className="btn-secondary" style={{ padding: '10px 20px', fontSize: 14 }}>Log In</Link>
+              <Link to="/register" className="btn-primary" style={{ padding: '10px 20px', fontSize: 14 }}>
+                <LogIn size={16} /> Sign Up
+              </Link>
+            </>
+          )}
         </div>
 
         <button className="nav-mobile-btn" onClick={() => setMobileOpen(!mobileOpen)}
-          style={{ display: 'none', background: 'none', border: 'none', color: '#e2e8f0' }}>
+          style={{ display: 'none', background: 'none', border: 'none', color: '#1e293b' }}>
           {mobileOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
@@ -103,30 +123,46 @@ export default function Navbar() {
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
             style={{
               position: 'absolute', top: 72, left: 0, right: 0,
-              background: 'rgba(10,10,26,0.95)', backdropFilter: 'blur(20px)',
+              background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)',
               borderBottom: '1px solid rgba(124,58,237,0.2)',
               padding: '16px 24px 24px', display: 'flex', flexDirection: 'column', gap: 12,
             }}>
             {links.map((l) => (
               <Link key={l.to} to={l.to} style={{
-                color: location.pathname === l.to ? '#a78bfa' : '#94a3b8',
+                color: location.pathname === l.to ? '#4f46e5' : '#475569',
                 fontWeight: 500, fontSize: 16, padding: '8px 0',
               }}>{l.label}</Link>
             ))}
-            <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-              <SignedIn>
-                <button onClick={() => navigate('/dashboard')} className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
-                  Dashboard
-                </button>
-              </SignedIn>
-              <SignedOut>
-                <SignInButton mode="modal">
-                  <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>Log In</button>
-                </SignInButton>
-                <SignUpButton mode="modal">
-                  <button className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>Sign Up</button>
-                </SignUpButton>
-              </SignedOut>
+            <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
+              {isAuthenticated ? (
+                <>
+                  <button onClick={() => navigate('/mysite')} className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>
+                    <Globe size={15} /> My Website
+                  </button>
+                  <button onClick={() => navigate('/dashboard')} className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
+                    Dashboard
+                  </button>
+                  {!CLERK_ENABLED && (
+                    <button onClick={() => { logout(); navigate('/') }} className="btn-secondary" style={{ flex: '1 1 100%', justifyContent: 'center' }}>
+                      Log Out
+                    </button>
+                  )}
+                </>
+              ) : CLERK_ENABLED ? (
+                <SignedOut>
+                  <SignInButton mode="modal">
+                    <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>Log In</button>
+                  </SignInButton>
+                  <SignUpButton mode="modal">
+                    <button className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>Sign Up</button>
+                  </SignUpButton>
+                </SignedOut>
+              ) : (
+                <>
+                  <Link to="/login" className="btn-secondary" style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', padding: '10px 20px' }}>Log In</Link>
+                  <Link to="/register" className="btn-primary" style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', padding: '10px 20px' }}>Sign Up</Link>
+                </>
+              )}
             </div>
           </motion.div>
         )}

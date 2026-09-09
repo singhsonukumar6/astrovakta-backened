@@ -42,7 +42,7 @@ export default function Contact() {
           <h1 style={{ fontSize: 'clamp(32px, 5vw, 52px)', fontWeight: 900, textAlign: 'center', marginBottom: 20, letterSpacing: '-1px' }}>
             Let's <span className="gradient-text">Talk</span>
           </h1>
-          <p style={{ color: '#94a3b8', fontSize: 18, textAlign: 'center', maxWidth: 500, margin: '0 auto 60px', lineHeight: 1.8 }}>
+          <p style={{ color: '#475569', fontSize: 18, textAlign: 'center', maxWidth: 500, margin: '0 auto 60px', lineHeight: 1.8 }}>
             Have a question about the API, custom development, or enterprise plans? We'd love to hear from you.
           </p>
         </FadeIn>
@@ -59,9 +59,9 @@ export default function Contact() {
                   background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)',
                   borderRadius: 'var(--radius-lg)', padding: 32, textAlign: 'center',
                 }}>
-                  <Zap size={40} color="#22c55e" style={{ marginBottom: 16 }} />
+                  <Zap size={40} color="#16a34a" style={{ marginBottom: 16 }} />
                   <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Message Sent!</h3>
-                  <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.6 }}>
+                  <p style={{ color: '#475569', fontSize: 14, lineHeight: 1.6 }}>
                     We've redirected you to WhatsApp. We typically respond within a few hours during business hours.
                   </p>
                   <button onClick={() => setSent(false)} style={{
@@ -103,7 +103,7 @@ export default function Contact() {
                   { icon: MessageCircle, label: 'WhatsApp', value: phone, href: `https://wa.me/${phoneDigits}`, color: '#25D366' },
                   { icon: Mail, label: 'Email', value: email, href: `mailto:${email}`, color: '#7c3aed' },
                   { icon: MapPin, label: 'Location', value: address, href: null, color: '#ef4444' },
-                  { icon: Clock, label: 'Response Time', value: 'Within 24 hours (Mon-Fri)', href: null, color: '#f59e0b' },
+                  { icon: Clock, label: 'Response Time', value: 'Within 24 hours (Mon-Fri)', href: null, color: '#d97706' },
                 ].map((item, i) => (
                   <div key={i} style={{
                     display: 'flex', alignItems: 'flex-start', gap: 16, padding: '16px 20px',
@@ -120,11 +120,11 @@ export default function Contact() {
                     <div>
                       <p style={{ color: '#64748b', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>{item.label}</p>
                       {item.href ? (
-                        <a href={item.href} target="_blank" rel="noopener noreferrer" style={{ color: '#e2e8f0', fontSize: 16, fontWeight: 600 }}>
+                        <a href={item.href} target="_blank" rel="noopener noreferrer" style={{ color: '#1e293b', fontSize: 16, fontWeight: 600 }}>
                           {item.value}
                         </a>
                       ) : (
-                        <p style={{ color: '#e2e8f0', fontSize: 16, fontWeight: 600 }}>{item.value}</p>
+                        <p style={{ color: '#1e293b', fontSize: 16, fontWeight: 600 }}>{item.value}</p>
                       )}
                     </div>
                   </div>
@@ -134,10 +134,10 @@ export default function Contact() {
               <div style={{ marginTop: 40, padding: 24, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)' }}>
                 <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Quick Links</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
-                  <Link to="/docs" style={{ color: '#a78bfa', fontSize: 14 }}>API Documentation</Link>
-                  <Link to="/pricing" style={{ color: '#a78bfa', fontSize: 14 }}>Pricing Plans</Link>
-                  <Link to="/sandbox" style={{ color: '#a78bfa', fontSize: 14 }}>API Sandbox</Link>
-                  <Link to="/blogs" style={{ color: '#a78bfa', fontSize: 14 }}>Blog & Guides</Link>
+                  <Link to="/docs" style={{ color: '#4f46e5', fontSize: 14 }}>API Documentation</Link>
+                  <Link to="/pricing" style={{ color: '#4f46e5', fontSize: 14 }}>Pricing Plans</Link>
+                  <Link to="/sandbox" style={{ color: '#4f46e5', fontSize: 14 }}>API Sandbox</Link>
+                  <Link to="/blogs" style={{ color: '#4f46e5', fontSize: 14 }}>Blog & Guides</Link>
                 </div>
               </div>
             </div>

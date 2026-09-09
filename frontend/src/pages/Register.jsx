@@ -42,7 +42,7 @@ export default function Register() {
           display: 'none',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #0a0a1a 0%, #1a1040 50%, #0a0a1a 100%)',
+          background: 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #f8fafc 100%)',
           position: 'relative',
           overflow: 'hidden',
         }}
@@ -89,7 +89,7 @@ export default function Register() {
           >
             Join AstroVakta
           </h2>
-          <p style={{ color: '#94a3b8', marginTop: 8, maxWidth: 300 }}>
+          <p style={{ color: '#475569', marginTop: 8, maxWidth: 300 }}>
             Start building with the cosmos. Free tier included.
           </p>
         </motion.div>
@@ -113,9 +113,9 @@ export default function Register() {
         >
           <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 8 }}>Create Account</h1>
           {!registered && (
-            <p style={{ color: '#94a3b8', marginBottom: 32 }}>
+            <p style={{ color: '#475569', marginBottom: 32 }}>
               Already have an account?{' '}
-              <Link to="/login" style={{ color: '#a78bfa', fontWeight: 600 }}>
+              <Link to="/login" style={{ color: '#4f46e5', fontWeight: 600 }}>
                 Log in
               </Link>
             </p>
@@ -140,15 +140,15 @@ export default function Register() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   margin: '0 auto 24px',
                 }}>
-                  <MailCheck size={36} color="#22c55e" />
+                  <MailCheck size={36} color="#16a34a" />
                 </div>
                 <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>
                   Check your email
                 </h2>
-                <p style={{ color: '#94a3b8', fontSize: 15, lineHeight: 1.6, marginBottom: 8 }}>
+                <p style={{ color: '#475569', fontSize: 15, lineHeight: 1.6, marginBottom: 8 }}>
                   We sent a verification link to:
                 </p>
-                <p style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 15, marginBottom: 24 }}>
+                <p style={{ color: '#1e293b', fontWeight: 600, fontSize: 15, marginBottom: 24 }}>
                   {email}
                 </p>
                 <p style={{ color: '#64748b', fontSize: 13, lineHeight: 1.6, marginBottom: 32 }}>
@@ -168,7 +168,7 @@ export default function Register() {
                     onClick={() => { setRegistered(false); setName(''); setEmail(''); setPassword('') }}
                     style={{
                       background: 'none', border: '1px solid rgba(148,163,184,0.2)',
-                      color: '#94a3b8', padding: '12px 24px', borderRadius: 10,
+                      color: '#475569', padding: '12px 24px', borderRadius: 10,
                       cursor: 'pointer', fontSize: 14, fontWeight: 500,
                     }}
                   >
@@ -180,7 +180,7 @@ export default function Register() {
           ) : (
             <form onSubmit={handleSubmit}>
               <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontSize: 14, color: '#94a3b8', marginBottom: 8 }}>
+                <label style={{ display: 'block', fontSize: 14, color: '#475569', marginBottom: 8 }}>
                   Name
                 </label>
                 <div style={{ position: 'relative' }}>
@@ -201,7 +201,7 @@ export default function Register() {
               </div>
 
               <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontSize: 14, color: '#94a3b8', marginBottom: 8 }}>
+                <label style={{ display: 'block', fontSize: 14, color: '#475569', marginBottom: 8 }}>
                   Email
                 </label>
                 <div style={{ position: 'relative' }}>
@@ -222,7 +222,7 @@ export default function Register() {
               </div>
 
               <div style={{ marginBottom: 32 }}>
-                <label style={{ display: 'block', fontSize: 14, color: '#94a3b8', marginBottom: 8 }}>
+                <label style={{ display: 'block', fontSize: 14, color: '#475569', marginBottom: 8 }}>
                   Password
                 </label>
                 <div style={{ position: 'relative' }}>

@@ -5,7 +5,8 @@ import { Toaster } from 'react-hot-toast'
 import { ClerkProvider, CLERK_ENABLED } from './lib/clerk.jsx'
 import { AuthProvider } from './lib/auth.jsx'
 import { ConfigProvider } from './lib/ConfigContext.jsx'
-import App from './App.jsx'
+import App, { TenantHostApp } from './App.jsx'
+import { isTenantHost } from './lib/tenant.js'
 import './index.css'
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
@@ -17,6 +18,30 @@ if (!CLERK_ENABLED) {
 }
 
 function Root() {
+  // Tenant hosts (slug.astrovakta.com / *.localhost / custom domains) render
+  // the astrologer's standalone site instead of the platform app. No Clerk,
+  // auth or platform chrome — visitors are the astrologer's clients.
+  if (isTenantHost()) {
+    return (
+      <StrictMode>
+        <BrowserRouter>
+          <ConfigProvider>
+            <TenantHostApp />
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                style: {
+                  background: '#ffffff',
+                  color: '#1e293b',
+                  border: '1px solid rgba(124,58,237,0.3)',
+                },
+              }}
+            />
+          </ConfigProvider>
+        </BrowserRouter>
+      </StrictMode>
+    )
+  }
   return (
     <StrictMode>
       {CLERK_ENABLED ? (
@@ -29,8 +54,8 @@ function Root() {
                   position="top-right"
                   toastOptions={{
                     style: {
-                      background: '#1a1a3e',
-                      color: '#e2e8f0',
+                      background: '#ffffff',
+                      color: '#1e293b',
                       border: '1px solid rgba(124,58,237,0.3)',
                     },
                   }}
@@ -48,8 +73,8 @@ function Root() {
                 position="top-right"
                 toastOptions={{
                   style: {
-                    background: '#1a1a3e',
-                    color: '#e2e8f0',
+                    background: '#ffffff',
+                    color: '#1e293b',
                     border: '1px solid rgba(124,58,237,0.3)',
                   },
                 }}

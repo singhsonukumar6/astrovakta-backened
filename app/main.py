@@ -220,6 +220,22 @@ except Exception as e:
     import logging as _logging_jobs
     _logging_jobs.error(f"Failed to include JOBS router: {e}")
 
+# Site builder router (owner-facing tenant management)
+try:
+    from .routers.sites import router as sites_router
+    app.include_router(sites_router, prefix="/sites", tags=['Site Builder'])
+except Exception as e:
+    import logging as _logging_sites
+    _logging_sites.error(f"Failed to include SITES router: {e}")
+
+# Public tenant site router (visitor-facing: site resolution + booking)
+try:
+    from .routers.public_sites import router as public_sites_router
+    app.include_router(public_sites_router, prefix="/sites", tags=['Site Builder'])
+except Exception as e:
+    import logging as _logging_public_sites
+    _logging_public_sites.error(f"Failed to include PUBLIC SITES router: {e}")
+
 
 @app.on_event("startup")
 def on_startup():

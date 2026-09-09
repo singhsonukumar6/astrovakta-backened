@@ -1,15 +1,16 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useConfig } from '../lib/ConfigContext.jsx'
+import { isTenantHost } from '../lib/tenant.js'
 
 export const SITE_URL = 'https://dev.astrovakta.com'
 const API_URL = 'https://api.astrovakta.com'
 export const OG_IMAGE = `${SITE_URL}/og-image.png`
 
 const HOME = {
-  title: 'AstroVakta — Vedic Astrology API | Kundli, Birth Charts, Horoscopes & AI Predictions',
+  title: 'AstroVakta — Create Your Astrology Website & Complete Business in a Few Clicks',
   description:
-    'AstroVakta is the most complete Vedic astrology API for developers. 180+ endpoints for kundli birth charts, daily horoscopes, gun milan compatibility, mangal dosha, panchang, vimshottari dasha, PDF reports and AI astrology predictions. Free tier — no credit card required.',
+    'Non-technical astrologers: get a beautiful branded website with your own domain, appointment booking, WhatsApp alerts, online payments, ecommerce store, social media management and complete SEO — live in minutes. No coding, no agency. Plus a 216+ endpoint Vedic astrology API for developers.',
 }
 
 const BLOG_LIST_META = {
@@ -22,6 +23,11 @@ const ROUTE_META = {
   '/': {
     title: HOME.title,
     description: HOME.description,
+  },
+  '/developer': {
+    title: 'AstroVakta for Developers — Vedic Astrology API with 216+ Endpoints',
+    description:
+      'The most complete Vedic astrology REST API for developers. 216+ endpoints for kundli birth charts, divisional charts D1–D60, horoscopes, gun milan, doshas, panchang, dasha, PDF reports and AI predictions. Free tier — no credit card required.',
   },
   '/pricing': {
     title: 'AstroVakta API Pricing — Free Plan & Affordable Paid Tiers',
@@ -36,7 +42,7 @@ const ROUTE_META = {
   '/sandbox': {
     title: 'Free API Sandbox — Test Every Astrology Endpoint Live | AstroVakta',
     description:
-      'Try all 180+ Vedic astrology API endpoints directly in your browser. Generate real birth charts, horoscopes and kundali matches live — no code required. Bring your API key and start testing.',
+      'Try all 216+ Vedic astrology API endpoints directly in your browser. Generate real birth charts, horoscopes and kundali matches live — no code required. Bring your API key and start testing.',
   },
   '/kundali-report': {
     title: 'Free Online Kundli Report — Vedic Birth Chart PDF | AstroVakta',
@@ -73,6 +79,7 @@ const ROUTE_META = {
 const NOINDEX_ROUTES = new Set([
   '/dashboard',
   '/admin',
+  '/mysite',
   '/verify-email',
   '/verify-email-prompt',
   '/forgot-password',
@@ -111,6 +118,7 @@ function setJsonLd(id, data) {
 }
 
 const BREADCRUMB_LABELS = {
+  '/developer': 'Developer Portal',
   '/pricing': 'Pricing',
   '/docs': 'API Documentation',
   '/sandbox': 'API Sandbox',
@@ -176,6 +184,10 @@ export default function SeoManager() {
   const ogImage = /^https?:\/\//.test(rawImage) ? rawImage : `${SITE_URL}${rawImage.startsWith('/') ? '' : '/'}${rawImage}`
 
   useEffect(() => {
+    // Tenant sites (/s/:slug, tenant subdomains and custom domains) manage
+    // their own meta — they're independent brands, not AstroVakta pages, so
+    // the platform SeoManager must not overwrite their title/canonical.
+    if (isTenantHost() || pathname.startsWith('/s/')) return
     const url = `${SITE_URL}${pathname === '/' ? '/' : pathname}`
     const pageTitle = pathname === '/' ? homeTitle : title
     const pageDescription = pathname === '/' ? homeDescription : description

@@ -65,13 +65,13 @@ function LocationSearch({ value, onSelect, apiKey }) {
 
   return (
     <div ref={wrapperRef} style={{ position: 'relative' }}>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#475569', marginBottom: 4 }}>
         <MapPin size={12} /> Birth Location
       </label>
       {value && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'rgba(124,58,237,0.1)', borderRadius: 8, marginBottom: 6 }}>
-          <MapPin size={14} color="#a78bfa" />
-          <span style={{ flex: 1, fontSize: 13, color: '#e2e8f0' }}>{value}</span>
+          <MapPin size={14} color="#4f46e5" />
+          <span style={{ flex: 1, fontSize: 13, color: '#1e293b' }}>{value}</span>
           <button onClick={() => onSelect({ latitude: null, longitude: null, timezone: '', locationName: '' })}
             style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: 2 }}>
             <X size={14} />
@@ -85,11 +85,11 @@ function LocationSearch({ value, onSelect, apiKey }) {
         {loading && <Loader2 size={14} color="#64748b" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', animation: 'spin 1s linear infinite' }} />}
       </div>
       {open && results.length > 0 && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: '#12122a', border: '1px solid rgba(124,58,237,0.25)', borderRadius: 10, marginTop: 4, overflow: 'hidden', boxShadow: '0 12px 40px rgba(0,0,0,0.5)' }}>
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: '#ffffff', border: '1px solid rgba(124,58,237,0.25)', borderRadius: 10, marginTop: 4, overflow: 'hidden', boxShadow: '0 12px 40px rgba(0,0,0,0.5)' }}>
           {results.map((loc, i) => (
             <button key={i} onClick={() => handleSelect(loc)}
-              style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', color: '#e2e8f0', cursor: 'pointer', textAlign: 'left', borderBottom: i < results.length - 1 ? '1px solid rgba(100,116,139,0.15)' : 'none' }}>
-              <MapPin size={14} color="#a78bfa" style={{ marginTop: 2, flexShrink: 0 }} />
+              style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', color: '#1e293b', cursor: 'pointer', textAlign: 'left', borderBottom: i < results.length - 1 ? '1px solid rgba(100,116,139,0.15)' : 'none' }}>
+              <MapPin size={14} color="#4f46e5" style={{ marginTop: 2, flexShrink: 0 }} />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 500 }}>{loc.displayName}</div>
                 <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{loc.latitude?.toFixed(4)}, {loc.longitude?.toFixed(4)}</div>
@@ -338,7 +338,7 @@ export default function KundaliReport() {
       container.style.width = '794px'
       container.style.zIndex = '-10000'
       container.style.background = '#ffffff'
-      container.style.color = '#1a1a2e'
+      container.style.color = '#f1f5f9'
       container.style.overflow = 'hidden'
       document.body.appendChild(container)
 
@@ -416,7 +416,7 @@ export default function KundaliReport() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
           <div>
             <h1 style={{ fontSize: 28, fontWeight: 800 }}>Kundali <span className="gradient-text">Report Generator</span></h1>
-            <p style={{ color: '#94a3b8' }}>Generate a complete 55+ page Vedic birth chart report</p>
+            <p style={{ color: '#475569' }}>Generate a complete 55+ page Vedic birth chart report</p>
           </div>
         </div>
 
@@ -424,15 +424,15 @@ export default function KundaliReport() {
           <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 32, maxWidth: 560, marginBottom: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
               <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(124,58,237,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Key size={24} color="#a78bfa" />
+                <Key size={24} color="#4f46e5" />
               </div>
               <div>
                 <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 2 }}>API Key Required</h3>
-                <p style={{ color: '#94a3b8', fontSize: 13 }}>Enter your AstroVakta API key to generate reports</p>
+                <p style={{ color: '#475569', fontSize: 13 }}>Enter your AstroVakta API key to generate reports</p>
               </div>
             </div>
             <div style={{ marginBottom: 16 }}>
-              <label style={{ display: 'block', fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>Your API Key</label>
+              <label style={{ display: 'block', fontSize: 13, color: '#475569', marginBottom: 6 }}>Your API Key</label>
               <div style={{ display: 'flex', gap: 8 }}>
                 <input
                   className="input-field"
@@ -450,7 +450,7 @@ export default function KundaliReport() {
             </div>
             <p style={{ color: '#64748b', fontSize: 12 }}>
               Don't have an API key?{' '}
-              <Link to="/dashboard" style={{ color: '#a78bfa', textDecoration: 'none', fontWeight: 500 }}>
+              <Link to="/dashboard" style={{ color: '#4f46e5', textDecoration: 'none', fontWeight: 500 }}>
                 Get one from your dashboard <ExternalLink size={11} style={{ verticalAlign: -1 }} />
               </Link>
             </p>
@@ -460,9 +460,9 @@ export default function KundaliReport() {
         {apiKeyValid && (
           <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: '10px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Key size={14} color="#22c55e" />
-              <span style={{ fontSize: 13, color: '#94a3b8' }}>
-                API Key: <code style={{ color: '#e2e8f0', fontFamily: 'var(--font-mono)' }}>{apiKey.slice(0, 8)}...{apiKey.slice(-4)}</code>
+              <Key size={14} color="#16a34a" />
+              <span style={{ fontSize: 13, color: '#475569' }}>
+                API Key: <code style={{ color: '#1e293b', fontFamily: 'var(--font-mono)' }}>{apiKey.slice(0, 8)}...{apiKey.slice(-4)}</code>
               </span>
             </div>
             <button onClick={clearApiKey} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 12, padding: '4px 8px' }}>
@@ -473,15 +473,15 @@ export default function KundaliReport() {
 
         {apiKeyValid && !reportData && (
           <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 24, marginBottom: 24 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#a78bfa', marginBottom: 16 }}>Birth Details</h3>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#4f46e5', marginBottom: 16 }}>Birth Details</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 16 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Date of Birth</label>
+                <label style={{ display: 'block', fontSize: 12, color: '#475569', marginBottom: 4 }}>Date of Birth</label>
                 <input className="input-field" type="date" value={birth.dateOfBirth}
                   onChange={(e) => setBirth({ ...birth, dateOfBirth: e.target.value })} style={{ fontSize: 13 }} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Time of Birth</label>
+                <label style={{ display: 'block', fontSize: 12, color: '#475569', marginBottom: 4 }}>Time of Birth</label>
                 <input className="input-field" type="time" value={birth.timeOfBirth}
                   onChange={(e) => setBirth({ ...birth, timeOfBirth: e.target.value })} style={{ fontSize: 13 }} />
               </div>
@@ -496,39 +496,39 @@ export default function KundaliReport() {
 
             {/* Branding Toggle */}
             <button onClick={() => setShowBranding(!showBranding)}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: showBranding ? 'rgba(124,58,237,0.2)' : 'rgba(100,116,139,0.1)', border: 'none', borderRadius: 8, color: showBranding ? '#a78bfa' : '#94a3b8', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: showBranding ? 16 : 0 }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: showBranding ? 'rgba(124,58,237,0.2)' : 'rgba(100,116,139,0.1)', border: 'none', borderRadius: 8, color: showBranding ? '#4f46e5' : '#475569', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: showBranding ? 16 : 0 }}>
               <Palette size={14} /> Branding & Customization {showBranding ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>
 
             {showBranding && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, padding: '16px 0', borderTop: '1px solid rgba(100,116,139,0.15)' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Client Name</label>
+                  <label style={{ display: 'block', fontSize: 12, color: '#475569', marginBottom: 4 }}>Client Name</label>
                   <input className="input-field" value={branding.clientName} placeholder="e.g. Rahul Sharma"
                     onChange={(e) => setBranding({ ...branding, clientName: e.target.value })} style={{ fontSize: 13 }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Brand Name</label>
+                  <label style={{ display: 'block', fontSize: 12, color: '#475569', marginBottom: 4 }}>Brand Name</label>
                   <input className="input-field" value={branding.brandName}
                     onChange={(e) => setBranding({ ...branding, brandName: e.target.value })} style={{ fontSize: 13 }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Logo URL</label>
+                  <label style={{ display: 'block', fontSize: 12, color: '#475569', marginBottom: 4 }}>Logo URL</label>
                   <input className="input-field" value={branding.logoUrl} placeholder="https://..."
                     onChange={(e) => setBranding({ ...branding, logoUrl: e.target.value })} style={{ fontSize: 13 }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Cover Title</label>
+                  <label style={{ display: 'block', fontSize: 12, color: '#475569', marginBottom: 4 }}>Cover Title</label>
                   <input className="input-field" value={branding.coverTitle}
                     onChange={(e) => setBranding({ ...branding, coverTitle: e.target.value })} style={{ fontSize: 13 }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Cover Subtitle</label>
+                  <label style={{ display: 'block', fontSize: 12, color: '#475569', marginBottom: 4 }}>Cover Subtitle</label>
                   <input className="input-field" value={branding.coverSubtitle}
                     onChange={(e) => setBranding({ ...branding, coverSubtitle: e.target.value })} style={{ fontSize: 13 }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Primary Color</label>
+                  <label style={{ display: 'block', fontSize: 12, color: '#475569', marginBottom: 4 }}>Primary Color</label>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <input type="color" value={branding.primaryColor}
                       onChange={(e) => setBranding({ ...branding, primaryColor: e.target.value })}
@@ -538,7 +538,7 @@ export default function KundaliReport() {
                   </div>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Secondary Color</label>
+                  <label style={{ display: 'block', fontSize: 12, color: '#475569', marginBottom: 4 }}>Secondary Color</label>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <input type="color" value={branding.secondaryColor}
                       onChange={(e) => setBranding({ ...branding, secondaryColor: e.target.value })}
@@ -548,17 +548,17 @@ export default function KundaliReport() {
                   </div>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Header Text</label>
+                  <label style={{ display: 'block', fontSize: 12, color: '#475569', marginBottom: 4 }}>Header Text</label>
                   <input className="input-field" value={branding.headerText}
                     onChange={(e) => setBranding({ ...branding, headerText: e.target.value })} style={{ fontSize: 13 }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Footer Text</label>
+                  <label style={{ display: 'block', fontSize: 12, color: '#475569', marginBottom: 4 }}>Footer Text</label>
                   <input className="input-field" value={branding.footerText}
                     onChange={(e) => setBranding({ ...branding, footerText: e.target.value })} style={{ fontSize: 13 }} />
                 </div>
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Back Page Message</label>
+                  <label style={{ display: 'block', fontSize: 12, color: '#475569', marginBottom: 4 }}>Back Page Message</label>
                   <textarea className="input-field" value={branding.backPageMessage} rows={3}
                     onChange={(e) => setBranding({ ...branding, backPageMessage: e.target.value })}
                     style={{ fontSize: 13, resize: 'vertical' }} />
@@ -570,11 +570,11 @@ export default function KundaliReport() {
             {loading && (
               <div style={{ marginTop: 16, padding: 16, background: 'rgba(124,58,237,0.08)', borderRadius: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <Loader2 size={16} color="#a78bfa" style={{ animation: 'spin 1s linear infinite' }} />
-                  <span style={{ fontSize: 13, color: '#e2e8f0' }}>Generating report... ({progress.done}/{progress.total})</span>
+                  <Loader2 size={16} color="#4f46e5" style={{ animation: 'spin 1s linear infinite' }} />
+                  <span style={{ fontSize: 13, color: '#1e293b' }}>Generating report... ({progress.done}/{progress.total})</span>
                 </div>
                 <div style={{ width: '100%', height: 6, background: 'rgba(100,116,139,0.2)', borderRadius: 3, overflow: 'hidden' }}>
-                  <div style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`, height: '100%', background: 'linear-gradient(90deg, #7c3aed, #ec4899)', borderRadius: 3, transition: 'width 0.3s ease' }} />
+                  <div style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`, height: '100%', background: 'linear-gradient(90deg, #7c3aed, #db2777)', borderRadius: 3, transition: 'width 0.3s ease' }} />
                 </div>
                 <div style={{ fontSize: 11, color: '#64748b', marginTop: 6 }}>{progress.current}</div>
               </div>

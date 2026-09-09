@@ -42,9 +42,9 @@ export default function VerifyEmail() {
 
         {status === 'success' && (
           <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 48 }}>
-            <CheckCircle size={64} color="#22c55e" style={{ marginBottom: 24 }} />
-            <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12, color: '#22c55e' }}>Email Verified!</h1>
-            <p style={{ color: '#94a3b8', fontSize: 16, marginBottom: 32, lineHeight: 1.6 }}>{message}</p>
+            <CheckCircle size={64} color="#16a34a" style={{ marginBottom: 24 }} />
+            <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12, color: '#16a34a' }}>Email Verified!</h1>
+            <p style={{ color: '#475569', fontSize: 16, marginBottom: 32, lineHeight: 1.6 }}>{message}</p>
             <Link to="/login" className="btn-primary" style={{ display: 'inline-flex', textDecoration: 'none' }}>
               Continue to Login <ArrowRight size={18} />
             </Link>
@@ -55,7 +55,7 @@ export default function VerifyEmail() {
           <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 48 }}>
             <XCircle size={64} color="#ef4444" style={{ marginBottom: 24 }} />
             <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12, color: '#ef4444' }}>Verification Failed</h1>
-            <p style={{ color: '#94a3b8', fontSize: 16, marginBottom: 32, lineHeight: 1.6 }}>{message}</p>
+            <p style={{ color: '#475569', fontSize: 16, marginBottom: 32, lineHeight: 1.6 }}>{message}</p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
               <Link to="/login" className="btn-secondary" style={{ textDecoration: 'none', padding: '12px 24px' }}>
                 Go to Login

@@ -195,6 +195,104 @@ export const testProvider = (id) =>
 export const getSupportedProviders = () =>
   api.get('/ai-providers/supported').then((r) => r.data)
 
+// ──── SITE BUILDER (tenant websites) ────
+// Availability checks (public — used pre-signup in the wizard)
+export const checkSlugAvailability = (slug) =>
+  api.get('/sites/check-slug', { params: { slug } }).then((r) => r.data)
+
+export const checkDomainAvailability = (domain) =>
+  api.get('/sites/check-domain', { params: { domain } }).then((r) => r.data)
+
+// Owner endpoints (JWT-authenticated)
+export const getMySites = () =>
+  api.get('/sites/my').then((r) => r.data?.sites ?? r.data?.data?.sites ?? [])
+
+export const createMySite = (data) =>
+  api.post('/sites/my', data).then((r) => r.data?.data ?? r.data)
+
+export const getMySite = (siteId) =>
+  api.get(`/sites/my/${siteId}`).then((r) => r.data?.data ?? r.data)
+
+export const updateMySite = (siteId, data) =>
+  api.put(`/sites/my/${siteId}`, data).then((r) => r.data?.data ?? r.data)
+
+export const publishMySite = (siteId) =>
+  api.post(`/sites/my/${siteId}/publish`).then((r) => r.data?.data ?? r.data)
+
+export const unpublishMySite = (siteId) =>
+  api.post(`/sites/my/${siteId}/unpublish`).then((r) => r.data?.data ?? r.data)
+
+export const deleteMySite = (siteId) =>
+  api.delete(`/sites/my/${siteId}`).then((r) => r.data)
+
+export const saveMySitePage = (siteId, pageKey, data) =>
+  api.put(`/sites/my/${siteId}/pages/${pageKey}`, data).then((r) => r.data?.data ?? r.data)
+
+export const setMySiteDomain = (siteId, domain) =>
+  api.post(`/sites/my/${siteId}/domain`, { domain }).then((r) => r.data?.data ?? r.data)
+
+export const verifyMySiteDomain = (siteId) =>
+  api.post(`/sites/my/${siteId}/domain/verify`).then((r) => r.data?.data ?? r.data)
+
+export const removeMySiteDomain = (siteId) =>
+  api.delete(`/sites/my/${siteId}/domain`).then((r) => r.data?.data ?? r.data)
+
+export const createMyService = (siteId, data) =>
+  api.post(`/sites/my/${siteId}/services`, data).then((r) => r.data?.data ?? r.data)
+
+export const updateMyService = (siteId, serviceId, data) =>
+  api.put(`/sites/my/${siteId}/services/${serviceId}`, data).then((r) => r.data?.data ?? r.data)
+
+export const deleteMyService = (siteId, serviceId) =>
+  api.delete(`/sites/my/${siteId}/services/${serviceId}`).then((r) => r.data)
+
+export const getMyAvailability = (siteId) =>
+  api.get(`/sites/my/${siteId}/availability`).then((r) => r.data?.data ?? r.data)
+
+export const setMyAvailability = (siteId, rules) =>
+  api.put(`/sites/my/${siteId}/availability`, { rules }).then((r) => r.data?.data ?? r.data)
+
+export const getMyBookings = (siteId, params = {}) =>
+  api.get(`/sites/my/${siteId}/bookings`, { params }).then((r) => r.data?.bookings ?? r.data?.data?.bookings ?? [])
+
+export const updateMyBooking = (siteId, bookingId, data) =>
+  api.put(`/sites/my/${siteId}/bookings/${bookingId}`, data).then((r) => r.data?.data ?? r.data)
+
+export const setMySiteMedia = (siteId, data) =>
+  api.put(`/sites/my/${siteId}/media`, data).then((r) => r.data?.data ?? r.data)
+
+export const setMySiteSettings = (siteId, data) =>
+  api.put(`/sites/my/${siteId}/settings`, data).then((r) => r.data?.data ?? r.data)
+
+export const getMyLeads = (siteId) =>
+  api.get(`/sites/my/${siteId}/leads`).then((r) => r.data?.leads ?? r.data?.data?.leads ?? [])
+
+// Public tenant-site endpoints (visitor-facing, no auth).
+// `resolve` is a slug string or { slug } / { domain } — every endpoint on the
+// backend accepts either (?slug= or ?domain=), so subdomain AND custom-domain
+// hosting hit the same calls.
+const resolveParams = (resolve) =>
+  typeof resolve === 'string' ? { slug: resolve } : resolve
+
+export const getPublicSite = (resolve) =>
+  api.get('/sites/site', { params: resolveParams(resolve) }).then((r) => r.data?.data ?? r.data)
+
+export const getPublicAvailability = (resolve, weeks = 2) =>
+  api.get('/sites/site/availability', { params: { ...resolveParams(resolve), weeks } }).then((r) => r.data?.data ?? r.data)
+
+export const publicBook = (resolve, data) => {
+  const qs = new URLSearchParams(resolveParams(resolve)).toString()
+  return api.post(`/sites/site/book?${qs}`, data).then((r) => r.data?.data ?? r.data)
+}
+
+export const publicKundliTool = (resolve, data) => {
+  const qs = new URLSearchParams(resolveParams(resolve)).toString()
+  return api.post(`/sites/site/tools/kundli?${qs}`, data).then((r) => r.data)
+}
+
+export const publicPanchangTool = (resolve) =>
+  api.get('/sites/site/tools/panchang', { params: resolveParams(resolve) }).then((r) => r.data?.data ?? r.data)
+
 // ──── JOBS ────
 export const submitPdfJob = (data) =>
   api.post('/jobs/submit-pdf', data).then((r) => r.data)

@@ -824,7 +824,7 @@ function CopyButton({ text }) {
   return (
     <button onClick={() => { navigator.clipboard.writeText(text); toast.success('Copied!') }}
       style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, padding: '2px 6px', borderRadius: 4 }}
-      onMouseEnter={e => e.target.style.color = '#a78bfa'}
+      onMouseEnter={e => e.target.style.color = '#4f46e5'}
       onMouseLeave={e => e.target.style.color = '#64748b'}>
       <Copy size={12} /> Copy
     </button>
@@ -847,7 +847,7 @@ function MarkdownContent({ text }) {
             <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}>
               <CopyButton text={codeContent.trim()} />
             </div>
-            <pre style={{ background: '#0d0d24', borderRadius: 10, padding: '16px 16px', fontSize: 12, lineHeight: 1.7, fontFamily: 'var(--font-mono)', color: '#94a3b8', overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word', border: '1px solid rgba(124,58,237,0.15)' }}>
+            <pre style={{ background: '#0f172a', borderRadius: 10, padding: '16px 16px', fontSize: 12, lineHeight: 1.7, fontFamily: 'var(--font-mono)', color: '#e2e8f0', overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word', border: '1px solid rgba(124,58,237,0.15)' }}>
               <code>{codeContent.trim()}</code>
             </pre>
           </div>
@@ -872,23 +872,23 @@ function MarkdownContent({ text }) {
         <div key={`table-${i}`} style={{ overflowX: 'auto', marginBottom: 16, borderRadius: 8, border: '1px solid rgba(124,58,237,0.15)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr>{headers.map((h, hi) => <th key={hi} style={{ padding: '8px 12px', textAlign: 'left', background: 'rgba(124,58,237,0.1)', color: '#a78bfa', fontWeight: 600, borderBottom: '1px solid rgba(124,58,237,0.2)' }}>{h}</th>)}</tr>
+              <tr>{headers.map((h, hi) => <th key={hi} style={{ padding: '8px 12px', textAlign: 'left', background: 'rgba(124,58,237,0.1)', color: '#4f46e5', fontWeight: 600, borderBottom: '1px solid rgba(124,58,237,0.2)' }}>{h}</th>)}</tr>
             </thead>
             <tbody>
-              {rows.map((row, ri) => <tr key={ri}>{row.map((cell, ci) => <td key={ci} style={{ padding: '6px 12px', borderBottom: '1px solid rgba(100,116,139,0.1)', color: '#e2e8f0' }}>{cell}</td>)}</tr>)}
+              {rows.map((row, ri) => <tr key={ri}>{row.map((cell, ci) => <td key={ci} style={{ padding: '6px 12px', borderBottom: '1px solid rgba(100,116,139,0.1)', color: '#1e293b' }}>{cell}</td>)}</tr>)}
             </tbody>
           </table>
         </div>
       )
       i = j - 1
     } else if (line.startsWith('**') && line.endsWith('**')) {
-      elements.push(<p key={i} style={{ fontWeight: 700, color: '#e2e8f0', marginTop: 16, marginBottom: 8 }}>{line.slice(2, -2)}</p>)
+      elements.push(<p key={i} style={{ fontWeight: 700, color: '#1e293b', marginTop: 16, marginBottom: 8 }}>{line.slice(2, -2)}</p>)
     } else if (line.startsWith('- ')) {
-      elements.push(<li key={i} style={{ color: '#94a3b8', marginLeft: 16, marginBottom: 4, lineHeight: 1.6 }}>{renderInline(line.slice(2))}</li>)
+      elements.push(<li key={i} style={{ color: '#475569', marginLeft: 16, marginBottom: 4, lineHeight: 1.6 }}>{renderInline(line.slice(2))}</li>)
     } else if (line.trim() === '') {
       elements.push(<div key={i} style={{ height: 8 }} />)
     } else {
-      elements.push(<p key={i} style={{ color: '#94a3b8', lineHeight: 1.7, marginBottom: 6 }}>{renderInline(line)}</p>)
+      elements.push(<p key={i} style={{ color: '#475569', lineHeight: 1.7, marginBottom: 6 }}>{renderInline(line)}</p>)
     }
   }
   return <div>{elements}</div>
@@ -898,16 +898,16 @@ function renderInline(text) {
   const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/)
   return parts.map((part, i) => {
     if (part.startsWith('`') && part.endsWith('`'))
-      return <code key={i} style={{ padding: '2px 6px', borderRadius: 4, background: 'rgba(124,58,237,0.1)', color: '#a78bfa', fontSize: 12, fontFamily: 'var(--font-mono)' }}>{part.slice(1, -1)}</code>
+      return <code key={i} style={{ padding: '2px 6px', borderRadius: 4, background: 'rgba(124,58,237,0.1)', color: '#4f46e5', fontSize: 12, fontFamily: 'var(--font-mono)' }}>{part.slice(1, -1)}</code>
     if (part.startsWith('**') && part.endsWith('**'))
-      return <strong key={i} style={{ color: '#e2e8f0', fontWeight: 600 }}>{part.slice(2, -2)}</strong>
+      return <strong key={i} style={{ color: '#1e293b', fontWeight: 600 }}>{part.slice(2, -2)}</strong>
     return part
   })
 }
 
 function EndpointCard({ ep }) {
   const [expanded, setExpanded] = useState(false)
-  const mc = { GET: { bg: 'rgba(34,197,94,0.15)', text: '#22c55e', border: 'rgba(34,197,94,0.3)' }, POST: { bg: 'rgba(59,130,246,0.15)', text: '#3b82f6', border: 'rgba(59,130,246,0.3)' }, DELETE: { bg: 'rgba(239,68,68,0.15)', text: '#ef4444', border: 'rgba(239,68,68,0.3)' } }[ep.method] || { bg: 'rgba(59,130,246,0.15)', text: '#3b82f6', border: 'rgba(59,130,246,0.3)' }
+  const mc = { GET: { bg: 'rgba(34,197,94,0.15)', text: '#16a34a', border: 'rgba(34,197,94,0.3)' }, POST: { bg: 'rgba(59,130,246,0.15)', text: '#2563eb', border: 'rgba(59,130,246,0.3)' }, DELETE: { bg: 'rgba(239,68,68,0.15)', text: '#ef4444', border: 'rgba(239,68,68,0.3)' } }[ep.method] || { bg: 'rgba(59,130,246,0.15)', text: '#2563eb', border: 'rgba(59,130,246,0.3)' }
 
   const curl = ep.method === 'GET'
     ? `curl "https://api.astrovakta.com${ep.path.split('?')[0]}" \\\n  -H "X-API-Key: YOUR_KEY"`
@@ -917,32 +917,32 @@ function EndpointCard({ ep }) {
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
       <button onClick={() => setExpanded(!expanded)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
         <span style={{ padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)', background: mc.bg, color: mc.text, border: `1px solid ${mc.border}`, letterSpacing: 0.5, minWidth: 52, textAlign: 'center' }}>{ep.method}</span>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: '#e2e8f0', flex: 1 }}>{ep.path}</span>
-        <span style={{ color: '#94a3b8', fontSize: 13, flex: 2 }}>{ep.desc}</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: '#1e293b', flex: 1 }}>{ep.path}</span>
+        <span style={{ color: '#475569', fontSize: 13, flex: 2 }}>{ep.desc}</span>
         {expanded ? <ChevronDown size={16} color="#64748b" /> : <ChevronRight size={16} color="#64748b" />}
       </button>
       {expanded && (
         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} style={{ borderTop: '1px solid var(--border-color)', padding: 20 }}>
           {ep.headers && (
             <div style={{ marginBottom: 12, padding: '8px 12px', background: 'rgba(251,191,36,0.08)', borderRadius: 8, border: '1px solid rgba(251,191,36,0.2)' }}>
-              <span style={{ fontSize: 12, color: '#fbbf24' }}>Auth: <code style={{ fontFamily: 'var(--font-mono)' }}>Authorization: Bearer {'<jwt_token>'}</code></span>
+              <span style={{ fontSize: 12, color: '#d97706' }}>Auth: <code style={{ fontFamily: 'var(--font-mono)' }}>Authorization: Bearer {'<jwt_token>'}</code></span>
             </div>
           )}
           {ep.body && (
             <div style={{ marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600 }}>Request Body</span>
+                <span style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>Request Body</span>
                 <CopyButton text={ep.body} />
               </div>
-              <pre style={{ background: '#0d0d24', borderRadius: 8, padding: 14, fontSize: 12, lineHeight: 1.6, fontFamily: 'var(--font-mono)', color: '#94a3b8', overflow: 'auto', whiteSpace: 'pre-wrap' }}>{ep.body}</pre>
+              <pre style={{ background: '#0f172a', borderRadius: 8, padding: 14, fontSize: 12, lineHeight: 1.6, fontFamily: 'var(--font-mono)', color: '#e2e8f0', overflow: 'auto', whiteSpace: 'pre-wrap' }}>{ep.body}</pre>
             </div>
           )}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600 }}>cURL Example</span>
+              <span style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>cURL Example</span>
               <CopyButton text={curl} />
             </div>
-            <pre style={{ background: '#0d0d24', borderRadius: 8, padding: 14, fontSize: 11, lineHeight: 1.6, fontFamily: 'var(--font-mono)', color: '#64748b', overflow: 'auto', whiteSpace: 'pre-wrap' }}>{curl}</pre>
+            <pre style={{ background: '#0f172a', borderRadius: 8, padding: 14, fontSize: 11, lineHeight: 1.6, fontFamily: 'var(--font-mono)', color: '#94a3b8', overflow: 'auto', whiteSpace: 'pre-wrap' }}>{curl}</pre>
           </div>
         </motion.div>
       )}
@@ -968,12 +968,12 @@ export default function Docs() {
       <aside className="docs-sidebar" style={{ width: 260, borderRight: '1px solid var(--border-color)', padding: '24px 12px', position: 'sticky', top: 72, height: 'calc(100vh - 72px)', overflowY: 'auto', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', marginBottom: 20 }}>
           <BookOpen size={18} color="#7c3aed" />
-          <span style={{ fontSize: 14, fontWeight: 600, color: '#e2e8f0' }}>Developer Docs</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>Developer Docs</span>
         </div>
         <div style={{ padding: '0 12px', marginBottom: 16 }}>
           <div style={{ position: 'relative' }}>
             <Search size={14} color="#64748b" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
-            <input placeholder="Search docs..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: '100%', padding: '7px 10px 7px 30px', background: 'rgba(10,10,26,0.5)', border: '1px solid var(--border-color)', borderRadius: 8, color: '#e2e8f0', fontSize: 12, outline: 'none' }} />
+            <input placeholder="Search docs..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: '100%', padding: '7px 10px 7px 30px', background: 'rgba(255,255,255,0.5)', border: '1px solid var(--border-color)', borderRadius: 8, color: '#1e293b', fontSize: 12, outline: 'none' }} />
           </div>
         </div>
         {categories.map(cat => {
@@ -981,7 +981,7 @@ export default function Docs() {
           const count = cat.endpoints?.length || 0
           return (
             <button key={cat.id} onClick={() => { setActiveCat(cat.id); setSearch('') }}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, border: 'none', background: activeCat === cat.id ? 'rgba(124,58,237,0.15)' : 'transparent', color: activeCat === cat.id ? '#a78bfa' : '#94a3b8', fontSize: 13, fontWeight: 500, cursor: 'pointer', textAlign: 'left', marginBottom: 2, transition: 'all 0.15s' }}>
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, border: 'none', background: activeCat === cat.id ? 'rgba(124,58,237,0.15)' : 'transparent', color: activeCat === cat.id ? '#4f46e5' : '#475569', fontSize: 13, fontWeight: 500, cursor: 'pointer', textAlign: 'left', marginBottom: 2, transition: 'all 0.15s' }}>
               <Icon size={14} />
               <span style={{ flex: 1 }}>{cat.label}</span>
               {count > 0 && <span style={{ fontSize: 11, color: '#475569', background: 'rgba(100,116,139,0.15)', padding: '1px 6px', borderRadius: 10 }}>{count}</span>}
@@ -1003,7 +1003,7 @@ export default function Docs() {
             {/* Content sections */}
             {category?.sections?.map((sec, i) => (
               <div key={i} className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 24, marginBottom: 20 }}>
-                <h2 style={{ fontSize: 18, fontWeight: 700, color: '#e2e8f0', marginBottom: 14 }}>{sec.title}</h2>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1e293b', marginBottom: 14 }}>{sec.title}</h2>
                 <MarkdownContent text={sec.content} />
               </div>
             ))}

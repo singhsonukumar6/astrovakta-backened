@@ -35,8 +35,8 @@ export default function ForgotPassword() {
           <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 48, textAlign: 'center' }}>
             <CheckCircle size={64} color="#7c3aed" style={{ marginBottom: 24 }} />
             <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>Check Your Email</h1>
-            <p style={{ color: '#94a3b8', fontSize: 16, marginBottom: 8, lineHeight: 1.6 }}>
-              If an account exists with <strong style={{ color: '#e2e8f0' }}>{email}</strong>, we've sent a password reset link.
+            <p style={{ color: '#475569', fontSize: 16, marginBottom: 8, lineHeight: 1.6 }}>
+              If an account exists with <strong style={{ color: '#1e293b' }}>{email}</strong>, we've sent a password reset link.
             </p>
             <p style={{ color: '#64748b', fontSize: 14, marginBottom: 32 }}>
               Didn't receive it? Check your spam folder or try again.
@@ -55,14 +55,14 @@ export default function ForgotPassword() {
             <div style={{ textAlign: 'center', marginBottom: 32 }}>
               <Star size={40} color="#7c3aed" fill="rgba(124,58,237,0.3)" style={{ marginBottom: 16 }} />
               <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>Forgot Password?</h1>
-              <p style={{ color: '#94a3b8', fontSize: 15 }}>
+              <p style={{ color: '#475569', fontSize: 15 }}>
                 Enter your email and we'll send you a reset link.
               </p>
             </div>
 
             <form onSubmit={handleSubmit}>
               <div style={{ marginBottom: 24 }}>
-                <label style={{ display: 'block', fontSize: 14, color: '#94a3b8', marginBottom: 8 }}>Email</label>
+                <label style={{ display: 'block', fontSize: 14, color: '#475569', marginBottom: 8 }}>Email</label>
                 <div style={{ position: 'relative' }}>
                   <Mail size={18} color="#64748b" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
                   <input
@@ -86,7 +86,7 @@ export default function ForgotPassword() {
 
             <p style={{ color: '#64748b', fontSize: 14, textAlign: 'center', marginTop: 24 }}>
               Remember your password?{' '}
-              <Link to="/login" style={{ color: '#a78bfa', fontWeight: 600 }}>Log in</Link>
+              <Link to="/login" style={{ color: '#4f46e5', fontWeight: 600 }}>Log in</Link>
             </p>
           </div>
         )}

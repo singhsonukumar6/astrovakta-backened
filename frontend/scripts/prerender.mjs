@@ -22,6 +22,7 @@ const PREVIEW_HOST = 'http://localhost' // vite preview binds IPv6 localhost
 // Public routes worth prerendering. Private/auth routes stay SPA-only (robots disallows them).
 const ROUTES = [
   { path: '/', dir: '.' },
+  { path: '/developer', dir: 'developer' },
   { path: '/pricing', dir: 'pricing' },
   { path: '/docs', dir: 'docs' },
   { path: '/sandbox', dir: 'sandbox' },

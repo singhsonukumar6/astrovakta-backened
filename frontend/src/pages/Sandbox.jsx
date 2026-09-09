@@ -62,13 +62,13 @@ function LocationSearch({ value, onSelect, label = 'Location', prefix = '', apiK
 
   return (
     <div ref={wrapperRef} style={{ position: 'relative' }}>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#475569', marginBottom: 4 }}>
         <MapPin size={12} /> {label}
       </label>
       {selected && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'rgba(124,58,237,0.1)', borderRadius: 8, marginBottom: 6 }}>
-          <MapPin size={14} color="#a78bfa" />
-          <span style={{ flex: 1, fontSize: 13, color: '#e2e8f0' }}>{selected}</span>
+          <MapPin size={14} color="#4f46e5" />
+          <span style={{ flex: 1, fontSize: 13, color: '#1e293b' }}>{selected}</span>
           <button onClick={() => { setSelected(''); onSelect({ [`${prefix}latitude`]: null, [`${prefix}longitude`]: null, [`${prefix}timezone`]: null, locationName: '' }) }}
             style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: 2 }}>
             <X size={14} />
@@ -89,13 +89,13 @@ function LocationSearch({ value, onSelect, label = 'Location', prefix = '', apiK
       <AnimatePresence>
         {open && results.length > 0 && (
           <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-            style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: '#12122a', border: '1px solid rgba(124,58,237,0.25)', borderRadius: 10, marginTop: 4, overflow: 'hidden', boxShadow: '0 12px 40px rgba(0,0,0,0.5)' }}>
+            style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: '#ffffff', border: '1px solid rgba(124,58,237,0.25)', borderRadius: 10, marginTop: 4, overflow: 'hidden', boxShadow: '0 12px 40px rgba(0,0,0,0.5)' }}>
             {results.map((loc, i) => (
               <button key={i} onClick={() => handleSelect(loc)}
-                style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', color: '#e2e8f0', cursor: 'pointer', textAlign: 'left', borderBottom: i < results.length - 1 ? '1px solid rgba(100,116,139,0.15)' : 'none' }}
+                style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', color: '#1e293b', cursor: 'pointer', textAlign: 'left', borderBottom: i < results.length - 1 ? '1px solid rgba(100,116,139,0.15)' : 'none' }}
                 onMouseEnter={(e) => e.target.style.background = 'rgba(124,58,237,0.08)'}
                 onMouseLeave={(e) => e.target.style.background = 'transparent'}>
-                <MapPin size={14} color="#a78bfa" style={{ marginTop: 2, flexShrink: 0 }} />
+                <MapPin size={14} color="#4f46e5" style={{ marginTop: 2, flexShrink: 0 }} />
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{loc.displayName}</div>
                   <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
@@ -163,7 +163,7 @@ function DynamicForm({ fields, values, onChange, apiKey }) {
               if (field.type === 'file') {
                 return (
                   <div key={field.key}>
-                    <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>{field.label}</label>
+                    <label style={{ display: 'block', fontSize: 12, color: '#475569', marginBottom: 4 }}>{field.label}</label>
                     <input
                       type="file"
                       accept={field.accept || 'image/*'}
@@ -176,7 +176,7 @@ function DynamicForm({ fields, values, onChange, apiKey }) {
                         }
                         reader.readAsDataURL(file)
                       }}
-                      style={{ fontSize: 12, color: '#cbd5e1', width: '100%' }}
+                      style={{ fontSize: 12, color: '#334155', width: '100%' }}
                     />
                     {values[field.key] && (
                       <img src={values[field.key]} alt="preview" style={{ maxWidth: 80, maxHeight: 40, marginTop: 4, borderRadius: 4, border: '1px solid #334155' }} />
@@ -193,7 +193,7 @@ function DynamicForm({ fields, values, onChange, apiKey }) {
 
               return (
                 <div key={field.key}>
-                  <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>{field.label}</label>
+                  <label style={{ display: 'block', fontSize: 12, color: '#475569', marginBottom: 4 }}>{field.label}</label>
                   {field.type === 'textarea' ? (
                     <textarea
                       className="input-field"
@@ -248,13 +248,13 @@ function CurlGenerator({ method, path, body, apiKey }) {
   }`
 
   return (
-    <div style={{ background: '#0d0d24', borderRadius: 'var(--radius)', padding: 16, position: 'relative' }}>
+    <div style={{ background: '#0f172a', borderRadius: 'var(--radius)', padding: 16, position: 'relative' }}>
       <button
         onClick={() => { navigator.clipboard.writeText(curl).then(() => toast.success('Copied!')).catch(() => toast.error('Failed to copy')) }}
-        style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(124,58,237,0.15)', border: 'none', borderRadius: 6, padding: 6, color: '#a78bfa', cursor: 'pointer' }}>
+        style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(124,58,237,0.15)', border: 'none', borderRadius: 6, padding: 6, color: '#c4b5fd', cursor: 'pointer' }}>
         <Copy size={14} />
       </button>
-      <pre style={{ fontSize: 12, lineHeight: 1.7, color: '#94a3b8', fontFamily: 'var(--font-mono)', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+      <pre style={{ fontSize: 12, lineHeight: 1.7, color: '#e2e8f0', fontFamily: 'var(--font-mono)', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
         {curl}
       </pre>
     </div>
@@ -289,10 +289,10 @@ function SvgViewer({ svgString }) {
   const dataUrl = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgString)))}`
   return (
     <div style={{ position: 'relative' }}>
-      <button onClick={() => setFullscreen(true)} style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(124,58,237,0.2)', border: 'none', borderRadius: 6, padding: 6, color: '#a78bfa', cursor: 'pointer', zIndex: 5 }}>
+      <button onClick={() => setFullscreen(true)} style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(124,58,237,0.2)', border: 'none', borderRadius: 6, padding: 6, color: '#4f46e5', cursor: 'pointer', zIndex: 5 }}>
         <Maximize2 size={14} />
       </button>
-      <div style={{ background: '#0d0d24', borderRadius: 'var(--radius)', padding: 20, textAlign: 'center', overflow: 'auto' }}>
+      <div style={{ background: '#0f172a', borderRadius: 'var(--radius)', padding: 20, textAlign: 'center', overflow: 'auto' }}>
         <img src={dataUrl} alt="Chart" style={{ maxWidth: '100%', height: 'auto', borderRadius: 8 }} />
       </div>
       {fullscreen && (
@@ -323,12 +323,12 @@ function WebKundliView({ data }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {basic && Object.keys(basic).length > 0 && (
         <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 20 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, color: '#a78bfa' }}>Basic Details</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, color: '#4f46e5' }}>Basic Details</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
             {Object.entries(basic).filter(([k]) => !['longitude','latitude'].includes(k)).map(([key, val]) => (
               <div key={key} style={{ fontSize: 13 }}>
                 <span style={{ color: '#64748b' }}>{key.replace(/([A-Z])/g, ' $1').trim()}: </span>
-                <span style={{ color: '#e2e8f0', fontWeight: 500 }}>{typeof val === 'object' ? JSON.stringify(val) : String(val)}</span>
+                <span style={{ color: '#1e293b', fontWeight: 500 }}>{typeof val === 'object' ? JSON.stringify(val) : String(val)}</span>
               </div>
             ))}
           </div>
@@ -336,18 +336,18 @@ function WebKundliView({ data }) {
       )}
       {planets.length > 0 && (
         <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 20 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, color: '#a78bfa' }}>Planets</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, color: '#4f46e5' }}>Planets</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 8 }}>
             {planets.map((p) => (
-              <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(10,10,26,0.5)', borderRadius: 10, borderLeft: `3px solid ${p.isRetrograde ? '#ef4444' : '#7c3aed'}` }}>
+              <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(255,255,255,0.5)', borderRadius: 10, borderLeft: `3px solid ${p.isRetrograde ? '#ef4444' : '#7c3aed'}` }}>
                 <span style={{ fontSize: 20, width: 28, textAlign: 'center' }}>{planetEmoji[p.name] || '\u2B50'}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontWeight: 600, fontSize: 14, color: '#e2e8f0' }}>{p.name}</span>
+                    <span style={{ fontWeight: 600, fontSize: 14, color: '#1e293b' }}>{p.name}</span>
                     {p.isRetrograde && <span style={{ fontSize: 10, color: '#ef4444', fontWeight: 700 }}>R</span>}
-                    {p.isCombust && <span style={{ fontSize: 10, color: '#f59e0b', fontWeight: 700 }}>C</span>}
+                    {p.isCombust && <span style={{ fontSize: 10, color: '#d97706', fontWeight: 700 }}>C</span>}
                   </div>
-                  <div style={{ fontSize: 12, color: '#94a3b8' }}>{signEmoji[p.sign] || ''} {p.sign} {p.degreeDMS || ''}</div>
+                  <div style={{ fontSize: 12, color: '#475569' }}>{signEmoji[p.sign] || ''} {p.sign} {p.degreeDMS || ''}</div>
                   <div style={{ fontSize: 11, color: '#64748b' }}>House {p.house} \u00B7 {p.nakshatra} {p.nakshatraPada ? `P${p.nakshatraPada}` : ''} \u00B7 {p.houseStatus}</div>
                 </div>
               </div>
@@ -357,12 +357,12 @@ function WebKundliView({ data }) {
       )}
       {houses.length > 0 && (
         <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 20 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, color: '#a78bfa' }}>Houses (Bhava)</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, color: '#4f46e5' }}>Houses (Bhava)</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
             {houses.map((h) => (
-              <div key={h.house || h.number} style={{ padding: '10px 14px', background: 'rgba(10,10,26,0.5)', borderRadius: 10 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: '#e2e8f0', marginBottom: 4 }}>House {h.house || h.number}</div>
-                <div style={{ fontSize: 12, color: '#94a3b8' }}>{signEmoji[h.sign] || ''} {h.sign} \u00B7 Lord: {h.signLord}</div>
+              <div key={h.house || h.number} style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.5)', borderRadius: 10 }}>
+                <div style={{ fontWeight: 600, fontSize: 14, color: '#1e293b', marginBottom: 4 }}>House {h.house || h.number}</div>
+                <div style={{ fontSize: 12, color: '#475569' }}>{signEmoji[h.sign] || ''} {h.sign} \u00B7 Lord: {h.signLord}</div>
               </div>
             ))}
           </div>
@@ -370,15 +370,15 @@ function WebKundliView({ data }) {
       )}
       {doshas && (
         <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 20 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, color: '#a78bfa' }}>Doshas</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, color: '#4f46e5' }}>Doshas</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {(Array.isArray(doshas) ? doshas : Object.entries(doshas).map(([name, val]) => ({ name, ...val }))).map((d, i) => {
               const name = d.name || d
               const present = d.present ?? d.hasDosha ?? false
               return (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-                  <span style={{ color: present ? '#ef4444' : '#22c55e', fontWeight: 700 }}>{present ? '\u26A0' : '\u2713'}</span>
-                  <span style={{ color: '#e2e8f0', fontWeight: 500 }}>{typeof name === 'string' ? name : JSON.stringify(name)}</span>
+                  <span style={{ color: present ? '#ef4444' : '#16a34a', fontWeight: 700 }}>{present ? '\u26A0' : '\u2713'}</span>
+                  <span style={{ color: '#1e293b', fontWeight: 500 }}>{typeof name === 'string' ? name : JSON.stringify(name)}</span>
                   {d.severity && <span className="badge" style={{ fontSize: 10, padding: '2px 8px', background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>{d.severity}</span>}
                 </div>
               )
@@ -388,14 +388,14 @@ function WebKundliView({ data }) {
       )}
       {yogas && (
         <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 20 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, color: '#a78bfa' }}>Yogas</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, color: '#4f46e5' }}>Yogas</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {(Array.isArray(yogas) ? yogas : Object.entries(yogas).map(([name, val]) => ({ name, ...val })))
               .filter(y => typeof y === 'object' && y !== null).slice(0, 20)
               .map((y, i) => (
                 <div key={i} style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ color: '#7c3aed' }}>\u25C6</span>
-                  <span style={{ color: '#e2e8f0' }}>{y.name || y.yoga || JSON.stringify(y)}</span>
+                  <span style={{ color: '#1e293b' }}>{y.name || y.yoga || JSON.stringify(y)}</span>
                 </div>
               ))}
           </div>
@@ -409,11 +409,11 @@ function WebGenericView({ data }) {
   if (data === null || data === undefined) return <p style={{ color: '#64748b' }}>No data</p>
   const renderValue = (val, depth = 0) => {
     if (val === null || val === undefined) return <span style={{ color: '#64748b' }}>null</span>
-    if (typeof val === 'boolean') return <span style={{ color: val ? '#22c55e' : '#ef4444' }}>{String(val)}</span>
-    if (typeof val === 'number') return <span style={{ color: '#3b82f6' }}>{val}</span>
+    if (typeof val === 'boolean') return <span style={{ color: val ? '#16a34a' : '#ef4444' }}>{String(val)}</span>
+    if (typeof val === 'number') return <span style={{ color: '#2563eb' }}>{val}</span>
     if (typeof val === 'string') {
-      if (val.length > 200) return <div style={{ background: 'rgba(10,10,26,0.5)', borderRadius: 8, padding: 12, marginTop: 6 }}><span style={{ color: '#e2e8f0', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{val}</span></div>
-      return <span style={{ color: '#e2e8f0' }}>"{val}"</span>
+      if (val.length > 200) return <div style={{ background: 'rgba(255,255,255,0.5)', borderRadius: 8, padding: 12, marginTop: 6 }}><span style={{ color: '#1e293b', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{val}</span></div>
+      return <span style={{ color: '#1e293b' }}>"{val}"</span>
     }
     if (Array.isArray(val)) {
       if (val.length === 0) return <span style={{ color: '#64748b' }}>[]</span>
@@ -422,22 +422,22 @@ function WebGenericView({ data }) {
     if (typeof val === 'object') {
       const entries = Object.entries(val)
       if (entries.length === 0) return <span style={{ color: '#64748b' }}>{'{}'}</span>
-      return <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginLeft: depth * 16 }}>{entries.map(([k, v]) => <div key={k}><span style={{ color: '#a78bfa', fontWeight: 500 }}>{k}: </span>{renderValue(v, depth + 1)}</div>)}</div>
+      return <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginLeft: depth * 16 }}>{entries.map(([k, v]) => <div key={k}><span style={{ color: '#4f46e5', fontWeight: 500 }}>{k}: </span>{renderValue(v, depth + 1)}</div>)}</div>
     }
-    return <span style={{ color: '#e2e8f0' }}>{String(val)}</span>
+    return <span style={{ color: '#1e293b' }}>{String(val)}</span>
   }
   const rootData = data?.data || data
-  return <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>{Object.entries(rootData).map(([key, val]) => <div key={key} className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 16 }}><h4 style={{ fontSize: 14, fontWeight: 700, color: '#a78bfa', marginBottom: 10 }}>{key.replace(/([A-Z])/g, ' $1').trim()}</h4>{renderValue(val, 0)}</div>)}</div>
+  return <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>{Object.entries(rootData).map(([key, val]) => <div key={key} className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 16 }}><h4 style={{ fontSize: 14, fontWeight: 700, color: '#4f46e5', marginBottom: 10 }}>{key.replace(/([A-Z])/g, ' $1').trim()}</h4>{renderValue(val, 0)}</div>)}</div>
 }
 
 function WebTextView({ text }) {
-  return <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 20, fontSize: 14, lineHeight: 1.8, color: '#e2e8f0', whiteSpace: 'pre-wrap' }}>{text}</div>
+  return <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 20, fontSize: 14, lineHeight: 1.8, color: '#1e293b', whiteSpace: 'pre-wrap' }}>{text}</div>
 }
 
 function WebResponseView({ data, status }) {
   if (status >= 400) {
     const errorMsg = data?.detail || data?.error || data?.message || JSON.stringify(data)
-    return <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 20, borderLeft: '3px solid #ef4444' }}><h4 style={{ fontSize: 14, fontWeight: 700, color: '#ef4444', marginBottom: 8 }}>Error {status}</h4><p style={{ color: '#94a3b8', fontSize: 14 }}>{typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)}</p></div>
+    return <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 20, borderLeft: '3px solid #ef4444' }}><h4 style={{ fontSize: 14, fontWeight: 700, color: '#ef4444', marginBottom: 8 }}>Error {status}</h4><p style={{ color: '#475569', fontSize: 14 }}>{typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)}</p></div>
   }
   if (isSvgResponse(data)) return <SvgViewer svgString={getSvgString(data)} />
   const rootData = data?.data || data
@@ -642,7 +642,7 @@ export default function Sandbox() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
           <div>
             <h1 style={{ fontSize: 28, fontWeight: 800 }}>API <span className="gradient-text">Sandbox</span></h1>
-            <p style={{ color: '#94a3b8' }}>{endpointCount} endpoints available</p>
+            <p style={{ color: '#475569' }}>{endpointCount} endpoints available</p>
           </div>
         </div>
 
@@ -659,14 +659,14 @@ export default function Sandbox() {
             <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 24 }}>
               {/* API Key */}
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>X-API-Key</label>
+                <label style={{ display: 'block', fontSize: 13, color: '#475569', marginBottom: 6 }}>X-API-Key</label>
                 <input className="input-field" placeholder="avk_xxxxxxxxxxxx" value={apiKey} onChange={(e) => setApiKey(e.target.value)} style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }} />
               </div>
 
               {/* Endpoint Selector */}
               <div style={{ marginBottom: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <label style={{ fontSize: 13, color: '#94a3b8' }}>Endpoint</label>
+                  <label style={{ fontSize: 13, color: '#475569' }}>Endpoint</label>
                 </div>
                 <div style={{ position: 'relative' }}>
                   <select className="input-field" value={selectedEndpoint} onChange={(e) => handleEndpointChange(e.target.value)} style={{ appearance: 'none', paddingRight: 36, cursor: 'pointer' }}>
@@ -684,11 +684,11 @@ export default function Sandbox() {
               {currentEndpoint?.method === 'POST' && hasFields && (
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <button onClick={() => setJsonMode(false)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 6, border: 'none', background: !jsonMode ? 'rgba(124,58,237,0.25)' : 'rgba(100,116,139,0.1)', color: !jsonMode ? '#a78bfa' : '#64748b', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                      {jsonMode ? <ToggleLeft size={14} /> : <ToggleRight size={14} color="#22c55e" />} Form
+                    <button onClick={() => setJsonMode(false)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 6, border: 'none', background: !jsonMode ? 'rgba(124,58,237,0.25)' : 'rgba(100,116,139,0.1)', color: !jsonMode ? '#4f46e5' : '#64748b', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                      {jsonMode ? <ToggleLeft size={14} /> : <ToggleRight size={14} color="#16a34a" />} Form
                     </button>
-                    <button onClick={() => setJsonMode(true)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 6, border: 'none', background: jsonMode ? 'rgba(124,58,237,0.25)' : 'rgba(100,116,139,0.1)', color: jsonMode ? '#a78bfa' : '#64748b', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                      {jsonMode ? <ToggleRight size={14} color="#22c55e" /> : <ToggleLeft size={14} />} JSON
+                    <button onClick={() => setJsonMode(true)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 6, border: 'none', background: jsonMode ? 'rgba(124,58,237,0.25)' : 'rgba(100,116,139,0.1)', color: jsonMode ? '#4f46e5' : '#64748b', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                      {jsonMode ? <ToggleRight size={14} color="#16a34a" /> : <ToggleLeft size={14} />} JSON
                     </button>
                   </div>
                 </div>
@@ -699,7 +699,7 @@ export default function Sandbox() {
                 <>
                   {jsonMode || !hasFields ? (
                     <div style={{ marginBottom: 16 }}>
-                      <label style={{ display: 'block', fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>Request Body</label>
+                      <label style={{ display: 'block', fontSize: 13, color: '#475569', marginBottom: 6 }}>Request Body</label>
                       <textarea className="input-field" value={rawBody} onChange={(e) => handleRawChange(e.target.value)} rows={12}
                         style={{ fontFamily: 'var(--font-mono)', fontSize: 13, resize: 'vertical', lineHeight: 1.6 }} />
                     </div>
@@ -714,7 +714,7 @@ export default function Sandbox() {
               {/* GET endpoint query params */}
               {currentEndpoint?.get && (
                 <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>Query Parameters</label>
+                  <label style={{ display: 'block', fontSize: 13, color: '#475569', marginBottom: 6 }}>Query Parameters</label>
                   {hasFields && !jsonMode ? (
                     <div style={{ maxHeight: 300, overflowY: 'auto', paddingRight: 4 }}>
                       <DynamicForm fields={currentEndpoint.fields} values={formValues} onChange={handleFormChange} apiKey={apiKey} />
@@ -728,7 +728,7 @@ export default function Sandbox() {
 
               {/* cURL */}
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>cURL</label>
+                <label style={{ display: 'block', fontSize: 13, color: '#475569', marginBottom: 6 }}>cURL</label>
                 <CurlGenerator method={currentEndpoint?.method || 'POST'} path={selectedEndpoint} body={currentEndpoint?.method === 'POST' ? rawBody : null} apiKey={apiKey} />
               </div>
 
@@ -741,8 +741,8 @@ export default function Sandbox() {
                 background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               }}>
-                <Coins size={14} color="#eab308" />
-                <span style={{ fontSize: 12, color: '#eab308', fontWeight: 600 }}>
+                <Coins size={14} color="#d97706" />
+                <span style={{ fontSize: 12, color: '#d97706', fontWeight: 600 }}>
                   Cost: {getEndpointCredit(selectedEndpoint)} credit{getEndpointCredit(selectedEndpoint) > 1 ? 's' : ''}
                 </span>
               </div>
@@ -757,7 +757,7 @@ export default function Sandbox() {
                   <span style={{ fontSize: 14, fontWeight: 600 }}>Response</span>
                   {status && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, background: status < 400 ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: status < 400 ? '#22c55e' : '#ef4444' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, background: status < 400 ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: status < 400 ? '#16a34a' : '#ef4444' }}>
                         {status < 400 ? <CheckCircle2 size={12} /> : <XCircle size={12} />} {status}
                       </span>
                       {responseTime && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#64748b' }}><Clock size={12} /> {responseTime}ms</span>}
@@ -765,9 +765,9 @@ export default function Sandbox() {
                   )}
                 </div>
                 {response && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(10,10,26,0.5)', borderRadius: 8, padding: 2 }}>
-                    <button onClick={() => setViewMode('web')} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 6, border: 'none', background: viewMode === 'web' ? 'rgba(124,58,237,0.25)' : 'transparent', color: viewMode === 'web' ? '#a78bfa' : '#64748b', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}><Globe size={13} /> Web</button>
-                    <button onClick={() => setViewMode('json')} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 6, border: 'none', background: viewMode === 'json' ? 'rgba(124,58,237,0.25)' : 'transparent', color: viewMode === 'json' ? '#a78bfa' : '#64748b', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}><Code size={13} /> JSON</button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.5)', borderRadius: 8, padding: 2 }}>
+                    <button onClick={() => setViewMode('web')} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 6, border: 'none', background: viewMode === 'web' ? 'rgba(124,58,237,0.25)' : 'transparent', color: viewMode === 'web' ? '#4f46e5' : '#64748b', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}><Globe size={13} /> Web</button>
+                    <button onClick={() => setViewMode('json')} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 6, border: 'none', background: viewMode === 'json' ? 'rgba(124,58,237,0.25)' : 'transparent', color: viewMode === 'json' ? '#4f46e5' : '#64748b', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}><Code size={13} /> JSON</button>
                   </div>
                 )}
               </div>
@@ -775,8 +775,8 @@ export default function Sandbox() {
               {response ? (
                 viewMode === 'web' ? <WebResponseView data={response} status={status} /> : (
                   <div style={{ position: 'relative' }}>
-                    <button onClick={copyResponse} style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(124,58,237,0.15)', border: 'none', borderRadius: 6, padding: 6, color: '#a78bfa', cursor: 'pointer', zIndex: 5 }}><Copy size={13} /></button>
-                    <pre style={{ background: '#0d0d24', borderRadius: 'var(--radius)', padding: 20, fontSize: 13, lineHeight: 1.7, fontFamily: 'var(--font-mono)', color: '#e2e8f0', overflow: 'auto', maxHeight: 600, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    <button onClick={copyResponse} style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(124,58,237,0.15)', border: 'none', borderRadius: 6, padding: 6, color: '#4f46e5', cursor: 'pointer', zIndex: 5 }}><Copy size={13} /></button>
+                    <pre style={{ background: '#0f172a', borderRadius: 'var(--radius)', padding: 20, fontSize: 13, lineHeight: 1.7, fontFamily: 'var(--font-mono)', color: '#e2e8f0', overflow: 'auto', maxHeight: 600, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                       {JSON.stringify(response, null, 2)}
                     </pre>
                   </div>
