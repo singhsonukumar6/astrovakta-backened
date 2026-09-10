@@ -1,17 +1,38 @@
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 import httpx
 import logging
+import time
 
 router = APIRouter()
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org"
 USER_AGENT = "AstroVakta/2.0 (astrology-app)"
 
+# Nominatim's public policy allows ~1 req/s — a small per-IP window keeps
+# anonymous visitors from getting the shared egress IP blocked.
+_RATE_LIMIT = 30
+_RATE_WINDOW = 60.0
+_rate_bucket: Dict[str, List[float]] = {}
+
+
+def _rate_limit(request: Request) -> None:
+    client_ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    hits = [t for t in _rate_bucket.get(client_ip, []) if now - t < _RATE_WINDOW]
+    if len(hits) >= _RATE_LIMIT:
+        raise HTTPException(status_code=429, detail="Too many location lookups — please wait a moment.")
+    hits.append(now)
+    _rate_bucket[client_ip] = hits
+    # keep the bucket small
+    if len(_rate_bucket) > 10000:
+        _rate_bucket.clear()
+
 
 @router.get('/location/search')
 async def search_location(
+    request: Request,
     q: str = Query(..., min_length=2, max_length=100, example="New Delhi", description="Search query (city name, address, etc.)"),
     limit: int = Query(5, ge=1, le=20, example=5, description="Number of results to return"),
     countrycode: Optional[str] = Query(None, example="in", description="ISO 3166-1 country code to filter results"),
@@ -21,6 +42,7 @@ async def search_location(
     Returns place names with latitude, longitude, and administrative details.
     Rate limited to 1 request per second by Nominatim policy.
     """
+    _rate_limit(request)
     params = {
         'q': q,
         'format': 'json',
@@ -129,6 +151,7 @@ async def reverse_geocode(
 
 @router.get('/location/timezone')
 async def get_timezone(
+    request: Request,
     lat: float = Query(..., ge=-90, le=90, example=28.6139),
     lon: float = Query(..., ge=-180, le=180, example=77.2090),
 ) -> Dict[str, Any]:
@@ -136,6 +159,7 @@ async def get_timezone(
     Get the IANA timezone for given coordinates using Nominatim's timezone data.
     Falls back to a common mapping for Indian cities.
     """
+    _rate_limit(request)
     # For India, quick check
     if 6.0 <= lat <= 37.0 and 68.0 <= lon <= 97.5:
         return {

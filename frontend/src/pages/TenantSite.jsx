@@ -26,6 +26,7 @@ import {
   getPublicSite, getPublicAvailability, publicBook, publicKundliTool, publicPanchangTool,
   publicHoroscopeTool, publicPlaceOrder,
 } from '../lib/api.js'
+import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
 import { tenantSiteUrl, tenantSubdomainLabel } from '../lib/tenant.js'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -326,6 +327,7 @@ function BookingWidget({ site, resolve, services, theme }) {
 // Vimshottari dasha timeline — same Swiss-ephemeris engine as the platform.
 function KundliSoftware({ site, resolve, theme, COLORS }) {
   const [form, setForm] = useState({ name: '', phone: '', date: '', time: '', place: '' })
+  const [coords, setCoords] = useState(null)
   const [result, setResult] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -342,7 +344,10 @@ function KundliSoftware({ site, resolve, theme, COLORS }) {
         name: form.name.trim() || undefined,
         phone: form.phone.trim() || undefined,
         date: form.date, time: form.time,
-        place: form.place.trim() || undefined,
+        place: (coords?.label || form.place.trim()) || undefined,
+        lat: coords?.lat,
+        lon: coords?.lon,
+        tz: coords?.tz || undefined,
         detail: true,
         chart_theme: theme.bgStyle === 'dark' ? 'dark' : 'light',
       })
@@ -549,7 +554,21 @@ function KundliSoftware({ site, resolve, theme, COLORS }) {
               <input type="time" value={form.time} onChange={(e) => set('time', e.target.value)} style={inputStyle} />
             </div>
           </div>
-          <input value={form.place} onChange={(e) => set('place', e.target.value)} placeholder="Birth place (city — Delhi if left blank)" style={inputStyle} />
+          <div>
+            <PlaceAutocomplete
+              inputStyle={inputStyle}
+              placeholder="Birth place (start typing and pick your city)"
+              onSelect={(sel) => {
+                setCoords(sel)
+                if (sel) set('place', sel.label)
+              }}
+            />
+            {!coords && (
+              <div style={{ fontSize: 11.5, color: COLORS.textDim, marginTop: 4 }}>
+                Type a few letters and pick your city — the chart then uses its exact coordinates.
+              </div>
+            )}
+          </div>
           {error && <div style={{ color: '#dc2626', fontSize: 13 }}>{error}</div>}
           <button type="submit" disabled={busy} style={{
             ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none',

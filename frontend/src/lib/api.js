@@ -318,6 +318,16 @@ export const publicPanchangTool = (resolve) =>
 export const publicHoroscopeTool = (resolve, sign) =>
   api.get('/sites/site/tools/horoscope', { params: { ...resolveParams(resolve), sign } }).then((r) => r.data)
 
+// ──── LOCATION AUTOCOMPLETE (public — powers kundli birth-place fields) ────
+export const searchLocations = (q, countrycode) =>
+  api.get('/api/location/search', { params: { q, limit: 6, countrycode } })
+    .then((r) => r.data?.locations ?? r.data?.data?.locations ?? [])
+
+export const getLocationTimezone = (lat, lon) =>
+  api.get('/api/location/timezone', { params: { lat, lon } })
+    .then((r) => r.data?.timezone ?? r.data?.data?.timezone ?? 'UTC')
+    .catch(() => 'UTC')
+
 export const publicPlaceOrder = (resolve, data) => {
   const qs = new URLSearchParams(resolveParams(resolve)).toString()
   return api.post(`/sites/site/order?${qs}`, data).then((r) => r.data)

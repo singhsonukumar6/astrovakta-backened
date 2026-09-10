@@ -28,6 +28,8 @@ SKIP_PATHS = {
 PUBLIC_CONTENT_PREFIXES = (
     "/api/page-config",
     "/api/blogs",
+    # Location autocomplete powers the public kundli tools on tenant sites
+    "/api/location/",
 )
 
 _PASSTHROUGH_HEADERS = frozenset((
