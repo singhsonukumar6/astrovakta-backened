@@ -39,7 +39,10 @@ RESERVED_SLUGS = {
     "docs", "sandbox", "login", "register", "signup", "astrovakta", "astro",
 }
 
-TEMPLATES = ["aurora", "classic", "minimal", "devotional"]
+TEMPLATES = [
+    "aurora", "classic", "minimal", "devotional",
+    "celestial", "royal", "tantra", "modern-light",
+]
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 
@@ -77,6 +80,24 @@ DEFAULT_PAGES = {
             "heroSubtitle": "Accurate kundli readings, remedies and guidance for career, marriage, health and prosperity.",
             "aboutTitle": "About",
             "aboutText": "I am a Vedic astrologer with years of experience helping people find clarity through their birth chart. Share your birth details and receive a detailed, honest reading.",
+            "statsYears": "15+",
+            "statsYearsLabel": "Years of Practice",
+            "statsReadings": "10,000+",
+            "statsReadingsLabel": "Kundlis Read",
+            "statsRating": "4.9",
+            "statsRatingLabel": "Client Rating",
+            "whyPoints": [
+                {"title": "Accurate Calculations", "text": "Swiss-ephemeris precision — the same engine used by professional software."},
+                {"title": "Honest Guidance", "text": "Clear, practical answers. No fear-selling of costly remedies."},
+                {"title": "Complete Privacy", "text": "Your birth details and consultations stay strictly confidential."},
+                {"title": "Personal Attention", "text": "Every reading is done personally by me — never outsourced."},
+            ],
+            "testimonialsTitle": "What Clients Say",
+            "testimonials": [
+                {"name": "Rakesh S.", "text": "His reading of my career period was spot on. Simple remedies, and they worked.", "rating": 5},
+                {"name": "Meera T.", "text": "Very patient and honest. Explained my kundli in words I could actually understand.", "rating": 5},
+                {"name": "Ankit P.", "text": "Booked online at night, got a confirmation on WhatsApp instantly. Great experience.", "rating": 5},
+            ],
         },
     },
     "about": {
@@ -110,6 +131,11 @@ TEMPLATE_THEMES = {
     "classic": {"primaryColor": "#b45309", "accentColor": "#dc2626", "bgStyle": "dark"},
     "minimal": {"primaryColor": "#0f766e", "accentColor": "#0ea5e9", "bgStyle": "light"},
     "devotional": {"primaryColor": "#ea580c", "accentColor": "#facc15", "bgStyle": "light"},
+    # High-profile themes
+    "celestial": {"primaryColor": "#4338ca", "accentColor": "#f472b6", "bgStyle": "dark", "fontHeading": "'Cormorant Garamond', 'Playfair Display', Georgia, serif", "heroPattern": "stars"},
+    "royal": {"primaryColor": "#7c2d12", "accentColor": "#eab308", "bgStyle": "dark", "fontHeading": "'Playfair Display', Georgia, serif", "heroPattern": "mandala"},
+    "tantra": {"primaryColor": "#be123c", "accentColor": "#f97316", "bgStyle": "dark", "heroPattern": "yantra"},
+    "modern-light": {"primaryColor": "#2563eb", "accentColor": "#8b5cf6", "bgStyle": "light", "heroPattern": "grid"},
 }
 
 DEFAULT_SERVICES = [
@@ -150,6 +176,22 @@ DEFAULT_SETTINGS = {
     "whatsappNumber": "",
     "bookingAlerts": True,
     "reminderHours": 24,
+    # social links shown in the site header/footer
+    "instagram": "",
+    "youtube": "",
+    "facebook": "",
+    "twitter": "",
+    "linkedin": "",
+    "telegram": "",
+    "websiteUrl": "",
+    # section toggles so astrologers can hide what they don't use
+    "showStore": False,
+    "showTestimonials": True,
+    "showGallery": False,
+    # contact block on the site
+    "email": "",
+    "phone": "",
+    "city": "",
 }
 
 
@@ -326,7 +368,8 @@ def set_site_status(site_id: int, status: str) -> dict:
 
 def delete_site(site_id: int) -> bool:
     db = get_db()
-    for table in ["site_bookings", "site_availability", "site_services", "site_pages", "site_leads"]:
+    for table in ["site_bookings", "site_availability", "site_services", "site_pages",
+                  "site_leads", "site_orders", "site_products"]:
         db.execute(_convert(f"DELETE FROM {table} WHERE site_id = ?"), (site_id,))
     cur = db.execute(_convert("DELETE FROM sites WHERE id = ?"), (site_id,))
     db.commit()
@@ -617,6 +660,230 @@ def list_leads(site_id: int, limit: int = 200) -> list:
 
 
 # ═══════════════════════════════════════════════
+#  Products (store)
+# ═══════════════════════════════════════════════
+
+def list_products(site_id: int, active_only: bool = False):
+    db = get_db()
+    if active_only:
+        rows = db.execute(
+            _convert("SELECT * FROM site_products WHERE site_id = ? AND is_active = TRUE ORDER BY sort_order, id"),
+            (site_id,),
+        ).fetchall()
+    else:
+        rows = db.execute(
+            _convert("SELECT * FROM site_products WHERE site_id = ? ORDER BY sort_order, id"),
+            (site_id,),
+        ).fetchall()
+    return [_to_dict(r) for r in rows]
+
+
+def get_product(site_id: int, product_id: int):
+    row = get_db().execute(
+        _convert("SELECT * FROM site_products WHERE site_id = ? AND id = ?"), (site_id, product_id)
+    ).fetchone()
+    return _to_dict(row)
+
+
+def adjust_product_stock(site_id: int, product_id: int, delta: int) -> None:
+    """Move tracked stock by `delta` (negative = a sale). Unlimited (stock < 0)
+    products are never touched. sqlite: GREATEST-free clamp keeps stock >= 0."""
+    db = get_db()
+    db.execute(
+        _convert(
+            "UPDATE site_products SET stock = MAX(stock + ?, 0) "
+            "WHERE site_id = ? AND id = ? AND stock >= 0"
+        ),
+        (delta, site_id, product_id),
+    )
+    db.commit()
+
+
+def create_product(site_id: int, data: dict) -> dict:
+    db = get_db()
+    cur = db.execute(
+        _convert(
+            "INSERT INTO site_products (site_id, name, description, price, currency, image, stock, is_active, sort_order, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id"
+        ),
+        (
+            site_id,
+            data.get("name"),
+            data.get("description"),
+            int(data.get("price", 0) or 0),
+            data.get("currency", "INR"),
+            data.get("image"),
+            int(data.get("stock", -1)),
+            bool(data.get("is_active", True)),
+            int(data.get("sort_order", 0) or 0),
+            _now(),
+        ),
+    ).fetchone()
+    db.commit()
+    return get_product(site_id, cur["id"])
+
+
+def update_product(site_id: int, product_id: int, data: dict) -> dict:
+    db = get_db()
+    fields, params = [], []
+    for col in ["name", "description", "currency", "image"]:
+        if col in data and data[col] is not None:
+            fields.append(f"{col} = ?")
+            params.append(data[col])
+    for col in ["price", "stock", "sort_order"]:
+        if col in data and data[col] is not None:
+            fields.append(f"{col} = ?")
+            params.append(int(data[col]))
+    if "is_active" in data and data["is_active"] is not None:
+        fields.append("is_active = ?")
+        params.append(bool(data["is_active"]))
+    if fields:
+        params.append(site_id)
+        params.append(product_id)
+        db.execute(
+            _convert(f"UPDATE site_products SET {', '.join(fields)} WHERE site_id = ? AND id = ?"), params
+        )
+        db.commit()
+    return get_product(site_id, product_id)
+
+
+def delete_product(site_id: int, product_id: int) -> bool:
+    db = get_db()
+    cur = db.execute(
+        _convert("DELETE FROM site_products WHERE site_id = ? AND id = ?"), (site_id, product_id)
+    )
+    db.commit()
+    return cur.rowcount > 0
+
+
+# ═══════════════════════════════════════════════
+#  Orders (store)
+# ═══════════════════════════════════════════════
+
+def list_orders(site_id: int, status: str = "", limit: int = 300):
+    db = get_db()
+    where = ["site_id = ?"]
+    params = [site_id]
+    if status:
+        where.append("status = ?")
+        params.append(status)
+    rows = db.execute(
+        _convert(f"SELECT * FROM site_orders WHERE {' AND '.join(where)} ORDER BY created_at DESC LIMIT ?"),
+        (*params, limit),
+    ).fetchall()
+    out = []
+    for r in rows:
+        d = _to_dict(r)
+        d["items"] = _parse_content(d.get("items"))
+        out.append(d)
+    return out
+
+
+def get_order(site_id: int, order_id: int):
+    row = get_db().execute(
+        _convert("SELECT * FROM site_orders WHERE site_id = ? AND id = ?"), (site_id, order_id)
+    ).fetchone()
+    d = _to_dict(row)
+    if d:
+        d["items"] = _parse_content(d.get("items"))
+    return d
+
+
+ORDER_STATUSES = ("new", "confirmed", "fulfilled", "cancelled")
+
+
+def create_order(site_id: int, data: dict) -> dict:
+    db = get_db()
+    items = data.get("items") or []
+    if isinstance(items, (list, dict)):
+        items = json.dumps(items)
+    cur = db.execute(
+        _convert(
+            "INSERT INTO site_orders (site_id, client_name, client_phone, client_email, address, items, amount, currency, status, notes, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id"
+        ),
+        (
+            site_id,
+            data.get("client_name"),
+            data.get("client_phone"),
+            data.get("client_email"),
+            data.get("address"),
+            items,
+            int(data.get("amount", 0) or 0),
+            data.get("currency", "INR"),
+            data.get("status", "new"),
+            data.get("notes"),
+            _now(),
+        ),
+    ).fetchone()
+    db.commit()
+    return get_order(site_id, cur["id"])
+
+
+def update_order(site_id: int, order_id: int, data: dict) -> dict:
+    db = get_db()
+    fields, params = [], []
+    for col in ["status", "notes"]:
+        if col in data and data[col] is not None:
+            fields.append(f"{col} = ?")
+            params.append(data[col])
+    if fields:
+        params.append(site_id)
+        params.append(order_id)
+        db.execute(
+            _convert(f"UPDATE site_orders SET {', '.join(fields)} WHERE site_id = ? AND id = ?"), params
+        )
+        db.commit()
+    return get_order(site_id, order_id)
+
+
+# ═══════════════════════════════════════════════
+#  Owner dashboard stats
+# ═══════════════════════════════════════════════
+
+def site_stats(site_id: int) -> dict:
+    db = get_db()
+    today = datetime.now(timezone.utc).date().isoformat()
+
+    def one(sql, params=()):
+        return db.execute(_convert(sql), params).fetchone()
+
+    bookings_total = one("SELECT COUNT(*) AS n FROM site_bookings WHERE site_id = ? AND status != 'cancelled'", (site_id,))["n"]
+    bookings_upcoming = one(
+        "SELECT COUNT(*) AS n FROM site_bookings WHERE site_id = ? AND date >= ? AND status = 'confirmed'", (site_id, today)
+    )["n"]
+    bookings_pending_revenue = one(
+        "SELECT COALESCE(SUM(amount), 0) AS n FROM site_bookings WHERE site_id = ? AND status = 'confirmed'", (site_id,)
+    )["n"]
+    completed_revenue = one(
+        "SELECT COALESCE(SUM(amount), 0) AS n FROM site_bookings WHERE site_id = ? AND status = 'completed'", (site_id,)
+    )["n"]
+    leads_total = one("SELECT COUNT(*) AS n FROM site_leads WHERE site_id = ?", (site_id,))["n"]
+    services_active = one("SELECT COUNT(*) AS n FROM site_services WHERE site_id = ? AND is_active = TRUE", (site_id,))["n"]
+    products_active = one("SELECT COUNT(*) AS n FROM site_products WHERE site_id = ? AND is_active = TRUE", (site_id,))["n"]
+    orders_new = one("SELECT COUNT(*) AS n FROM site_orders WHERE site_id = ? AND status = 'new'", (site_id,))["n"]
+    orders_total = one("SELECT COUNT(*) AS n FROM site_orders WHERE site_id = ?", (site_id,))["n"]
+    orders_revenue = one(
+        "SELECT COALESCE(SUM(amount), 0) AS n FROM site_orders WHERE site_id = ? AND status IN ('confirmed', 'fulfilled')", (site_id,)
+    )["n"]
+
+    upcoming = list_bookings(site_id, date_from=today, status="confirmed")[:5]
+    for b in upcoming:
+        svc = get_service(site_id, b["service_id"]) if b.get("service_id") else None
+        b["service_name"] = svc["name"] if svc else None
+
+    return {
+        "bookings": {"total": bookings_total, "upcoming": bookings_upcoming,
+                     "confirmedRevenue": bookings_pending_revenue, "completedRevenue": completed_revenue},
+        "leads": {"total": leads_total},
+        "services": {"active": services_active},
+        "store": {"products": products_active, "ordersNew": orders_new,
+                  "ordersTotal": orders_total, "revenue": orders_revenue},
+        "upcoming": upcoming,
+    }
+
+
+# ═══════════════════════════════════════════════
 #  Public site bundle (everything the renderer needs, in one call)
 # ═══════════════════════════════════════════════
 
@@ -638,4 +905,5 @@ def public_site_bundle(site: dict) -> dict:
         },
         "pages": pages,
         "services": list_services(site_id, active_only=True),
+        "products": list_products(site_id, active_only=True),
     }

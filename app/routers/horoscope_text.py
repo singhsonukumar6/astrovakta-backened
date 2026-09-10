@@ -196,7 +196,7 @@ DAILY_OVERVIEW: Dict[str, List[Dict[str, str]]] = {
     'Leo': [
         {"positive": "The Sun beams directly on your creativity and romance sectors. Self-expression flourishes — pursue artistic endeavors with confidence. Romance sparkles with dramatic flair.", "challenging": "Pride may prevent you from accepting helpful advice. Humility opens doors that ego keeps closed."},
         {"positive": "Your natural magnetism is irresistible today. Career recognition arrives through a creative project. Children or younger people bring joy and inspiration.", "challenging": "Centering every conversation around yourself alienates friends. Show genuine interest in others' stories."},
-        {"positive": "A royally good day for Leos — leadership roles come naturally and others respond to your warmth. Creative vision translates into tangible成果. Love life sizzles.", "challenging": "Overconfidence in financial decisions could lead to losses. Seek counsel before major expenditures."},
+        {"positive": "A royally good day for Leos — leadership roles come naturally and others respond to your warmth. Creative vision translates into tangible results. Love life sizzles.", "challenging": "Overconfidence in financial decisions could lead to losses. Seek counsel before major expenditures."},
         {"positive": "Your generous spirit attracts abundance in all forms. The spotlight finds you effortlessly — use it to uplift others. A passionate connection deepens.", "challenging": "Dramatic reactions to minor setbacks waste precious energy. Maintain your regal composure under pressure."},
     ],
     'Virgo': [

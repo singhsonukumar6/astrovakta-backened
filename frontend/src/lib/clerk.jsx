@@ -1,57 +1,34 @@
 /**
- * Clerk integration with graceful degradation.
+ * Clerk is RETIRED from this app. AstroVakta uses email + password (JWT)
+ * auth exclusively — the Clerk instance previously used was decommissioned
+ * (its frontend API domain no longer serves Clerk), which broke every
+ * auth button wrapped in <SignedOut> and hid /login behind redirects.
  *
- * The site must always render — for users AND for crawlers (Googlebot, GPTBot,
- * ClaudeBot). If the Clerk key is missing/invalid, we render the public site
- * normally with auth controls in their signed-out presentation, instead of
- * blanking the whole app (SEO-fatal: an empty page cannot be indexed or cited).
- *
- * main.jsx previously threw on a missing key, which turned ANY Clerk issue into
- * an empty <div id="root">.
+ * Every export below is a harmless stub so old imports keep working.
+ * To revive Clerk someday: restore the real re-exports and the provider
+ * in main.jsx, and remove the /login /register routes' unconditional pages.
  */
-import {
-  ClerkProvider as RealClerkProvider,
-  SignedIn as RealSignedIn,
-  SignedOut as RealSignedOut,
-  SignInButton as RealSignInButton,
-  SignUpButton as RealSignUpButton,
-  UserButton as RealUserButton,
-  useUser as realUseUser,
-  useAuth as realUseAuth,
-  useClerk as realUseClerk,
-} from '@clerk/clerk-react'
 
-const rawKey = (import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || '').trim()
-// Clerk keys look like pk_test_XXX / pk_live_XXX with no other characters.
-export const CLERK_ENABLED = /^pk_(test|live)_[A-Za-z0-9]+$/.test(rawKey)
+export const CLERK_ENABLED = false
 
-function FallbackProvider({ children }) {
+export function ClerkProvider({ children }) {
   return children
 }
 
-function SignedOutFallback({ children }) {
-  return children
-}
-
-function SignedInFallback() {
+export function SignedIn() {
   return null
 }
 
-// Auth buttons degrade to anchors pointing at the hero's free-tier CTA.
-function SignInButtonFallback({ children, ...props }) {
-  return <a href="/#start-free" {...props}>{children}</a>
+export function SignedOut() {
+  // Renders nothing for the old auth-button pattern: callers must show their
+  // own email/password login UI (Link to /login) instead.
+  return null
 }
 
-function SignUpButtonFallback({ children, ...props }) {
-  return <a href="/#start-free" {...props}>{children}</a>
-}
+export const SignInButton = () => null
+export const SignUpButton = () => null
+export const UserButton = () => null
 
-export const ClerkProvider = CLERK_ENABLED ? RealClerkProvider : FallbackProvider
-export const SignedIn = CLERK_ENABLED ? RealSignedIn : SignedInFallback
-export const SignedOut = CLERK_ENABLED ? RealSignedOut : SignedOutFallback
-export const SignInButton = CLERK_ENABLED ? RealSignInButton : SignInButtonFallback
-export const SignUpButton = CLERK_ENABLED ? RealSignUpButton : SignUpButtonFallback
-export const UserButton = CLERK_ENABLED ? RealUserButton : () => null
-export const useUser = CLERK_ENABLED ? realUseUser : () => ({ isLoaded: true, isSignedIn: false, user: null })
-export const useAuth = CLERK_ENABLED ? realUseAuth : () => ({ isLoaded: true, isSignedIn: false, userId: null })
-export const useClerk = CLERK_ENABLED ? realUseClerk : () => ({ openSignIn: () => {}, openSignUp: () => {} })
+export const useUser = () => ({ isLoaded: true, isSignedIn: false, user: null })
+export const useAuth = () => ({ isLoaded: true, isSignedIn: false, userId: null })
+export const useClerk = () => ({ openSignIn: () => {}, openSignUp: () => {} })

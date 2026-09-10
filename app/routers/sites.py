@@ -17,6 +17,9 @@ from ..tenants import (
     list_availability, set_availability,
     list_bookings, get_booking, create_booking, update_booking,
     list_leads,
+    list_products, get_product, create_product, update_product, delete_product,
+    list_orders, get_order, create_order, update_order, ORDER_STATUSES,
+    site_stats, adjust_product_stock,
 )
 from .auth_router import get_current_user
 
@@ -104,6 +107,37 @@ class UpdateBookingBody(BaseModel):
     status: Optional[str] = Field(None, pattern="^(confirmed|completed|cancelled|no_show)$")
     notes: Optional[str] = Field(None, max_length=1000)
 
+class ProductBody(BaseModel):
+    name: str = Field(..., min_length=1, max_length=140)
+    description: Optional[str] = Field(None, max_length=1000)
+    price: int = Field(0, ge=0)
+    currency: str = Field("INR", max_length=3)
+    image: Optional[str] = None
+    stock: int = Field(-1, ge=-1)
+    is_active: bool = True
+    sort_order: int = 0
+
+class UpdateProductBody(ProductBody):
+    name: Optional[str] = Field(None, min_length=1, max_length=140)
+
+class OrderItemBody(BaseModel):
+    product_id: int
+    name: str = Field(..., min_length=1, max_length=140)
+    price: int = Field(0, ge=0)
+    qty: int = Field(1, ge=1, le=99)
+
+class CreateOrderBody(BaseModel):
+    client_name: str = Field(..., min_length=1, max_length=120)
+    client_phone: Optional[str] = Field(None, max_length=20)
+    client_email: Optional[str] = None
+    address: Optional[str] = Field(None, max_length=500)
+    items: List[OrderItemBody]
+    notes: Optional[str] = Field(None, max_length=1000)
+
+class UpdateOrderBody(BaseModel):
+    status: Optional[str] = Field(None, pattern="^(new|confirmed|fulfilled|cancelled)$")
+    notes: Optional[str] = Field(None, max_length=1000)
+
 
 # ─────────────── availability checks (public, used by the wizard) ───────────────
 
@@ -142,10 +176,25 @@ def check_domain(domain: str):
 
 # ─────────────── sites ───────────────
 
+_TEMPLATE_META = {
+    "aurora": {"name": "Aurora", "desc": "Indigo & amber — clean, light and modern", "tier": "free"},
+    "classic": {"name": "Classic", "desc": "Traditional warm browns on a deep night theme", "tier": "free"},
+    "minimal": {"name": "Minimal", "desc": "Fresh teal — calm and clutter-free", "tier": "free"},
+    "devotional": {"name": "Devotional", "desc": "Saffron & marigold — temple-inspired", "tier": "free"},
+    "celestial": {"name": "Celestial", "desc": "Indigo night sky with stars & elegant serif headings", "tier": "premium"},
+    "royal": {"name": "Royal Heritage", "desc": "Deep maroon & gold — regal, luxurious", "tier": "premium"},
+    "tantra": {"name": "Tantra", "desc": "Crimson & ember — bold, mystical energy", "tier": "premium"},
+    "modern-light": {"name": "Modern Studio", "desc": "Blue & violet on white — sleek agency look", "tier": "premium"},
+}
+
+
 @router.get("/templates")
 def list_templates():
+    from ..tenants import TEMPLATE_THEMES
     return {"templates": [
-        {"id": t, "name": t.capitalize()} for t in TEMPLATES
+        {"id": t, **_TEMPLATE_META.get(t, {"name": t.capitalize(), "desc": "", "tier": "free"}),
+         "preview": {"theme": TEMPLATE_THEMES.get(t, {})}}
+        for t in TEMPLATES
     ]}
 
 
@@ -282,12 +331,39 @@ def update_my_site_media(site_id: int, body: MediaBody, user: dict = Depends(get
     return update_site(site_id, data)
 
 
-# ─────────────── settings (alerts & contact) ───────────────
+# ─────────────── settings (alerts, contact & social links) ───────────────
+
+_SOCIAL_FIELDS = {
+    "instagram": "instagram",
+    "youtube": "youtube",
+    "facebook": "facebook",
+    "twitter": "twitter",
+    "linkedin": "linkedin",
+    "telegram": "telegram",
+    "websiteUrl": "websiteUrl",
+    "email": "email",
+    "phone": "phone",
+    "city": "city",
+}
+
 
 class SettingsBody(BaseModel):
     whatsapp_number: Optional[str] = Field(None, max_length=20)
     booking_alerts: Optional[bool] = None
     reminder_hours: Optional[int] = Field(None, ge=1, le=72)
+    instagram: Optional[str] = Field(None, max_length=255)
+    youtube: Optional[str] = Field(None, max_length=255)
+    facebook: Optional[str] = Field(None, max_length=255)
+    twitter: Optional[str] = Field(None, max_length=255)
+    linkedin: Optional[str] = Field(None, max_length=255)
+    telegram: Optional[str] = Field(None, max_length=255)
+    website_url: Optional[str] = Field(None, max_length=255)
+    contact_email: Optional[str] = Field(None, max_length=255)
+    contact_phone: Optional[str] = Field(None, max_length=30)
+    city: Optional[str] = Field(None, max_length=120)
+    show_store: Optional[bool] = None
+    show_testimonials: Optional[bool] = None
+    show_gallery: Optional[bool] = None
 
 
 @router.put("/my/{site_id}/settings")
@@ -304,6 +380,34 @@ def update_my_site_settings(site_id: int, body: SettingsBody, user: dict = Depen
         settings["bookingAlerts"] = body.booking_alerts
     if body.reminder_hours is not None:
         settings["reminderHours"] = body.reminder_hours
+
+    # social links & contact block — stored verbatim (full URL or handle)
+    if body.instagram is not None:
+        settings["instagram"] = body.instagram.strip()
+    if body.youtube is not None:
+        settings["youtube"] = body.youtube.strip()
+    if body.facebook is not None:
+        settings["facebook"] = body.facebook.strip()
+    if body.twitter is not None:
+        settings["twitter"] = body.twitter.strip()
+    if body.linkedin is not None:
+        settings["linkedin"] = body.linkedin.strip()
+    if body.telegram is not None:
+        settings["telegram"] = body.telegram.strip()
+    if body.website_url is not None:
+        settings["websiteUrl"] = body.website_url.strip()
+    if body.contact_email is not None:
+        settings["email"] = body.contact_email.strip()
+    if body.contact_phone is not None:
+        settings["phone"] = body.contact_phone.strip()
+    if body.city is not None:
+        settings["city"] = body.city.strip()
+    if body.show_store is not None:
+        settings["showStore"] = body.show_store
+    if body.show_testimonials is not None:
+        settings["showTestimonials"] = body.show_testimonials
+    if body.show_gallery is not None:
+        settings["showGallery"] = body.show_gallery
     return update_site(site_id, {"settings": settings})
 
 
@@ -395,3 +499,77 @@ def update_my_booking(site_id: int, booking_id: int, body: UpdateBookingBody, us
     if not get_booking(site_id, booking_id):
         raise HTTPException(status_code=404, detail="Booking not found")
     return update_booking(site_id, booking_id, body.model_dump(exclude_none=True))
+
+
+# ─────────────── stats (owner dashboard overview) ───────────────
+
+@router.get("/my/{site_id}/stats")
+def my_site_stats(site_id: int, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    return site_stats(site_id)
+
+
+# ─────────────── products (store) ───────────────
+
+@router.get("/my/{site_id}/products")
+def my_products(site_id: int, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    return {"products": list_products(site_id)}
+
+
+@router.post("/my/{site_id}/products")
+def create_my_product(site_id: int, body: ProductBody, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    data = body.model_dump()
+    if data.get("image"):
+        data["image"] = _validate_media_data_url(data["image"], "Product photo")
+    return create_product(site_id, data)
+
+
+@router.put("/my/{site_id}/products/{product_id}")
+def update_my_product(site_id: int, product_id: int, body: UpdateProductBody, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    if not get_product(site_id, product_id):
+        raise HTTPException(status_code=404, detail="Product not found")
+    data = body.model_dump(exclude_none=True)
+    if data.get("image"):
+        data["image"] = _validate_media_data_url(data["image"], "Product photo")
+    return update_product(site_id, product_id, data)
+
+
+@router.delete("/my/{site_id}/products/{product_id}")
+def delete_my_product(site_id: int, product_id: int, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    if not delete_product(site_id, product_id):
+        raise HTTPException(status_code=404, detail="Product not found")
+    return {"deleted": True}
+
+
+# ─────────────── orders (store) ───────────────
+
+@router.get("/my/{site_id}/orders")
+def my_orders(site_id: int, status: str = "", user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    if status and status not in ORDER_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid order status")
+    return {"orders": list_orders(site_id, status=status)}
+
+
+@router.put("/my/{site_id}/orders/{order_id}")
+def update_my_order(site_id: int, order_id: int, body: UpdateOrderBody, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    existing = get_order(site_id, order_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Order not found")
+    updated = update_order(site_id, order_id, body.model_dump(exclude_none=True))
+    # Cancelling an order returns reserved stock; re-opening a cancelled order
+    # re-reserves it (when the stock is still there).
+    if body.status and body.status != existing.get("status"):
+        for it in existing.get("items") or []:
+            qty = it.get("qty", 0)
+            if qty > 0:
+                if body.status == "cancelled":
+                    adjust_product_stock(site_id, it["product_id"], qty)
+                elif existing.get("status") == "cancelled" and body.status in ("new", "confirmed"):
+                    adjust_product_stock(site_id, it["product_id"], -qty)
+    return updated

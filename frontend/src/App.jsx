@@ -25,7 +25,6 @@ import Terms from './pages/Terms.jsx'
 import Blogs from './pages/Blogs.jsx'
 import BlogPost from './pages/BlogPost.jsx'
 import Starfield from './components/Starfield.jsx'
-import { CLERK_ENABLED } from './lib/clerk.jsx'
 import { resolveTenantHost } from './lib/tenant.js'
 
 function AppRoutes() {
@@ -52,9 +51,9 @@ function AppRoutes() {
       <Route path="/terms" element={<Terms />} />
       <Route path="/blogs" element={<Blogs />} />
       <Route path="/blogs/:slug" element={<BlogPost />} />
-      {/* Clerk handles auth when enabled; email+password pages otherwise. */}
-      <Route path="/register" element={CLERK_ENABLED ? <Navigate to="/" replace /> : <Register />} />
-      <Route path="/login" element={CLERK_ENABLED ? <Navigate to="/" replace /> : <Login />} />
+      {/* Email + password auth (JWT) — the only auth path. */}
+      <Route path="/register" element={<Register />} />
+      <Route path="/login" element={<Login />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

@@ -3,16 +3,36 @@ import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Star, Calendar, Clock, Check, Sparkles, Moon, ArrowRight,
-  ChevronLeft, ChevronRight, Globe, BadgeCheck, Sparkle,
+  ChevronLeft, ChevronRight, Globe, BadgeCheck, Sparkle, Send,
+  MapPin, Mail, Phone, ShoppingCart, Plus, Minus, ShoppingCart as CartIcon,
+  ShieldCheck, HeartHandshake, Lock, UserCheck, Package, ShoppingBag,
 } from 'lucide-react'
+
+// Brand icons were dropped from newer lucide-react — inline the small SVG paths.
+const brandIcon = (path, viewBox = '0 0 24 24') => {
+  const Icon = ({ size = 17, color = 'currentColor' }) => (
+    <svg width={size} height={size} viewBox={viewBox} fill={color}><path d={path} /></svg>
+  )
+  return Icon
+}
+const InstagramIcon = brandIcon('M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zm0 10.162a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z')
+const YoutubeIcon = brandIcon('M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z')
+const FacebookIcon = brandIcon('M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.985 4.388 10.974 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z')
+const TwitterIcon = brandIcon('M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z')
+const LinkedinIcon = brandIcon('M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z')
+const TelegramIcon = brandIcon('M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.918-.9-1.066-.7-1.667-1.136-2.304-1.805-.916-.962-.322-1.486.224-2.076.344-.372 1.26-1.222 1.765-1.748.256-.264.17-.494-.129-.494-.14 0-.32.094-.5.28-.474.521-1.364 1.456-1.687 1.794-.457.48-.867.467-1.309.095-.611-.514-1.392-1.066-2.033-1.543-.684-.51-1.124-.757-.493-1.429.596-.635 3.48-3.395 4.79-4.677.502-.49.98-.377.98.32 0 1.047-.32 3.197-.72 5.907-.15 1.004-.27 1.42-.425 1.42-.273 0-.711-.508-1.68-1.452-.742-.726-1.947-1.014-2.604-.598-.342.217-.485.59-.423 1.055.09.673.69 1.408 1.413 2.187.384.414.81.87 1.267 1.393.899 1.028 1.65 1.6 2.575 1.914.81.276 1.617.354 2.26.28.524-.06.795-.36.86-.872.172-1.35.773-6.24 1.09-8.945.093-.79.034-1.306-.547-1.306z')
 import toast from 'react-hot-toast'
 import {
   getPublicSite, getPublicAvailability, publicBook, publicKundliTool, publicPanchangTool,
+  publicHoroscopeTool, publicPlaceOrder,
 } from '../lib/api.js'
 import { tenantSiteUrl, tenantSubdomainLabel } from '../lib/tenant.js'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const ZODIAC = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces']
+
+const WHY_ICONS = [ShieldCheck, HeartHandshake, Lock, UserCheck]
 
 // Tenant sites own their SEO (they're the astrologer's brand, not AstroVakta
 // pages) — the platform SeoManager skips /s/ paths, so set meta directly.
@@ -37,7 +57,19 @@ function TenantHead({ site, home }) {
     let canonical = document.head.querySelector('link[rel="canonical"]')
     if (!canonical) { canonical = document.createElement('link'); canonical.setAttribute('rel', 'canonical'); document.head.appendChild(canonical) }
     canonical.setAttribute('href', canonicalUrl)
-  }, [site.slug, site.name, site.tagline, site.custom_domain, home.heroSubtitle])
+
+    // LocalBusiness structured data — rich results for the astrologer's brand.
+    const city = site.settings?.city || ''
+    const ld = {
+      '@context': 'https://schema.org', '@type': 'ProfessionalService',
+      name: site.name, description, url: canonicalUrl,
+      ...(site.settings?.phone ? { telephone: site.settings.phone } : {}),
+      ...(city ? { address: { '@type': 'PostalAddress', addressLocality: city } } : {}),
+    }
+    let ldEl = document.getElementById('tenant-jsonld')
+    if (!ldEl) { ldEl = document.createElement('script'); ldEl.setAttribute('type', 'application/ld+json'); ldEl.setAttribute('id', 'tenant-jsonld'); document.head.appendChild(ldEl) }
+    ldEl.textContent = JSON.stringify(ld)
+  }, [site.slug, site.name, site.tagline, site.custom_domain, home.heroSubtitle, site.settings])
   return null
 }
 
@@ -52,6 +84,18 @@ const toMin = (t) => {
   return h * 60 + m
 }
 const toHHMM = (mins) => `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`
+
+// normalize social input: "@handle" → https://instagram.com/handle, bare host → https://…
+const socialHref = (v, base) => {
+  let s = (v || '').trim()
+  if (!s) return null
+  if (/^https?:\/\//i.test(s)) return s
+  if (s.startsWith('@')) return `https://${base}/${s.slice(1)}`
+  // Platform fields always build on the platform domain — handles may contain
+  // dots ("pandit.sharma") and must not be mistaken for full URLs.
+  if (base) return `https://${base}/${s.replace(/^https?:\/\/(www\.)?[^/]+\//i, '').replace(/^\//, '')}`
+  return `https://${s}`
+}
 
 // ═══════════════ BOOKING WIDGET ═══════════════
 function BookingWidget({ site, resolve, services, theme }) {
@@ -153,12 +197,21 @@ function BookingWidget({ site, resolve, services, theme }) {
           {service ? `${service.name} · ${confirmed.amount ? `₹${confirmed.amount}` : ''}` : ''}
         </p>
         <p style={{ opacity: 0.6, fontSize: 14 }}>
-          The astrologer has been notified and will contact you{confirmed.client_phone ? ` on ${confirmed.client_phone}` : ''}.
+          {site.name} has been notified and will contact you{confirmed.client_phone ? ` on ${confirmed.client_phone}` : ''}.
         </p>
-        <button onClick={() => { setConfirmed(null); setSelectedDate(null); setSelectedTime(null); setName(''); setPhone('') }}
-          style={{ ...inputStyle, maxWidth: 220, marginTop: 20, padding: '11px 14px', cursor: 'pointer', fontWeight: 600, background: 'var(--gradient-primary)', color: '#fff', border: 'none' }}>
-          Book another
-        </button>
+        {site.settings?.whatsappNumber && (
+          <a href={`https://wa.me/${String(site.settings.whatsappNumber).replace(/[^\d]/g, '')}?text=${encodeURIComponent(`Namaste, I just booked a consultation (${confirmed.date} at ${confirmed.start_time}).`)}`}
+            target="_blank" rel="noopener noreferrer"
+            style={{ ...inputStyle, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, maxWidth: 260, marginTop: 16, padding: '11px 14px', cursor: 'pointer', fontWeight: 600, background: '#16a34a', color: '#fff', border: 'none', textDecoration: 'none' }}>
+            Message on WhatsApp
+          </a>
+        )}
+        <div>
+          <button onClick={() => { setConfirmed(null); setSelectedDate(null); setSelectedTime(null); setName(''); setPhone('') }}
+            style={{ ...inputStyle, maxWidth: 220, marginTop: 12, padding: '11px 14px', cursor: 'pointer', fontWeight: 600, background: 'transparent', color: 'inherit', border: '1px solid var(--border-color)' }}>
+            Book another
+          </button>
+        </div>
       </div>
     )
   }
@@ -267,17 +320,16 @@ function BookingWidget({ site, resolve, services, theme }) {
   )
 }
 
-// ═══════════════ FREE TOOLS (kundli + panchang, powered by the platform engine) ═══════════════
-function FreeTools({ site, resolve, theme, COLORS }) {
-  const [panchang, setPanchang] = useState(null)
+// ═══════════════ FULL KUNDLI SOFTWARE ═══════════════
+// Basic mode shows a lead-gen snapshot; detail mode is the full software:
+// North-Indian chart SVG, house table, planet table with degrees, and the
+// Vimshottari dasha timeline — same Swiss-ephemeris engine as the platform.
+function KundliSoftware({ site, resolve, theme, COLORS }) {
   const [form, setForm] = useState({ name: '', phone: '', date: '', time: '', place: '' })
   const [result, setResult] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-
-  useEffect(() => {
-    publicPanchangTool(resolve).then(setPanchang).catch(() => setPanchang(null))
-  }, [resolve])
+  const [view, setView] = useState('summary')
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
@@ -291,8 +343,11 @@ function FreeTools({ site, resolve, theme, COLORS }) {
         phone: form.phone.trim() || undefined,
         date: form.date, time: form.time,
         place: form.place.trim() || undefined,
+        detail: true,
+        chart_theme: theme.bgStyle === 'dark' ? 'dark' : 'light',
       })
       setResult(res)
+      setView('summary')
     } catch (err) {
       setError(errDetail(err))
     } finally { setBusy(false) }
@@ -306,109 +361,501 @@ function FreeTools({ site, resolve, theme, COLORS }) {
   const card = {
     background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 24,
   }
+  const tabBtn = (id, label) => (
+    <button key={id} onClick={() => setView(id)} style={{
+      padding: '8px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+      border: `1.5px solid ${view === id ? theme.primaryColor : COLORS.border}`,
+      background: view === id ? theme.primaryColor : 'transparent',
+      color: view === id ? '#fff' : COLORS.text,
+    }}>{label}</button>
+  )
+
+  const dashaColor = (lord) => {
+    const map = {
+      Ketu: '#8b5cf6', Venus: '#f472b6', Sun: '#f59e0b', Moon: '#94a3b8',
+      Mars: '#ef4444', Rahu: '#3b82f6', Jupiter: '#eab308', Saturn: '#64748b', Mercury: '#10b981',
+    }
+    return map[lord] || theme.primaryColor
+  }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20, alignItems: 'start' }}>
-      {/* Today's panchang */}
-      <div style={card}>
-        <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Today's Panchang</h3>
-        <p style={{ fontSize: 13, color: COLORS.textDim, marginBottom: 16 }}>{panchang?.date || new Date().toISOString().slice(0, 10)}</p>
-        {panchang ? (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 14 }}>
-            {[
-              ['Tithi', panchang.panchang?.tithi],
-              ['Nakshatra', panchang.panchang?.nakshatra],
-              ['Yoga', panchang.panchang?.yoga],
-              ['Karana', panchang.panchang?.karana],
-              ['Sunrise', panchang.panchang?.sunrise],
-              ['Sunset', panchang.panchang?.sunset],
-            ].map(([k, v]) => (
-              <div key={k} style={{ padding: '8px 12px', background: 'rgba(127,127,127,0.06)', borderRadius: 10 }}>
+    <div style={card}>
+      <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Free Kundli Software</h3>
+      <p style={{ fontSize: 13, color: COLORS.textDim, marginBottom: 20 }}>
+        Complete Vedic birth chart — North-Indian kundli, planets with degrees, houses and Vimshottari dasha.
+        Computed with the professional Swiss-ephemeris engine.
+      </p>
+
+      {result ? (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+          {/* view tabs */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+            {tabBtn('summary', 'Summary')}
+            {result.chartSvg && tabBtn('chart', 'Kundli Chart')}
+            {tabBtn('planets', 'Planets & Houses')}
+            {result.dasha && tabBtn('dasha', 'Dasha')}
+          </div>
+
+          {view === 'summary' && (
+            <div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 16 }}>
+                {[
+                  ['Ascendant (Lagna)', result.ascendant?.sign],
+                  ['Lagna Lord', result.ascendant?.lord],
+                  ['Moon Sign (Rashi)', result.moonSign],
+                  ['Birth Nakshatra', result.moonNakshatra],
+                  ['Sun Sign', result.sunSign],
+                  ['Lucky Gemstone', result.gemstone?.stone],
+                ].map(([k, v]) => (
+                  <div key={k} style={{ padding: '12px', background: 'rgba(127,127,127,0.06)', borderRadius: 10 }}>
+                    <div style={{ fontSize: 11, color: COLORS.textDim, fontWeight: 600 }}>{k}</div>
+                    <div style={{ fontWeight: 800, fontSize: 15 }}>{v || '—'}</div>
+                  </div>
+                ))}
+              </div>
+              {result.currentDasha && (
+                <div style={{
+                  padding: '14px 16px', borderRadius: 12, marginBottom: 14,
+                  background: `color-mix(in srgb, ${dashaColor(result.currentDasha.mahadasha)} 12%, transparent)`,
+                  border: `1px solid ${dashaColor(result.currentDasha.mahadasha)}44`,
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, opacity: 0.7, marginBottom: 4 }}>CURRENT MAHADASHA</div>
+                  <div style={{ fontWeight: 800, fontSize: 16 }}>
+                    {result.currentDasha.mahadasha}
+                    {result.currentDasha.antardasha && <> → <span style={{ fontSize: 14 }}>{result.currentDasha.antardasha} antardasha</span></>}
+                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>
+                    {result.currentDasha.from} → {result.currentDasha.to}
+                  </div>
+                </div>
+              )}
+              {result.leadCreated && (
+                <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(5,150,105,0.08)', color: '#059669', fontSize: 13, fontWeight: 600 }}>
+                  ✓ {result.astrologer} has been notified — you'll be contacted personally.
+                </div>
+              )}
+            </div>
+          )}
+
+          {view === 'chart' && result.chartSvg && (
+            <div style={{ textAlign: 'center' }}>
+              <div
+                style={{ maxWidth: 480, margin: '0 auto', background: theme.bgStyle === 'dark' ? '#fff' : '#fff', borderRadius: 14, padding: 8, border: `1px solid ${COLORS.border}` }}
+                dangerouslySetInnerHTML={{ __html: result.chartSvg }}
+              />
+              <p style={{ fontSize: 12, color: COLORS.textDim, marginTop: 10 }}>
+                North-Indian style birth chart{result.birthPlace ? ` · Place: ${result.birthPlace}` : ''}
+              </p>
+            </div>
+          )}
+
+          {view === 'planets' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8, letterSpacing: 0.5 }}>PLANETS</div>
+                <div style={{ border: `1px solid ${COLORS.border}`, borderRadius: 10, overflow: 'hidden' }}>
+                  <table style={{ width: '100%', fontSize: 12.5, borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ textAlign: 'left', color: COLORS.textDim, background: 'rgba(127,127,127,0.06)' }}>
+                        <th style={{ padding: '7px 10px', fontWeight: 600 }}>Planet</th>
+                        <th style={{ padding: '7px 10px', fontWeight: 600 }}>Sign</th>
+                        <th style={{ padding: '7px 10px', fontWeight: 600 }}>Hse</th>
+                        <th style={{ padding: '7px 10px', fontWeight: 600 }}>Degree</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(result.planets || []).map((p) => (
+                        <tr key={p.name} style={{ borderTop: `1px solid ${COLORS.border}` }}>
+                          <td style={{ padding: '6px 10px', fontWeight: 700 }}>{p.name}{p.retrograde ? ' ℞' : ''}{p.combust ? ' ¤' : ''}</td>
+                          <td style={{ padding: '6px 10px' }}>{p.sign}</td>
+                          <td style={{ padding: '6px 10px' }}>{p.house}</td>
+                          <td style={{ padding: '6px 10px', fontVariantNumeric: 'tabular-nums' }}>{p.degreeDMS || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p style={{ fontSize: 11, color: COLORS.textDim, marginTop: 6 }}>℞ retrograde · ¤ combust</p>
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8, letterSpacing: 0.5 }}>HOUSES</div>
+                <div style={{ border: `1px solid ${COLORS.border}`, borderRadius: 10, overflow: 'hidden' }}>
+                  <table style={{ width: '100%', fontSize: 12.5, borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ textAlign: 'left', color: COLORS.textDim, background: 'rgba(127,127,127,0.06)' }}>
+                        <th style={{ padding: '7px 10px', fontWeight: 600 }}>House</th>
+                        <th style={{ padding: '7px 10px', fontWeight: 600 }}>Sign</th>
+                        <th style={{ padding: '7px 10px', fontWeight: 600 }}>Planets</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(result.houses || []).map((h) => (
+                        <tr key={h.number} style={{ borderTop: `1px solid ${COLORS.border}` }}>
+                          <td style={{ padding: '6px 10px', fontWeight: 700 }}>{h.number}</td>
+                          <td style={{ padding: '6px 10px' }}>{h.sign}</td>
+                          <td style={{ padding: '6px 10px' }}>{(h.planets || []).join(', ') || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {view === 'dasha' && (
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12, letterSpacing: 0.5 }}>VIMSHOTTARI MAHADASHA TIMELINE</div>
+              {(result.dasha || []).map((d, i) => {
+                const today = new Date().toISOString().slice(0, 10)
+                const active = result.currentDasha?.mahadasha === d.lord && d.from <= today
+                return (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, marginBottom: 6,
+                    border: `1px solid ${active ? dashaColor(d.lord) : COLORS.border}`,
+                    background: active ? `color-mix(in srgb, ${dashaColor(d.lord)} 12%, transparent)` : 'transparent',
+                  }}>
+                    <div style={{
+                      width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: dashaColor(d.lord), color: '#fff', fontWeight: 800, fontSize: 11,
+                    }}>{d.lord?.slice(0, 2)}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{d.lord} Mahadasha {active && <span style={{ fontSize: 11, color: dashaColor(d.lord) }}>· running now</span>}</div>
+                      <div style={{ fontSize: 12, color: COLORS.textDim }}>{d.from} → {d.to}</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          <button onClick={() => setResult(null)} style={{ ...inputStyle, marginTop: 18, cursor: 'pointer', fontWeight: 700, background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`, color: '#fff', border: 'none' }}>
+            Check another kundli
+          </button>
+        </motion.div>
+      ) : (
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Your name" style={inputStyle} />
+            <input value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="Phone (get personal follow-up)" style={inputStyle} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, color: COLORS.textDim, marginBottom: 4, fontWeight: 600 }}>Birth date *</label>
+              <input type="date" value={form.date} onChange={(e) => set('date', e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, color: COLORS.textDim, marginBottom: 4, fontWeight: 600 }}>Birth time *</label>
+              <input type="time" value={form.time} onChange={(e) => set('time', e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+          <input value={form.place} onChange={(e) => set('place', e.target.value)} placeholder="Birth place (city — Delhi if left blank)" style={inputStyle} />
+          {error && <div style={{ color: '#dc2626', fontSize: 13 }}>{error}</div>}
+          <button type="submit" disabled={busy} style={{
+            ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none',
+            background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`, color: '#fff',
+            opacity: busy ? 0.7 : 1,
+          }}>
+            {busy ? 'Calculating your kundli…' : 'Generate My Kundli'}
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', fontSize: 11.5, opacity: 0.5 }}>
+            <BadgeCheck size={12} /> Swiss-ephemeris precision · Lal Kitab-style accuracy
+          </div>
+        </form>
+      )}
+    </div>
+  )
+}
+
+// ═══════════════ DAILY HOROSCOPE WIDGET ═══════════════
+function HoroscopeWidget({ resolve, theme, COLORS }) {
+  const [sign, setSign] = useState(null)
+  const [data, setData] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  const pick = (s) => {
+    setSign(s); setData(null); setBusy(true)
+    publicHoroscopeTool(resolve, s)
+      .then((res) => setData(res?.horoscope || null))
+      .catch(() => { toast.error('Could not load the horoscope — try again'); setBusy(false) })
+      .finally(() => setBusy(false))
+  }
+
+  const card = {
+    background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 24,
+  }
+
+  const hor = data || {}
+
+  return (
+    <div style={card}>
+      <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Daily Rashifal</h3>
+      <p style={{ fontSize: 13, color: COLORS.textDim, marginBottom: 16 }}>
+        Today's horoscope for your moon sign — updated every morning.
+      </p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(74px, 1fr))', gap: 6, marginBottom: 20 }}>
+        {ZODIAC.map((z) => (
+          <button key={z} onClick={() => pick(z)} style={{
+            padding: '8px 4px', borderRadius: 10, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+            border: `1.5px solid ${sign === z ? theme.primaryColor : COLORS.border}`,
+            background: sign === z ? theme.primaryColor : 'transparent',
+            color: sign === z ? '#fff' : COLORS.text,
+          }}>{z}</button>
+        ))}
+      </div>
+
+      {sign && busy && <div style={{ color: COLORS.textDim, fontSize: 14 }}>Reading the stars for {sign}…</div>}
+
+      {sign && !busy && data && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <Moon size={20} style={{ color: theme.accentColor }} />
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 17 }}>{hor.sign || sign}</div>
+              <div style={{ fontSize: 12, color: COLORS.textDim }}>{hor.period}</div>
+            </div>
+          </div>
+          <p style={{ fontSize: 14.5, lineHeight: 1.8, marginBottom: 18 }}>{hor.overview}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, marginBottom: 14 }}>
+            {[['Lucky Color', hor.luckyColor], ['Lucky Number', hor.luckyNumber], ['Lucky Direction', hor.luckyDirection]].map(([k, v]) => (
+              <div key={k} style={{ padding: '10px 12px', background: 'rgba(127,127,127,0.06)', borderRadius: 10 }}>
                 <div style={{ fontSize: 11, color: COLORS.textDim, fontWeight: 600 }}>{k}</div>
-                <div style={{ fontWeight: 700 }}>{v || '—'}</div>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>{v || '—'}</div>
               </div>
             ))}
           </div>
-        ) : (
-          <div style={{ color: COLORS.textDim, fontSize: 14 }}>Loading panchang…</div>
-        )}
-        <p style={{ fontSize: 12, color: COLORS.textDim, marginTop: 14 }}>
-          Updated daily automatically — a small taste of the Jyotish on this site.
-        </p>
-      </div>
-
-      {/* Free kundli */}
-      <div style={card}>
-        <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Free Kundli Snapshot</h3>
-        <p style={{ fontSize: 13, color: COLORS.textDim, marginBottom: 16 }}>
-          Enter birth details — get ascendant, moon sign, nakshatra & more instantly{` (${site.name} follows up personally if you leave your number).`}
-        </p>
-        {result ? (
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-              {[
-                ['Ascendant (Lagna)', result.ascendant?.sign],
-                ['Lagna Lord', result.ascendant?.lord],
-                ['Moon Sign', result.moonSign],
-                ['Sun Sign', result.sunSign],
-                ['Birth Nakshatra', result.moonNakshatra],
-                ['Lucky Gemstone', result.gemstone?.stone],
-              ].map(([k, v]) => (
-                <div key={k} style={{ padding: '10px 12px', background: 'rgba(127,127,127,0.06)', borderRadius: 10 }}>
-                  <div style={{ fontSize: 11, color: COLORS.textDim, fontWeight: 600 }}>{k}</div>
-                  <div style={{ fontWeight: 800, fontSize: 15 }}>{v || '—'}</div>
+          {hor.career?.positive && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+              {[['Career', hor.career], ['Love', hor.love], ['Finance', hor.finance], ['Health', hor.health]].map(([k, v]) => (
+                <div key={k} style={{ padding: '12px', border: `1px solid ${COLORS.border}`, borderRadius: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.5, marginBottom: 6, color: theme.primaryColor }}>{k.toUpperCase()}</div>
+                  <div style={{ fontSize: 12.5, lineHeight: 1.6, color: COLORS.textDim }}>
+                    {v?.positive} {v?.challenging ? <span style={{ opacity: 0.85 }}>Watch: {v.challenging}</span> : null}
+                  </div>
                 </div>
               ))}
             </div>
-            <div style={{ maxHeight: 180, overflowY: 'auto', border: `1px solid ${COLORS.border}`, borderRadius: 10 }}>
-              <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ textAlign: 'left', color: COLORS.textDim }}>
-                    <th style={{ padding: '8px 12px', fontWeight: 600 }}>Planet</th>
-                    <th style={{ padding: '8px 12px', fontWeight: 600 }}>Sign</th>
-                    <th style={{ padding: '8px 12px', fontWeight: 600 }}>Nakshatra</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(result.planets || []).map((p) => (
-                    <tr key={p.name} style={{ borderTop: `1px solid ${COLORS.border}` }}>
-                      <td style={{ padding: '7px 12px', fontWeight: 700 }}>{p.name}{p.retrograde ? ' ℞' : ''}</td>
-                      <td style={{ padding: '7px 12px' }}>{p.sign}</td>
-                      <td style={{ padding: '7px 12px' }}>{p.nakshatra}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          )}
+          {hor.remedy && (
+            <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 10, background: `color-mix(in srgb, ${theme.primaryColor} 8%, transparent)`, fontSize: 13, lineHeight: 1.6 }}>
+              <strong>Today's remedy:</strong> {hor.remedy}
             </div>
-            {result.leadCreated && (
-              <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 10, background: 'rgba(5,150,105,0.08)', color: '#059669', fontSize: 13, fontWeight: 600 }}>
-                ✓ {result.astrologer} has been notified — you'll be contacted personally.
+          )}
+        </motion.div>
+      )}
+
+      {!sign && !busy && (
+        <div style={{ color: COLORS.textDim, fontSize: 14 }}>👆 Tap your moon sign to read today's rashifal.</div>
+      )}
+    </div>
+  )
+}
+
+// ═══════════════ PANCHANG CARD ═══════════════
+function PanchangCard({ resolve, COLORS }) {
+  const [panchang, setPanchang] = useState(null)
+  useEffect(() => {
+    publicPanchangTool(resolve).then(setPanchang).catch(() => setPanchang(null))
+  }, [resolve])
+
+  const card = {
+    background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 24,
+  }
+
+  return (
+    <div style={card}>
+      <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Today's Panchang</h3>
+      <p style={{ fontSize: 13, color: COLORS.textDim, marginBottom: 16 }}>{panchang?.date || new Date().toISOString().slice(0, 10)}</p>
+      {panchang ? (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 14 }}>
+          {[
+            ['Tithi', panchang.panchang?.tithi],
+            ['Nakshatra', panchang.panchang?.nakshatra],
+            ['Yoga', panchang.panchang?.yoga],
+            ['Karana', panchang.panchang?.karana],
+            ['Sunrise', panchang.panchang?.sunrise],
+            ['Sunset', panchang.panchang?.sunset],
+          ].map(([k, v]) => (
+            <div key={k} style={{ padding: '10px 12px', background: 'rgba(127,127,127,0.06)', borderRadius: 10 }}>
+              <div style={{ fontSize: 11, color: COLORS.textDim, fontWeight: 600 }}>{k}</div>
+              <div style={{ fontWeight: 700 }}>{v || '—'}</div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ color: COLORS.textDim, fontSize: 14 }}>Loading panchang…</div>
+      )}
+      <p style={{ fontSize: 12, color: COLORS.textDim, marginTop: 14 }}>
+        Updated daily automatically — auspicious timings at a glance.
+      </p>
+    </div>
+  )
+}
+
+// ═══════════════ STORE SECTION (cart + order, no online payment needed) ═══════════════
+function StoreSection({ site, resolve, theme, COLORS }) {
+  const products = site._products || []
+  const [cart, setCart] = useState({})          // { product_id: qty }
+  const [checkout, setCheckout] = useState(false)
+  const [form, setForm] = useState({ name: '', phone: '', address: '', notes: '' })
+  const [placing, setPlacing] = useState(false)
+  const [placed, setPlaced] = useState(null)
+
+  const setQty = (p, q) => setCart((c) => {
+    const next = { ...c }
+    const max = p.stock === -1 ? 99 : p.stock
+    const val = Math.max(0, Math.min(max, q))
+    if (val === 0) delete next[p.id]
+    else next[p.id] = val
+    return next
+  })
+
+  const items = Object.entries(cart).map(([id, qty]) => {
+    const p = products.find((x) => String(x.id) === id)
+    return p ? { p, qty } : null
+  }).filter(Boolean)
+  const total = items.reduce((s, { p, qty }) => s + p.price * qty, 0)
+
+  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  const placeOrder = async (e) => {
+    e.preventDefault()
+    if (!form.name.trim()) return toast.error('Please enter your name')
+    setPlacing(true)
+    try {
+      const res = await publicPlaceOrder(resolve, {
+        client_name: form.name.trim(),
+        client_phone: form.phone.trim() || undefined,
+        address: form.address.trim() || undefined,
+        notes: form.notes.trim() || undefined,
+        items: items.map(({ p, qty }) => ({ product_id: p.id, qty })),
+      })
+      setPlaced(res?.order || { id: '?', amount: total })
+      toast.success(res?.message || 'Order placed!')
+      setCart({}); setCheckout(false)
+    } catch (err) {
+      toast.error(errDetail(err))
+    } finally { setPlacing(false) }
+  }
+
+  const inputStyle = {
+    width: '100%', padding: '11px 14px', borderRadius: 10, fontSize: 14,
+    border: `1px solid ${COLORS.border}`, background: 'rgba(127,127,127,0.05)',
+    color: 'inherit', outline: 'none',
+  }
+  const grad = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+
+  if (placed) {
+    return (
+      <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
+        style={{ maxWidth: 480, margin: '0 auto', textAlign: 'center', padding: '36px 24px', background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 20 }}>
+        <motion.div initial={{ scale: 0.5 }} animate={{ scale: 1 }}
+          style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(34,197,94,0.15)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+          <Check size={32} color="#22c55e" />
+        </motion.div>
+        <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Order received!</h3>
+        <p style={{ opacity: 0.75, marginBottom: 6, lineHeight: 1.6 }}>
+          Order #{placed.id} · {placed.currency === 'INR' ? '₹' : ''}{placed.amount ?? total}
+        </p>
+        <p style={{ opacity: 0.6, fontSize: 14 }}>
+          {site.name} will contact you to confirm payment and delivery.
+        </p>
+        {site.settings?.whatsappNumber && (
+          <a href={`https://wa.me/${String(site.settings.whatsappNumber).replace(/[^\d]/g, '')}?text=${encodeURIComponent(`Namaste, I just placed order #${placed.id}.`)}`}
+            target="_blank" rel="noopener noreferrer"
+            style={{ ...inputStyle, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, maxWidth: 240, marginTop: 16, cursor: 'pointer', fontWeight: 700, background: '#16a34a', color: '#fff', border: 'none', textDecoration: 'none' }}>
+            Confirm on WhatsApp
+          </a>
+        )}
+        <div>
+          <button onClick={() => setPlaced(null)} style={{ ...inputStyle, maxWidth: 200, marginTop: 12, cursor: 'pointer', background: 'transparent', color: 'inherit', border: `1px solid ${COLORS.border}` }}>
+            Continue shopping
+          </button>
+        </div>
+      </motion.div>
+    )
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 16, marginBottom: 20 }}>
+        {products.map((p) => {
+          const qty = cart[p.id] || 0
+          const outOfStock = p.stock !== -1 && p.stock <= 0
+          return (
+            <div key={p.id} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              {p.image
+                ? <img src={p.image} alt={p.name} style={{ width: '100%', height: 150, objectFit: 'cover' }} />
+                : <div style={{ width: '100%', height: 150, background: 'rgba(127,127,127,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={32} color={COLORS.textDim} /></div>}
+              <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 14.5 }}>{p.name}</div>
+                {p.description && <div style={{ fontSize: 12, color: COLORS.textDim, lineHeight: 1.5 }}>{p.description}</div>}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
+                  <span style={{ fontWeight: 800, fontSize: 16 }}>₹{p.price}</span>
+                  {outOfStock ? (
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#ef4444' }}>Out of stock</span>
+                  ) : qty > 0 ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button onClick={() => setQty(p, qty - 1)} style={{ width: 26, height: 26, borderRadius: 8, border: `1px solid ${COLORS.border}`, background: 'transparent', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Minus size={13} /></button>
+                      <span style={{ fontWeight: 800, fontSize: 14 }}>{qty}</span>
+                      <button onClick={() => setQty(p, qty + 1)} style={{ width: 26, height: 26, borderRadius: 8, border: 'none', background: grad, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={13} /></button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setQty(p, 1)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 9, border: 'none', background: grad, color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}>
+                      <ShoppingCart size={13} /> Add
+                    </button>
+                  )}
+                </div>
               </div>
-            )}
-            <button onClick={() => setResult(null)} style={{ ...inputStyle, marginTop: 14, cursor: 'pointer', fontWeight: 700, background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`, color: '#fff', border: 'none' }}>
-              Check another birth details
-            </button>
-          </motion.div>
-        ) : (
-          <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Your name" style={inputStyle} />
-            <input value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="Phone (get a personal follow-up)" style={inputStyle} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <input type="date" value={form.date} onChange={(e) => set('date', e.target.value)} style={inputStyle} />
-              <input type="time" value={form.time} onChange={(e) => set('time', e.target.value)} style={inputStyle} />
             </div>
-            <input value={form.place} onChange={(e) => set('place', e.target.value)} placeholder="Birth place (city)" style={inputStyle} />
-            {error && <div style={{ color: '#dc2626', fontSize: 13 }}>{error}</div>}
-            <button type="submit" disabled={busy} style={{
-              ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none',
-              background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`, color: '#fff',
-              opacity: busy ? 0.7 : 1,
-            }}>
-              {busy ? 'Reading the stars…' : 'Get My Free Kundli'}
+          )
+        })}
+      </div>
+
+      {/* cart / checkout */}
+      {items.length > 0 && !checkout && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          style={{ maxWidth: 520, margin: '0 auto', background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 20, textAlign: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 10 }}>
+            <CartIcon size={17} style={{ color: theme.accentColor }} />
+            <span style={{ fontWeight: 700, fontSize: 15 }}>
+              {items.reduce((s, { qty }) => s + qty, 0)} item{items.length > 1 ? 's' : ''} · ₹{total}
+            </span>
+          </div>
+          <div style={{ fontSize: 12.5, color: COLORS.textDim, marginBottom: 14, lineHeight: 1.6 }}>
+            {items.map(({ p, qty }) => `${p.name} × ${qty}`).join(' · ')}
+          </div>
+          <button onClick={() => setCheckout(true)} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none', background: grad, color: '#fff' }}>
+            Place Order
+          </button>
+          <p style={{ fontSize: 11.5, opacity: 0.55, marginTop: 8 }}>
+            No online payment — {site.name} confirms your order personally on WhatsApp/phone.
+          </p>
+        </motion.div>
+      )}
+
+      {checkout && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          style={{ maxWidth: 520, margin: '0 auto', background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 24 }}>
+          <form onSubmit={placeOrder} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.5, opacity: 0.7, marginBottom: 2 }}>DELIVERY DETAILS</div>
+            <input value={form.name} onChange={(e) => setF('name', e.target.value)} placeholder="Your name *" style={inputStyle} />
+            <input value={form.phone} onChange={(e) => setF('phone', e.target.value)} placeholder="Phone (WhatsApp preferred)" style={inputStyle} />
+            <textarea value={form.address} onChange={(e) => setF('address', e.target.value)} placeholder="Delivery address" rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
+            <textarea value={form.notes} onChange={(e) => setF('notes', e.target.value)} placeholder="Any note for the astrologer (optional)" rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', border: `1px dashed ${COLORS.border}`, borderRadius: 10, fontSize: 13 }}>
+              <span>{items.reduce((s, { qty }) => s + qty, 0)} item(s)</span>
+              <span style={{ fontWeight: 800 }}>Total ₹{total}</span>
+            </div>
+            <button type="submit" disabled={placing} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none', background: grad, color: '#fff', opacity: placing ? 0.7 : 1 }}>
+              {placing ? 'Placing order…' : `Confirm Order · ₹${total}`}
+            </button>
+            <button type="button" onClick={() => setCheckout(false)} style={{ ...inputStyle, cursor: 'pointer', background: 'transparent', color: 'inherit', border: `1px solid ${COLORS.border}` }}>
+              Back to cart
             </button>
           </form>
-        )}
-      </div>
+        </motion.div>
+      )}
     </div>
   )
 }
@@ -452,16 +899,18 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
     )
   }
 
-  const site = bundle.site || {}
+  const site = { ...bundle.site, _products: bundle.products || [] }
   const theme = {
     primaryColor: site.theme?.primaryColor || '#7c3aed',
     accentColor: site.theme?.accentColor || '#eab308',
     bgStyle: site.theme?.bgStyle || 'dark',
+    fontHeading: site.theme?.fontHeading,
   }
   const pages = bundle.pages || {}
   const home = pages.home?.content || {}
   const about = pages.about?.content || {}
   const services = bundle.services || []
+  const settings = site.settings || {}
   const light = theme.bgStyle === 'light'
 
   const COLORS = light
@@ -471,11 +920,33 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
   const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
 
   const sectionStyle = { maxWidth: 1000, margin: '0 auto', padding: '72px 20px' }
-  const h2Style = { fontSize: 32, fontWeight: 800, marginBottom: 24, color: COLORS.text, textAlign: 'center' }
+  const h2Style = { fontSize: 32, fontWeight: 800, marginBottom: 12, color: COLORS.text, textAlign: 'center' }
+  const subStyle = { textAlign: 'center', color: COLORS.textDim, fontSize: 15, maxWidth: 620, margin: '0 auto 40px', lineHeight: 1.7 }
+
+  const showStore = settings.showStore && (site._products || []).length > 0
+  const showTestimonials = settings.showTestimonials !== false && Array.isArray(home.testimonials) && home.testimonials.length > 0
+  const whyPoints = Array.isArray(home.whyPoints) ? home.whyPoints : []
+
+  const socials = [
+    ['instagram', InstagramIcon, socialHref(settings.instagram, 'instagram.com')],
+    ['youtube', YoutubeIcon, socialHref(settings.youtube, 'youtube.com')],
+    ['facebook', FacebookIcon, socialHref(settings.facebook, 'facebook.com')],
+    ['twitter', TwitterIcon, socialHref(settings.twitter, 'x.com')],
+    ['linkedin', LinkedinIcon, socialHref(settings.linkedin, 'linkedin.com')],
+    ['telegram', TelegramIcon, socialHref(settings.telegram, 't.me')],
+    ['website', Globe, socialHref(settings.websiteUrl, null)],
+  ].filter(([, , href]) => !!href)
+
+  const hasContact = settings.email || settings.phone || settings.city
 
   return (
-    <div style={{ background: COLORS.bg, color: COLORS.text, minHeight: '100vh', fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className="tenant-site" style={{ background: COLORS.bg, color: COLORS.text, minHeight: '100vh', fontFamily: "'Inter', system-ui, sans-serif" }}>
       <TenantHead site={site} home={home} />
+
+      {/* heading font from theme (Cormorant/Playfair for the premium templates) */}
+      <style>{theme.fontHeading
+        ? `.tenant-site h1, .tenant-site h2, .tenant-site h3, .tenant-site .tenant-font { font-family: ${theme.fontHeading}; }`
+          : ''}</style>
 
       {/* ─── header ─── */}
       <header style={{
@@ -498,6 +969,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
           <nav style={{ display: 'flex', gap: 18, alignItems: 'center', fontSize: 14, fontWeight: 600, flexWrap: 'wrap' }}>
             <a href="#about" style={{ color: COLORS.textDim, textDecoration: 'none' }}>About</a>
             <a href="#services" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Services</a>
+            {showStore && <a href="#shop" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Shop</a>}
             <a href="#tools" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Free Kundli</a>
             <a href="#book" style={{
               padding: '9px 20px', borderRadius: 10, background: gradient, color: '#fff', textDecoration: 'none',
@@ -549,6 +1021,12 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
                   padding: '14px 32px', borderRadius: 12, border: `1.5px solid ${COLORS.border}`, color: COLORS.text,
                   fontWeight: 700, fontSize: 16, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8,
                 }}><Sparkles size={18} color={theme.accentColor} /> Free Kundli</a>
+                {showStore && (
+                  <a href="#shop" style={{
+                    padding: '14px 32px', borderRadius: 12, border: `1.5px solid ${COLORS.border}`, color: COLORS.text,
+                    fontWeight: 700, fontSize: 16, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8,
+                  }}><ShoppingBag size={18} /> Shop Remedies</a>
+                )}
               </div>
             </motion.div>
             {site.hero_image && (
@@ -566,8 +1044,26 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
         </div>
       </section>
 
+      {/* ─── stats band ─── */}
+      {(home.statsYears || home.statsReadings || home.statsRating) && (
+        <section style={{ background: light ? '#f3f1ec' : 'rgba(255,255,255,0.02)', borderBottom: `1px solid ${COLORS.border}` }}>
+          <div style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 20px', display: 'flex', justifyContent: 'space-around', gap: 20, flexWrap: 'wrap' }}>
+            {[
+              [home.statsYears, 'Years of Practice'],
+              [home.statsReadings, 'Kundlis Read'],
+              [home.statsRating, 'Client Rating ★'],
+            ].filter(([v]) => !!v).map(([v, k]) => (
+              <div key={k} style={{ textAlign: 'center' }}>
+                <div className="tenant-font" style={{ fontSize: 34, fontWeight: 900, background: gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{v}</div>
+                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: COLORS.textDim, marginTop: 2 }}>{k.toUpperCase()}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ─── about ─── */}
-      <section id="about" style={{ background: light ? '#f3f1ec' : 'rgba(255,255,255,0.02)' }}>
+      <section id="about">
         <div style={sectionStyle}>
           <h2 style={h2Style}>{home.aboutTitle || about.title || 'About'}</h2>
           <div style={{
@@ -579,10 +1075,38 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
         </div>
       </section>
 
+      {/* ─── why choose me ─── */}
+      {whyPoints.length > 0 && (
+        <section style={{ background: light ? '#f3f1ec' : 'rgba(255,255,255,0.02)' }}>
+          <div style={sectionStyle}>
+            <h2 style={h2Style}>{home.whyTitle || 'Why Consult Me'}</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, maxWidth: 860, margin: '0 auto' }}>
+              {whyPoints.map((w, i) => {
+                const Icon = WHY_ICONS[i % WHY_ICONS.length]
+                return (
+                  <motion.div key={w.title} initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                    style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 24, textAlign: 'center' }}>
+                    <div style={{
+                      width: 46, height: 46, borderRadius: 14, margin: '0 auto 14px', display: 'flex',
+                      alignItems: 'center', justifyContent: 'center', background: `color-mix(in srgb, ${theme.primaryColor} 14%, transparent)`,
+                    }}>
+                      <Icon size={21} style={{ color: theme.primaryColor }} />
+                    </div>
+                    <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>{w.title}</h3>
+                    <p style={{ fontSize: 13, color: COLORS.textDim, lineHeight: 1.6 }}>{w.text}</p>
+                  </motion.div>
+                )
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ─── services ─── */}
       <section id="services">
         <div style={sectionStyle}>
           <h2 style={h2Style}>Consultation Services</h2>
+          <p style={subStyle}>Choose a reading — every consultation is done personally by {site.name}.</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
             {services.map((s) => (
               <div key={s.id} style={{
@@ -604,14 +1128,56 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
         </div>
       </section>
 
-      {/* ─── free tools (kundli + panchang) ─── */}
+      {/* ─── testimonials ─── */}
+      {showTestimonials && (
+        <section style={{ background: light ? '#f3f1ec' : 'rgba(255,255,255,0.02)' }}>
+          <div style={sectionStyle}>
+            <h2 style={h2Style}>{home.testimonialsTitle || 'What Clients Say'}</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, maxWidth: 860, margin: '0 auto' }}>
+              {home.testimonials.map((t, i) => (
+                <motion.div key={i} initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                  style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 24 }}>
+                  <div style={{ display: 'flex', gap: 3, marginBottom: 12 }}>
+                    {Array.from({ length: 5 }).map((_, j) => (
+                      <Star key={j} size={15} fill={j < (t.rating || 5) ? theme.accentColor : 'transparent'} color={j < (t.rating || 5) ? theme.accentColor : COLORS.border} />
+                    ))}
+                  </div>
+                  <p style={{ fontSize: 14, lineHeight: 1.7, color: COLORS.textDim, marginBottom: 14 }}>"{t.text}"</p>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>— {t.name}</div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ─── shop (products) ─── */}
+      {showStore && (
+        <section id="shop">
+          <div style={sectionStyle}>
+            <h2 style={h2Style}>{home.storeTitle || `Shop — Remedies & Products`}</h2>
+            <p style={subStyle}>
+              Gemstones, rudraksha and puja items recommended by {site.name}. Order now — pay on delivery or via UPI after confirmation.
+            </p>
+            <StoreSection site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
+          </div>
+        </section>
+      )}
+
+      {/* ─── free tools (full kundli software + horoscope + panchang) ─── */}
       <section id="tools" style={{ background: light ? '#f3f1ec' : 'rgba(255,255,255,0.02)' }}>
         <div style={sectionStyle}>
           <h2 style={h2Style}>Free Astrology Tools</h2>
-          <p style={{ textAlign: 'center', color: COLORS.textDim, fontSize: 15, maxWidth: 560, margin: '-12px auto 36px', lineHeight: 1.7 }}>
-            Powered by a professional Vedic astrology engine — free for every visitor.
+          <p style={subStyle}>
+            A complete kundli, today's rashifal and daily panchang — free for every visitor, powered by a professional Vedic engine.
           </p>
-          <FreeTools site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20, alignItems: 'start' }}>
+            <KundliSoftware site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <HoroscopeWidget resolve={resolve} theme={theme} COLORS={COLORS} />
+              <PanchangCard resolve={resolve} COLORS={COLORS} />
+            </div>
+          </div>
         </div>
       </section>
 
@@ -619,6 +1185,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
       <section id="book">
         <div style={sectionStyle}>
           <h2 style={h2Style}>Book Your Appointment</h2>
+          <p style={subStyle}>Pick a service, choose an open slot — confirmation is instant.</p>
           <div style={{
             maxWidth: 560, margin: '0 auto', background: COLORS.surface, border: `1px solid ${COLORS.border}`,
             borderRadius: 20, padding: '28px 24px',
@@ -630,27 +1197,66 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
         </div>
       </section>
 
+      {/* ─── contact ─── */}
+      {hasContact && (
+        <section id="contact" style={{ background: light ? '#f3f1ec' : 'rgba(255,255,255,0.02)' }}>
+          <div style={sectionStyle}>
+            <h2 style={h2Style}>Get in Touch</h2>
+            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
+              {[
+                [settings.phone, Phone, `tel:${(settings.phone || '').replace(/[^\d+]/g, '')}`],
+                [settings.email, Mail, `mailto:${settings.email}`],
+                [settings.city, MapPin, null],
+              ].filter(([v]) => !!v).map(([v, Icon, href], i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 12, background: COLORS.surface,
+                  border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: '14px 22px', fontSize: 14, fontWeight: 600,
+                }}>
+                  <Icon size={17} style={{ color: theme.primaryColor }} />
+                  {href ? <a href={href} style={{ color: COLORS.text, textDecoration: 'none' }}>{v}</a> : v}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ─── footer ─── */}
-      <footer style={{ borderTop: `1px solid ${COLORS.border}`, padding: '40px 20px', textAlign: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
-          {site.logo_url
-            ? <img src={site.logo_url} alt={site.name} style={{ width: 30, height: 30, borderRadius: 9, objectFit: 'cover' }} />
-            : <div style={{ width: 30, height: 30, borderRadius: 9, background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 13 }}>
-                {(site.name || 'A').charAt(0)}
-              </div>}
-          <span style={{ fontWeight: 700 }}>{site.name}</span>
-        </div>
-        <div style={{ fontSize: 13, color: COLORS.textDim, marginBottom: 18 }}>
-          {site.custom_domain || tenantSubdomainLabel(site.slug)}
-        </div>
-        <div style={{ fontSize: 12, opacity: 0.5 }}>
-          <Link to="/" style={{ color: 'inherit', textDecoration: 'none' }}>Powered by AstroVakta</Link>
+      <footer style={{ borderTop: `1px solid ${COLORS.border}`, padding: '48px 20px 32px' }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 10 }}>
+            {site.logo_url
+              ? <img src={site.logo_url} alt={site.name} style={{ width: 30, height: 30, borderRadius: 9, objectFit: 'cover' }} />
+              : <div style={{ width: 30, height: 30, borderRadius: 9, background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 13 }}>
+                  {(site.name || 'A').charAt(0)}
+                </div>}
+            <span style={{ fontWeight: 700 }}>{site.name}</span>
+          </div>
+          <div style={{ fontSize: 13, color: COLORS.textDim, marginBottom: 18, textAlign: 'center' }}>
+            {site.custom_domain || tenantSubdomainLabel(site.slug)}
+          </div>
+          {socials.length > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 22 }}>
+              {socials.map(([key, Icon, href]) => (
+                <a key={key} href={href} target="_blank" rel="noopener noreferrer" title={key}
+                  style={{
+                    width: 38, height: 38, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: `1px solid ${COLORS.border}`, color: COLORS.textDim, textDecoration: 'none',
+                  }}>
+                  <Icon size={17} />
+                </a>
+              ))}
+            </div>
+          )}
+          <div style={{ textAlign: 'center', fontSize: 12, opacity: 0.5 }}>
+            <Link to="/" style={{ color: 'inherit', textDecoration: 'none' }}>Powered by AstroVakta</Link>
+          </div>
         </div>
       </footer>
 
       {/* ─── WhatsApp chat button (astrologer's number) ─── */}
-      {site.settings?.whatsappNumber && (
-        <a href={`https://wa.me/${String(site.settings.whatsappNumber).replace(/[^\d]/g, '')}?text=${encodeURIComponent(`Namaste ${site.name}, I want to book a consultation.`)}`}
+      {settings.whatsappNumber && (
+        <a href={`https://wa.me/${String(settings.whatsappNumber).replace(/[^\d]/g, '')}?text=${encodeURIComponent(`Namaste ${site.name}, I want to book a consultation.`)}`}
           target="_blank" rel="noopener noreferrer" title="Chat on WhatsApp"
           style={{
             position: 'fixed', bottom: 22, right: 22, zIndex: 60, width: 54, height: 54, borderRadius: '50%',

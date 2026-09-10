@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Star, Menu, X, LogIn, LayoutDashboard, Globe } from 'lucide-react'
-import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, CLERK_ENABLED } from '../lib/clerk.jsx'
+import { Menu, X, LogIn, LayoutDashboard, Globe } from 'lucide-react'
 import { useAuth } from '../lib/auth.jsx'
 import { useConfig } from '../lib/ConfigContext.jsx'
 
@@ -84,28 +83,14 @@ export default function Navbar() {
               <button onClick={() => navigate('/dashboard')} className="btn-primary" style={{ padding: '10px 20px', fontSize: 14 }}>
                 <LayoutDashboard size={16} /> Dashboard
               </button>
-              {CLERK_ENABLED && <UserButton appearance={{ elements: { avatarBox: { width: 36, height: 36 } } }} />}
-              {!CLERK_ENABLED && (
-                <button onClick={() => { logout(); navigate('/') }} className="btn-secondary" style={{ padding: '10px 18px', fontSize: 14 }}>
-                  Log Out
-                </button>
-              )}
+              <button onClick={() => { logout(); navigate('/') }} className="btn-secondary" style={{ padding: '10px 18px', fontSize: 14 }}>
+                Log Out
+              </button>
             </>
-          ) : CLERK_ENABLED ? (
-            <SignedOut>
-              <SignInButton mode="modal">
-                <button className="btn-secondary" style={{ padding: '10px 20px', fontSize: 14 }}>Log In</button>
-              </SignInButton>
-              <SignUpButton mode="modal">
-                <button className="btn-primary" style={{ padding: '10px 20px', fontSize: 14 }}>
-                  <LogIn size={16} /> Sign Up
-                </button>
-              </SignUpButton>
-            </SignedOut>
           ) : (
             <>
               <Link to="/login" className="btn-secondary" style={{ padding: '10px 20px', fontSize: 14 }}>Log In</Link>
-              <Link to="/register" className="btn-primary" style={{ padding: '10px 20px', fontSize: 14 }}>
+              <Link to="/register" className="btn-primary" style={{ padding: '10px 20px', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <LogIn size={16} /> Sign Up
               </Link>
             </>
@@ -142,21 +127,10 @@ export default function Navbar() {
                   <button onClick={() => navigate('/dashboard')} className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
                     Dashboard
                   </button>
-                  {!CLERK_ENABLED && (
-                    <button onClick={() => { logout(); navigate('/') }} className="btn-secondary" style={{ flex: '1 1 100%', justifyContent: 'center' }}>
-                      Log Out
-                    </button>
-                  )}
+                  <button onClick={() => { logout(); navigate('/') }} className="btn-secondary" style={{ flex: '1 1 100%', justifyContent: 'center' }}>
+                    Log Out
+                  </button>
                 </>
-              ) : CLERK_ENABLED ? (
-                <SignedOut>
-                  <SignInButton mode="modal">
-                    <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>Log In</button>
-                  </SignInButton>
-                  <SignUpButton mode="modal">
-                    <button className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>Sign Up</button>
-                  </SignUpButton>
-                </SignedOut>
               ) : (
                 <>
                   <Link to="/login" className="btn-secondary" style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', padding: '10px 20px' }}>Log In</Link>

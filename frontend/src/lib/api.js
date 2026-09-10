@@ -267,6 +267,28 @@ export const setMySiteSettings = (siteId, data) =>
 export const getMyLeads = (siteId) =>
   api.get(`/sites/my/${siteId}/leads`).then((r) => r.data?.leads ?? r.data?.data?.leads ?? [])
 
+export const getMySiteStats = (siteId) =>
+  api.get(`/sites/my/${siteId}/stats`).then((r) => r.data?.stats ?? r.data?.data?.stats ?? r.data?.data ?? r.data ?? {})
+
+// ──── SITE BUILDER: STORE ────
+export const getMyProducts = (siteId) =>
+  api.get(`/sites/my/${siteId}/products`).then((r) => r.data?.products ?? r.data?.data?.products ?? [])
+
+export const createMyProduct = (siteId, data) =>
+  api.post(`/sites/my/${siteId}/products`, data).then((r) => r.data?.data ?? r.data)
+
+export const updateMyProduct = (siteId, productId, data) =>
+  api.put(`/sites/my/${siteId}/products/${productId}`, data).then((r) => r.data?.data ?? r.data)
+
+export const deleteMyProduct = (siteId, productId) =>
+  api.delete(`/sites/my/${siteId}/products/${productId}`).then((r) => r.data)
+
+export const getMyOrders = (siteId, params = {}) =>
+  api.get(`/sites/my/${siteId}/orders`, { params }).then((r) => r.data?.orders ?? r.data?.data?.orders ?? [])
+
+export const updateMyOrder = (siteId, orderId, data) =>
+  api.put(`/sites/my/${siteId}/orders/${orderId}`, data).then((r) => r.data?.data ?? r.data)
+
 // Public tenant-site endpoints (visitor-facing, no auth).
 // `resolve` is a slug string or { slug } / { domain } — every endpoint on the
 // backend accepts either (?slug= or ?domain=), so subdomain AND custom-domain
@@ -292,6 +314,14 @@ export const publicKundliTool = (resolve, data) => {
 
 export const publicPanchangTool = (resolve) =>
   api.get('/sites/site/tools/panchang', { params: resolveParams(resolve) }).then((r) => r.data?.data ?? r.data)
+
+export const publicHoroscopeTool = (resolve, sign) =>
+  api.get('/sites/site/tools/horoscope', { params: { ...resolveParams(resolve), sign } }).then((r) => r.data)
+
+export const publicPlaceOrder = (resolve, data) => {
+  const qs = new URLSearchParams(resolveParams(resolve)).toString()
+  return api.post(`/sites/site/order?${qs}`, data).then((r) => r.data)
+}
 
 // ──── JOBS ────
 export const submitPdfJob = (data) =>

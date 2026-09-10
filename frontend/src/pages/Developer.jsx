@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, useInView, useScroll, useTransform, AnimatePresence } from 'framer-motion'
-import { SignedOut, SignUpButton } from '../lib/clerk.jsx'
 import { useConfig } from '../lib/ConfigContext.jsx'
 import {
   Sparkles, BookOpen, Heart, Sun, Shield, Brain, Code, Zap, Globe,
@@ -283,13 +282,11 @@ export default function Landing() {
           <motion.div id="start-free" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.7 }}
             style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <SignedOut>
-              <SignUpButton mode="modal">
-                <button className="btn-primary" style={{ padding: '16px 40px', fontSize: 16 }}>
-                  <Rocket size={18} /> Try for Free
-                </button>
-              </SignUpButton>
-            </SignedOut>
+            <Link to="/register">
+              <button className="btn-primary" style={{ padding: '16px 40px', fontSize: 16 }}>
+                <Rocket size={18} /> Try for Free
+              </button>
+            </Link>
             <Link to="/docs">
               <button className="btn-secondary" style={{ padding: '16px 40px', fontSize: 16 }}>
                 <BookOpen size={18} /> API Docs
@@ -552,20 +549,18 @@ export default function Landing() {
                     </button>
                   </a>
                 ) : p.name === 'Free' ? (
-                  <SignedOut>
-                    <SignUpButton mode="modal">
-                      <button style={{
-                        width: '100%', padding: '12px 0', borderRadius: 12,
-                        border: p.highlight ? 'none' : '1px solid var(--border-color)',
-                        background: p.highlight ? 'var(--gradient-primary)' : 'transparent',
-                        color: p.highlight ? '#fff' : '#1e293b',
-                        fontWeight: 600, fontSize: 14, cursor: 'pointer', marginBottom: 24,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                      }}>
-                        {p.cta} <ArrowRight size={16} />
-                      </button>
-                    </SignUpButton>
-                  </SignedOut>
+                  <Link to="/register">
+                    <button style={{
+                      width: '100%', padding: '12px 0', borderRadius: 12,
+                      border: p.highlight ? 'none' : '1px solid var(--border-color)',
+                      background: p.highlight ? 'var(--gradient-primary)' : 'transparent',
+                      color: p.highlight ? '#fff' : '#1e293b',
+                      fontWeight: 600, fontSize: 14, cursor: 'pointer', marginBottom: 24,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    }}>
+                      {p.cta} <ArrowRight size={16} />
+                    </button>
+                  </Link>
                 ) : (
                   <Link to="/register">
                     <button style={{
@@ -1048,13 +1043,11 @@ export default function Landing() {
             No credit card required. 500 free API calls per month. Full access to all endpoints.
           </p>
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <SignedOut>
-              <SignUpButton mode="modal">
-                <button className="btn-primary" style={{ padding: '18px 48px', fontSize: 18 }}>
-                  Get Your API Key <Sparkles size={20} />
-                </button>
-              </SignUpButton>
-            </SignedOut>
+            <Link to="/register">
+              <button className="btn-primary" style={{ padding: '18px 48px', fontSize: 18 }}>
+                Get Your API Key <Sparkles size={20} />
+              </button>
+            </Link>
             <Link to="/sandbox">
               <button className="btn-secondary" style={{ padding: '18px 48px', fontSize: 18 }}>
                 <Play size={18} /> Try the Sandbox

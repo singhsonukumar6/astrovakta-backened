@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Check, Zap, Star, Crown, ArrowRight, DollarSign, IndianRupee, MessageCircle, MonitorSmartphone, Smartphone, Loader } from 'lucide-react'
-import { SignedOut, SignUpButton } from '../lib/clerk.jsx'
 import toast from 'react-hot-toast'
 import { createCheckout } from '../lib/api.js'
 import { useAuth } from '../lib/auth.jsx'
@@ -237,17 +236,15 @@ export default function Pricing() {
                   </button>
                 </a>
               ) : tier.name === 'Free' ? (
-                <SignedOut>
-                  <SignUpButton mode="modal">
-                    <button
-                      className={tier.popular ? 'btn-primary' : 'btn-secondary'}
-                      style={{ width: '100%', justifyContent: 'center' }}
-                    >
-                      {tier.cta}
-                      <ArrowRight size={16} />
-                    </button>
-                  </SignUpButton>
-                </SignedOut>
+                <Link to="/register">
+                  <button
+                    className={tier.popular ? 'btn-primary' : 'btn-secondary'}
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    {tier.cta}
+                    <ArrowRight size={16} />
+                  </button>
+                </Link>
               ) : (
                 <button
                   onClick={() => handleCheckout(tier)}

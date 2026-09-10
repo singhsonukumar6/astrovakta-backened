@@ -1,4 +1,4 @@
-"""Public endpoints for tenant websites: site resolution + booking flow.
+"""Public endpoints for tenant websites: site resolution, booking flow and store.
 
 These are unauthenticated (the visitor is the astrologer's client). Sites are
 resolved by subdomain slug or custom domain; only published sites are visible.
@@ -7,12 +7,12 @@ import json
 from datetime import date, timedelta
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 
 from ..tenants import (
     get_site_by_slug, get_site_by_domain, public_site_bundle,
     list_availability, get_service, list_bookings, create_booking,
-    create_lead,
+    create_lead, list_products, get_product, create_order, adjust_product_stock,
 )
 
 router = APIRouter()
@@ -139,6 +139,64 @@ def public_book(body: PublicBookingBody, slug: str = None, domain: str = None):
             "message": "Your appointment is confirmed. The astrologer has been notified."}
 
 
+# ─────────────── store (public storefront) ───────────────
+
+class PublicOrderItem(BaseModel):
+    product_id: int
+    qty: int = Field(1, ge=1, le=99)
+
+    class Config:
+        extra = "forbid"
+
+
+class PublicOrderBody(BaseModel):
+    client_name: str = Field(..., min_length=1, max_length=120)
+    client_phone: Optional[str] = Field(None, max_length=20)
+    client_email: Optional[str] = Field(None, max_length=200)
+    address: Optional[str] = Field(None, max_length=500)
+    items: List[PublicOrderItem] = Field(..., min_length=1, max_length=20)
+    notes: Optional[str] = Field(None, max_length=1000)
+
+    class Config:
+        extra = "forbid"
+
+
+@router.post("/site/order")
+def public_place_order(body: PublicOrderBody, slug: str = None, domain: str = None):
+    """A visitor places an order from the astrologer's store. Prices are taken
+    from the database (never from the client), and stock is checked."""
+    site = _resolve_site(slug, domain)
+    items_out = []
+    total = 0
+    for it in body.items:
+        p = get_product(site["id"], it.product_id)
+        if not p or not p["is_active"]:
+            raise HTTPException(status_code=404, detail="A product in your cart is no longer available")
+        if p["stock"] is not None and p["stock"] >= 0 and p["stock"] < it.qty:
+            raise HTTPException(status_code=409, detail=f"Only {p['stock']} left of {p['name']}")
+        total += (p["price"] or 0) * it.qty
+        items_out.append({"product_id": p["id"], "name": p["name"], "price": p["price"], "qty": it.qty})
+    order = create_order(site["id"], {
+        "client_name": body.client_name,
+        "client_phone": body.client_phone,
+        "client_email": body.client_email,
+        "address": body.address,
+        "items": items_out,
+        "amount": total,
+        "currency": "INR",
+        "status": "new",
+        "notes": body.notes,
+    })
+    # Reserve the ordered quantity right away; cancelling the order restores it.
+    for it in items_out:
+        if it["qty"] > 0:
+            adjust_product_stock(site["id"], it["product_id"], -it["qty"])
+    # Payment gateway / WhatsApp alert hook point.
+    return {"order": {"id": order["id"], "amount": order["amount"], "currency": order["currency"],
+                      "items": items_out},
+            "message": f"Order placed! {site['name']} will contact you to confirm payment & delivery."}
+
+
 # ─────────────── free tools (lead magnets on tenant sites) ───────────────
 
 _GEMSTONE_BY_LORD = {
@@ -165,16 +223,31 @@ class KundliToolBody(BaseModel):
     lon: Optional[float] = Field(None, ge=-180, le=180)
     tz: Optional[str] = Field(None, max_length=60)
     place: Optional[str] = Field(None, max_length=120)
+    detail: bool = Field(False, description="Include houses, chart SVG, and Vimshottari dasha")
+    chart_theme: Optional[str] = Field("light", pattern="^(light|dark)$")
 
     class Config:
         extra = "forbid"
 
 
+def _compute_chart(body) -> dict:
+    """Shared planet/house computation for the tenant kundli tools."""
+    from ..utils import to_julian, calc_planets, calc_houses
+    lat = body.lat if body.lat is not None else _DEFAULT_PLACE["lat"]
+    lon = body.lon if body.lon is not None else _DEFAULT_PLACE["lon"]
+    tz = body.tz or _DEFAULT_PLACE["tz"]
+    jd = to_julian(body.date, body.time, tz)
+    planets = calc_planets(jd, None, "mean")
+    houses = calc_houses(jd, lat, lon, planets, "W")
+    return jd, lat, lon, tz, planets, houses
+
+
 @router.post("/site/tools/kundli")
 def tenant_kundli_tool(body: KundliToolBody, slug: str = None, domain: str = None):
-    """Free kundli snapshot for a tenant site's visitors: ascendant, moon/sun
-    sign, nakshatra and planetary positions — computed on the platform engine.
-    Contact details, when given, become a lead for the astrologer."""
+    """Free kundli for a tenant site's visitors. Basic mode returns a snapshot
+    (ascendant, moon/sun sign, nakshatra, planets, gemstone); detail=true adds
+    the full software view: houses, North-Indian chart SVG and Vimshottari
+    dasha. Contact details, when given, become a lead for the astrologer."""
     site = _resolve_site(slug, domain)
 
     try:
@@ -184,17 +257,8 @@ def tenant_kundli_tool(body: KundliToolBody, slug: str = None, domain: str = Non
     if not (1900 <= d.year <= 2100):
         raise HTTPException(status_code=400, detail="Year must be between 1900 and 2100")
 
-    lat = body.lat if body.lat is not None else _DEFAULT_PLACE["lat"]
-    lon = body.lon if body.lon is not None else _DEFAULT_PLACE["lon"]
-    tz = body.tz or _DEFAULT_PLACE["tz"]
-
-    # Imported lazily so the router loads fast and stays decoupled from the
-    # ephemeris module in tests.
-    from ..utils import to_julian, calc_planets, calc_houses
     try:
-        jd = to_julian(body.date, body.time, tz)
-        planets = calc_planets(jd, None, "mean")
-        houses = calc_houses(jd, lat, lon, planets, "W")
+        jd, lat, lon, tz, planets, houses = _compute_chart(body)
     except Exception:
         raise HTTPException(status_code=400, detail="Could not compute the chart — check the birth details")
 
@@ -218,20 +282,63 @@ def tenant_kundli_tool(body: KundliToolBody, slug: str = None, domain: str = Non
         })
         lead_created = True
 
-    return {
-        "ascendant": {"sign": asc["sign"], "lord": asc_lord, "nakshatra": asc["nakshatra"]},
+    resp = {
+        "ascendant": {"sign": asc["sign"], "lord": asc_lord, "nakshatra": asc["nakshatra"],
+                      "degreeDMS": None},
         "moonSign": moon["sign"] if moon else None,
         "moonNakshatra": moon["nakshatra"] if moon else None,
         "sunSign": sun["sign"] if sun else None,
         "gemstone": {"forLord": asc_lord, "stone": _GEMSTONE_BY_LORD.get(asc_lord)} if asc_lord else None,
         "planets": [
             {"name": p["name"], "sign": p["sign"], "nakshatra": p["nakshatra"], "house": p["house"],
-             "retrograde": p["isRetrograde"]}
+             "degreeDMS": p["degreeDMS"], "retrograde": p["isRetrograde"], "combust": p["isCombust"]}
             for p in planets
         ],
         "leadCreated": lead_created,
         "astrologer": site["name"],
     }
+
+    if body.detail:
+        from ..routers.chart_svg import render_svg
+        from ..main import parse_local_datetime, vimshottari_full
+        try:
+            svg = render_svg(560, 560, asc, planets, theme=body.chart_theme or "light",
+                             include_outer=False, stack_threshold=2, lang="en")
+        except Exception:
+            svg = None
+        dasha = None
+        current_dasha = None
+        try:
+            birth_local = parse_local_datetime(body.date, body.time, tz)
+            schedule = vimshottari_full(jd, birth_local)
+            today = date.today().isoformat()
+            mahas = schedule.get("mahadashas") or []
+            for md in mahas:
+                if md.get("startDate", "") <= today < md.get("endDate", "9999"):
+                    current = {
+                        "mahadasha": md.get("planet") or md.get("lord"),
+                        "from": md.get("startDate"), "to": md.get("endDate"),
+                    }
+                    for ad in md.get("antardasha") or []:
+                        if ad.get("startDate", "") <= today < ad.get("endDate", "9999"):
+                            current["antardasha"] = ad.get("planet") or ad.get("lord")
+                            current["antardashaFrom"] = ad.get("startDate")
+                            current["antardashaTo"] = ad.get("endDate")
+                            break
+                    current_dasha = current
+                    break
+            # first 5 mahadashas keep the payload light
+            dasha = [{"lord": md.get("planet") or md.get("lord"), "from": md.get("startDate"), "to": md.get("endDate")}
+                     for md in mahas[:5]]
+        except Exception:
+            pass
+        resp["houses"] = houses["houses"]
+        resp["chartSvg"] = svg
+        resp["dasha"] = dasha
+        resp["currentDasha"] = current_dasha
+        resp["birthPlace"] = body.place or _DEFAULT_PLACE["label"]
+
+    return resp
 
 
 @router.get("/site/tools/panchang")
@@ -246,3 +353,35 @@ def tenant_panchang_tool(slug: str = None, domain: str = None, date_str: str = N
         raise HTTPException(status_code=400, detail="Invalid date")
     p = compute_panchang(d, "12:00", _DEFAULT_PLACE["tz"], _DEFAULT_PLACE["lat"], _DEFAULT_PLACE["lon"])
     return {"date": d, "panchang": p, "astrologer": site["name"]}
+
+
+class _NoLangRequest:
+    """Minimal stand-in for fastapi Request — daily_horoscope only reads the
+    accept-language header."""
+
+    headers = {"accept-language": "en"}
+
+
+@router.get("/site/tools/horoscope")
+def tenant_daily_horoscope(slug: str = None, domain: str = None, sign: str = Query(..., min_length=3, max_length=20)):
+    """Daily rashi horoscope for a tenant site's widget, computed on the
+    platform engine (template-based — no birth details needed)."""
+    site = _resolve_site(slug, domain)
+    from ..utils import ZODIAC_SIGNS
+    s = (sign or "").strip().capitalize()
+    if s not in ZODIAC_SIGNS:
+        raise HTTPException(status_code=400, detail="Unknown zodiac sign")
+    from .horoscope_text import HoroscopeRequest, daily_horoscope
+    try:
+        result = daily_horoscope(
+            HoroscopeRequest(
+                dateOfBirth="1990-01-01", timeOfBirth="06:00",
+                latitude=_DEFAULT_PLACE["lat"], longitude=_DEFAULT_PLACE["lon"],
+                timezone=_DEFAULT_PLACE["tz"], zodiacSign=s,
+            ),
+            request=_NoLangRequest(),
+        )
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not generate the horoscope")
+    data = result.get("data", result) if isinstance(result, dict) else {}
+    return {"sign": s, "horoscope": data, "astrologer": site["name"]}

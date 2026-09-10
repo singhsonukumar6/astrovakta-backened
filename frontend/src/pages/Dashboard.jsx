@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { SignedOut, SignInButton, CLERK_ENABLED } from '../lib/clerk.jsx'
 import {
   LayoutDashboard,
   Key,
@@ -889,7 +888,7 @@ function Profile({ user, onUserUpdate }) {
 
 // ──────────── MAIN DASHBOARD ────────────
 export default function Dashboard() {
-  const { user, logout, isAuthenticated, loading: authLoading, clerkSyncing, clerkSignedIn } = useAuth()
+  const { user, logout, isAuthenticated, loading: authLoading } = useAuth()
   const [keys, setKeys] = useState([])
   const [localUser, setLocalUser] = useState(null)
   const navigate = useNavigate()
@@ -905,15 +904,14 @@ export default function Dashboard() {
   }, [user])
 
   useEffect(() => {
-    // Accept either auth path — Clerk sign-in or email/password JWT — like MySite.
-    if (!authLoading && !isAuthenticated && !clerkSignedIn) navigate('/')
-  }, [authLoading, isAuthenticated, clerkSignedIn, navigate])
+    if (!authLoading && !isAuthenticated) navigate('/')
+  }, [authLoading, isAuthenticated, navigate])
 
   useEffect(() => {
-    if (isAuthenticated && user && !user.email_verified && !clerkSignedIn) {
+    if (isAuthenticated && user && !user.email_verified) {
       navigate('/verify-email-prompt', { state: { email: user.email } })
     }
-  }, [isAuthenticated, user, clerkSignedIn, navigate])
+  }, [isAuthenticated, user, navigate])
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -937,7 +935,7 @@ export default function Dashboard() {
     )
   }
 
-  if (!isAuthenticated && !clerkSignedIn) {
+  if (!isAuthenticated) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 72, flexDirection: 'column', gap: 20 }}>
         <Shield size={48} color="#64748b" />
@@ -945,19 +943,9 @@ export default function Dashboard() {
         <p style={{ color: '#475569', fontSize: 15, maxWidth: 360, textAlign: 'center' }}>
           You need to sign in to access the dashboard.
         </p>
-        {CLERK_ENABLED ? (
-          <SignedOut>
-            <SignInButton mode="modal">
-              <button className="btn-primary" style={{ padding: '14px 32px', fontSize: 16 }}>
-                <LogIn size={18} /> Sign In
-              </button>
-            </SignInButton>
-          </SignedOut>
-        ) : (
-          <Link to="/login" className="btn-primary" style={{ padding: '14px 32px', fontSize: 16 }}>
-            <LogIn size={18} /> Sign In
-          </Link>
-        )}
+        <Link to="/login" className="btn-primary" style={{ padding: '14px 32px', fontSize: 16 }}>
+          <LogIn size={18} /> Sign In
+        </Link>
       </div>
     )
   }

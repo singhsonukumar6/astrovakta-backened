@@ -4,12 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Globe, Plus, Trash2, ExternalLink, Check, X, Palette, FileText, Calendar,
   Store, Globe2, Eye, EyeOff, Sparkles, Clock, ChevronLeft, Settings2,
-  Save, RefreshCw, LogIn, Shield, ArrowRight, Image as ImageIcon, Users,
-  Bell, Crown, Loader2,
+  Save, LogIn, Shield, ArrowRight, Image as ImageIcon, Users,
+  Bell, Crown, Loader2, LayoutDashboard, Package, ShoppingBag, Link2,
+  Phone, Star, TrendingUp, IndianRupee, Menu,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth.jsx'
-import { CLERK_ENABLED, SignedOut, SignInButton } from '../lib/clerk.jsx'
 import { tenantSiteUrl } from '../lib/tenant.js'
 import {
   getMySites, createMySite, getMySite, updateMySite, publishMySite, unpublishMySite,
@@ -17,19 +17,21 @@ import {
   createMyService, updateMyService, deleteMyService,
   getMyAvailability, setMyAvailability, getMyBookings, updateMyBooking,
   checkSlugAvailability, checkDomainAvailability, setMySiteMedia, setMySiteSettings, getMyLeads,
+  getMySiteStats, getMyProducts, createMyProduct, updateMyProduct, deleteMyProduct,
+  getMyOrders, updateMyOrder,
 } from '../lib/api.js'
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
 const inputStyle = {
-  width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.8)',
-  border: '1px solid var(--border-color)', borderRadius: 10, color: 'var(--text-primary)',
+  width: '100%', padding: '10px 14px', background: '#fff',
+  border: '1px solid #e2e8f0', borderRadius: 10, color: '#0f172a',
   fontSize: 14, outline: 'none',
 }
 const labelStyle = { display: 'block', fontSize: 13, fontWeight: 600, color: '#475569', marginBottom: 6 }
-const cardStyle = { background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: 24 }
+const cardStyle = { background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 24 }
 const primaryBtn = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 22px', background: 'var(--gradient-primary)', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: 'pointer' }
-const ghostBtn = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 22px', background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: 'pointer' }
+const ghostBtn = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 22px', background: 'transparent', color: '#0f172a', border: '1px solid #e2e8f0', borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: 'pointer' }
 
 // Sites endpoints currently return raw FastAPI bodies ({"detail": ...} on
 // errors). ResponseWrapMiddleware exists in app/middleware.py but is not
@@ -42,10 +44,14 @@ const errDetail = (e, fallback = 'Something went wrong — try again') => {
 }
 
 const TEMPLATES = [
-  { id: 'aurora', name: 'Aurora', desc: 'Clean indigo & amber — light, modern, professional', colors: ['#4f46e5', '#d97706'] },
-  { id: 'classic', name: 'Classic', desc: 'Traditional warm tones for trust', colors: ['#b45309', '#dc2626'] },
-  { id: 'minimal', name: 'Minimal', desc: 'Fresh teal — calm and clutter-free', colors: ['#0f766e', '#0ea5e9'] },
-  { id: 'devotional', name: 'Devotional', desc: 'Saffron & temple palette', colors: ['#ea580c', '#facc15'] },
+  { id: 'aurora', name: 'Aurora', desc: 'Indigo & amber — clean, light, modern', colors: ['#4f46e5', '#d97706'], tier: 'Free' },
+  { id: 'classic', name: 'Classic', desc: 'Traditional warm tones on a deep theme', colors: ['#b45309', '#dc2626'], tier: 'Free' },
+  { id: 'minimal', name: 'Minimal', desc: 'Fresh teal — calm and clutter-free', colors: ['#0f766e', '#0ea5e9'], tier: 'Free' },
+  { id: 'devotional', name: 'Devotional', desc: 'Saffron & marigold — temple-inspired', colors: ['#ea580c', '#facc15'], tier: 'Free' },
+  { id: 'celestial', name: 'Celestial', desc: 'Indigo night sky, stars & elegant serif', colors: ['#4338ca', '#f472b6'], tier: 'Premium' },
+  { id: 'royal', name: 'Royal Heritage', desc: 'Deep maroon & gold — regal and luxurious', colors: ['#7c2d12', '#eab308'], tier: 'Premium' },
+  { id: 'tantra', name: 'Tantra', desc: 'Crimson & ember — bold, mystical', colors: ['#be123c', '#f97316'], tier: 'Premium' },
+  { id: 'modern-light', name: 'Modern Studio', desc: 'Blue & violet on white — sleek agency look', colors: ['#2563eb', '#8b5cf6'], tier: 'Premium' },
 ]
 
 const PRESETS = {
@@ -53,6 +59,10 @@ const PRESETS = {
   classic: { primaryColor: '#b45309', accentColor: '#dc2626', bgStyle: 'dark' },
   minimal: { primaryColor: '#0f766e', accentColor: '#0ea5e9', bgStyle: 'light' },
   devotional: { primaryColor: '#ea580c', accentColor: '#facc15', bgStyle: 'light' },
+  celestial: { primaryColor: '#4338ca', accentColor: '#f472b6', bgStyle: 'dark', fontHeading: "'Cormorant Garamond', Georgia, serif", heroPattern: 'stars' },
+  royal: { primaryColor: '#7c2d12', accentColor: '#eab308', bgStyle: 'dark', fontHeading: "'Playfair Display', Georgia, serif", heroPattern: 'mandala' },
+  tantra: { primaryColor: '#be123c', accentColor: '#f97316', bgStyle: 'dark', heroPattern: 'yantra' },
+  'modern-light': { primaryColor: '#2563eb', accentColor: '#8b5cf6', bgStyle: 'light', heroPattern: 'grid' },
 }
 
 // ═══════════════ IMAGE UPLOAD HELPER ═══════════════
@@ -137,137 +147,262 @@ function CreateSiteWizard({ onCreated }) {
   }
 
   const slugOk = slugClean.length >= 3 && slugCheck.state === 'available'
+  const stepTitles = ['Your web address', 'About you', 'Pick a design']
 
   return (
-    <div style={{ maxWidth: 640, margin: '0 auto' }}>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 36, justifyContent: 'center' }}>
-        {[1, 2, 3].map((s) => (
-          <div key={s} style={{
-            flex: 1, height: 5, borderRadius: 4,
-            background: step >= s ? 'var(--gradient-primary)' : 'rgba(79,70,229,0.15)',
-          }} />
-        ))}
+    <div style={{ maxWidth: 680, margin: '0 auto' }}>
+      {/* progress header */}
+      <div style={{ textAlign: 'center', marginBottom: 28 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'center' }}>
+          {[1, 2, 3].map((s) => (
+            <div key={s} style={{
+              flex: 1, maxWidth: 90, height: 5, borderRadius: 4,
+              background: step >= s ? 'var(--gradient-primary)' : 'rgba(79,70,229,0.15)',
+            }} />
+          ))}
+        </div>
+        <div style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>Step {step} of 3 · {stepTitles[step - 1]}</div>
       </div>
 
-      {step === 1 && (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-          <h2 style={{ fontSize: 26, fontWeight: 800, marginBottom: 8 }}>Choose your web address</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 28, lineHeight: 1.6 }}>
-            This becomes your free website address. You can connect your own domain (like astrovakra.com) anytime after.
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 10 }}>
-            <input value={slugClean} onChange={(e) => setSlug(e.target.value)} placeholder="pandit-rajesh"
-              style={{ ...inputStyle, borderTopRightRadius: 0, borderBottomRightRadius: 0 }} />
-            <div style={{
-              padding: '10px 14px', background: 'rgba(79,70,229,0.06)', border: '1px solid var(--border-color)',
-              borderLeft: 'none', borderTopRightRadius: 10, borderBottomRightRadius: 10,
-              color: 'var(--accent-purple)', fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap',
-            }}>.astrovakta.com</div>
-          </div>
-          <div style={{ minHeight: 28, marginBottom: 8, fontSize: 14 }}>
-            {slugCheck.state === 'checking' && (
-              <span style={{ color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <Loader2 size={14} className="spin" /> Checking availability…
-              </span>
-            )}
-            {slugCheck.state === 'available' && slugClean.length >= 3 && (
-              <span style={{ color: '#059669', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <Check size={15} /> <strong>{slugClean}.astrovakta.com</strong> is available!
-              </span>
-            )}
-            {slugCheck.state === 'taken' && (
-              <span style={{ color: '#dc2626', display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <X size={15} /> {slugCheck.reason || 'Already taken'}
-                {slugCheck.suggestion && (
-                  <button onClick={() => setSlug(slugCheck.suggestion)} style={{
-                    background: 'none', border: 'none', color: 'var(--accent-purple)', fontWeight: 700,
-                    cursor: 'pointer', textDecoration: 'underline', fontSize: 14,
-                  }}>Try {slugCheck.suggestion}</button>
-                )}
-              </span>
-            )}
-          </div>
-          <button className="btn-primary" disabled={!slugOk || creating}
-            onClick={() => setStep(2)} style={{ ...primaryBtn, opacity: !slugOk ? 0.5 : 1, marginTop: 12 }}>
-            Continue <ChevronLeft size={16} style={{ transform: 'rotate(180deg)' }} />
-          </button>
-        </motion.div>
-      )}
-
-      {step === 2 && (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-          <h2 style={{ fontSize: 26, fontWeight: 800, marginBottom: 8 }}>Tell us about you</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 28 }}>This appears at the top of your website. You can change it later.</p>
-          <div style={{ marginBottom: 18 }}>
-            <label style={labelStyle}>Your name / brand</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Pandit Rajesh Vakra" style={inputStyle} />
-          </div>
-          <div style={{ marginBottom: 24 }}>
-            <label style={labelStyle}>One-line tagline</label>
-            <input value={tagline} onChange={(e) => setTagline(e.target.value)} placeholder="Vedic Astrologer in Jaipur · 25+ years" style={inputStyle} />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 24 }}>
-            <div style={{ ...cardStyle, padding: 16 }}>
-              <label style={labelStyle}><ImageIcon size={13} style={{ verticalAlign: -2 }} /> Logo (optional)</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                {logoUrl
-                  ? <img src={logoUrl} alt="logo" style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', border: '1px solid var(--border-color)' }} />
-                  : <div style={{ width: 48, height: 48, borderRadius: 10, background: 'rgba(79,70,229,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImageIcon size={20} color="var(--text-muted)" /></div>}
-                <label style={{ ...ghostBtn, padding: '7px 12px', fontSize: 12, cursor: 'pointer' }}>
-                  {logoUrl ? 'Change' : 'Upload'}
-                  <input type="file" accept="image/*" onChange={pickLogo} style={{ display: 'none' }} />
-                </label>
-                {logoUrl && <button onClick={() => setLogoUrl(null)} title="Remove" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626' }}><Trash2 size={15} /></button>}
-              </div>
+      <AnimatePresence mode="wait">
+        {step === 1 && (
+          <motion.div key="s1" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }} transition={{ duration: 0.25 }}
+            style={{ ...cardStyle, padding: 32 }}>
+            <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Choose your web address</h2>
+            <p style={{ color: '#475569', fontSize: 14, marginBottom: 28, lineHeight: 1.6 }}>
+              This becomes your free website address. You can connect your own domain (like astrovakra.com) anytime after.
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 10 }}>
+              <input value={slugClean} onChange={(e) => setSlug(e.target.value)} placeholder="pandit-rajesh" autoFocus
+                style={{ ...inputStyle, borderTopRightRadius: 0, borderBottomRightRadius: 0, fontSize: 15, padding: '13px 14px' }} />
+              <div style={{
+                padding: '13px 14px', background: 'rgba(79,70,229,0.06)', border: '1px solid #e2e8f0',
+                borderLeft: 'none', borderTopRightRadius: 10, borderBottomRightRadius: 10,
+                color: '#4f46e5', fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap',
+              }}>.astrovakta.com</div>
             </div>
-            <div style={{ ...cardStyle, padding: 16 }}>
-              <label style={labelStyle}><ImageIcon size={13} style={{ verticalAlign: -2 }} /> Hero photo (optional)</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                {heroImage
-                  ? <img src={heroImage} alt="hero" style={{ width: 72, height: 48, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border-color)' }} />
-                  : <div style={{ width: 72, height: 48, borderRadius: 8, background: 'rgba(79,70,229,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImageIcon size={20} color="var(--text-muted)" /></div>}
-                <label style={{ ...ghostBtn, padding: '7px 12px', fontSize: 12, cursor: 'pointer' }}>
-                  {heroImage ? 'Change' : 'Upload'}
-                  <input type="file" accept="image/*" onChange={pickHero} style={{ display: 'none' }} />
-                </label>
-                {heroImage && <button onClick={() => setHeroImage(null)} title="Remove" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626' }}><Trash2 size={15} /></button>}
-              </div>
+            <div style={{ minHeight: 28, marginBottom: 12, fontSize: 14 }}>
+              {slugCheck.state === 'checking' && (
+                <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Loader2 size={14} className="spin" /> Checking availability…
+                </span>
+              )}
+              {slugCheck.state === 'available' && slugClean.length >= 3 && (
+                <span style={{ color: '#059669', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Check size={15} /> <strong>{slugClean}.astrovakta.com</strong> is available!
+                </span>
+              )}
+              {slugCheck.state === 'taken' && (
+                <span style={{ color: '#dc2626', display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <X size={15} /> {slugCheck.reason || 'Already taken'}
+                  {slugCheck.suggestion && (
+                    <button onClick={() => setSlug(slugCheck.suggestion)} style={{
+                      background: 'none', border: 'none', color: '#4f46e5', fontWeight: 700,
+                      cursor: 'pointer', textDecoration: 'underline', fontSize: 14,
+                    }}>Try {slugCheck.suggestion}</button>
+                  )}
+                </span>
+              )}
             </div>
-          </div>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <button onClick={() => setStep(1)} style={ghostBtn}><ChevronLeft size={16} /> Back</button>
-            <button onClick={() => setStep(3)} className="btn-primary" style={primaryBtn}>Continue <ChevronLeft size={16} style={{ transform: 'rotate(180deg)' }} /></button>
-          </div>
-        </motion.div>
-      )}
+            <button className="btn-primary" disabled={!slugOk || creating}
+              onClick={() => setStep(2)} style={{ ...primaryBtn, opacity: !slugOk ? 0.5 : 1, marginTop: 8, padding: '13px 32px' }}>
+              Continue <ChevronLeft size={16} style={{ transform: 'rotate(180deg)' }} />
+            </button>
+          </motion.div>
+        )}
 
-      {step === 3 && (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-          <h2 style={{ fontSize: 26, fontWeight: 800, marginBottom: 8 }}>Pick a design</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 28 }}>You can switch designs and colors anytime.</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 28 }}>
-            {TEMPLATES.map((t) => (
-              <button key={t.id} onClick={() => setTemplate(t.id)}
-                style={{
-                  ...cardStyle, padding: 18, cursor: 'pointer', textAlign: 'left',
-                  border: `2px solid ${template === t.id ? 'var(--accent-purple)' : 'var(--border-color)'}`,
-                  background: template === t.id ? 'rgba(79,70,229,0.05)' : 'var(--bg-card)',
-                }}>
-                <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-                  {t.colors.map((c) => <div key={c} style={{ width: 22, height: 22, borderRadius: 6, background: c }} />)}
+        {step === 2 && (
+          <motion.div key="s2" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }} transition={{ duration: 0.25 }}
+            style={{ ...cardStyle, padding: 32 }}>
+            <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Tell us about you</h2>
+            <p style={{ color: '#475569', fontSize: 14, marginBottom: 28 }}>This appears at the top of your website. You can change it later.</p>
+            <div style={{ marginBottom: 18 }}>
+              <label style={labelStyle}>Your name / brand</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Pandit Rajesh Vakra" style={{ ...inputStyle, fontSize: 15 }} />
+            </div>
+            <div style={{ marginBottom: 24 }}>
+              <label style={labelStyle}>One-line tagline</label>
+              <input value={tagline} onChange={(e) => setTagline(e.target.value)} placeholder="Vedic Astrologer in Jaipur · 25+ years" style={inputStyle} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 24 }}>
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: 14, padding: 16 }}>
+                <label style={labelStyle}><ImageIcon size={13} style={{ verticalAlign: -2 }} /> Logo (optional)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  {logoUrl
+                    ? <img src={logoUrl} alt="logo" style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', border: '1px solid #e2e8f0' }} />
+                    : <div style={{ width: 48, height: 48, borderRadius: 10, background: 'rgba(79,70,229,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImageIcon size={20} color="#94a3b8" /></div>}
+                  <label style={{ ...ghostBtn, padding: '7px 12px', fontSize: 12, cursor: 'pointer' }}>
+                    {logoUrl ? 'Change' : 'Upload'}
+                    <input type="file" accept="image/*" onChange={pickLogo} style={{ display: 'none' }} />
+                  </label>
+                  {logoUrl && <button onClick={() => setLogoUrl(null)} title="Remove" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626' }}><Trash2 size={15} /></button>}
                 </div>
-                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{t.name}</div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.5 }}>{t.desc}</div>
+              </div>
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: 14, padding: 16 }}>
+                <label style={labelStyle}><ImageIcon size={13} style={{ verticalAlign: -2 }} /> Hero photo (optional)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  {heroImage
+                    ? <img src={heroImage} alt="hero" style={{ width: 72, height: 48, borderRadius: 8, objectFit: 'cover', border: '1px solid #e2e8f0' }} />
+                    : <div style={{ width: 72, height: 48, borderRadius: 8, background: 'rgba(79,70,229,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImageIcon size={20} color="#94a3b8" /></div>}
+                  <label style={{ ...ghostBtn, padding: '7px 12px', fontSize: 12, cursor: 'pointer' }}>
+                    {heroImage ? 'Change' : 'Upload'}
+                    <input type="file" accept="image/*" onChange={pickHero} style={{ display: 'none' }} />
+                  </label>
+                  {heroImage && <button onClick={() => setHeroImage(null)} title="Remove" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626' }}><Trash2 size={15} /></button>}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button onClick={() => setStep(1)} style={ghostBtn}><ChevronLeft size={16} /> Back</button>
+              <button onClick={() => setStep(3)} className="btn-primary" style={{ ...primaryBtn, padding: '13px 32px' }}>Continue <ChevronLeft size={16} style={{ transform: 'rotate(180deg)' }} /></button>
+            </div>
+          </motion.div>
+        )}
+
+        {step === 3 && (
+          <motion.div key="s3" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }} transition={{ duration: 0.25 }}
+            style={{ ...cardStyle, padding: 32 }}>
+            <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Pick a design</h2>
+            <p style={{ color: '#475569', fontSize: 14, marginBottom: 28 }}>You can switch designs and colors anytime — no rebuilding needed.</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 28 }}>
+              {TEMPLATES.map((t) => (
+                <button key={t.id} onClick={() => setTemplate(t.id)}
+                  style={{
+                    border: `2px solid ${template === t.id ? '#4f46e5' : '#e2e8f0'}`,
+                    background: template === t.id ? 'rgba(79,70,229,0.04)' : '#fff',
+                    borderRadius: 14, padding: 16, cursor: 'pointer', textAlign: 'left', position: 'relative',
+                  }}>
+                  {t.tier === 'Premium' && (
+                    <span style={{
+                      position: 'absolute', top: 10, right: 10, fontSize: 9, fontWeight: 800, letterSpacing: 0.5,
+                      padding: '3px 8px', borderRadius: 10, background: 'linear-gradient(135deg,#d97706,#f59e0b)', color: '#fff',
+                    }}>PREMIUM</span>
+                  )}
+                  {/* mini preview */}
+                  <div style={{
+                    height: 84, borderRadius: 10, marginBottom: 12, position: 'relative', overflow: 'hidden',
+                    background: t.id === 'celestial' || t.id === 'royal' || t.id === 'tantra' || t.id === 'classic'
+                      ? `linear-gradient(160deg, ${t.colors[0]}22, #0a0a1a)` : `linear-gradient(160deg, ${t.colors[0]}18, #f8fafc)`,
+                    border: `1px solid ${t.colors[0]}33`,
+                  }}>
+                    <div style={{ position: 'absolute', top: 10, left: 10, width: 20, height: 20, borderRadius: 6, background: `linear-gradient(135deg, ${t.colors[0]}, ${t.colors[1]})` }} />
+                    <div style={{ position: 'absolute', top: 40, left: 10, width: '60%', height: 8, borderRadius: 4, background: `${t.colors[0]}55` }} />
+                    <div style={{ position: 'absolute', top: 56, left: 10, width: '40%', height: 6, borderRadius: 4, background: '#94a3b855' }} />
+                    <div style={{ position: 'absolute', top: 40, right: 10, width: 26, height: 26, borderRadius: 6, background: `linear-gradient(135deg, ${t.colors[0]}, ${t.colors[1]})`, opacity: 0.8 }} />
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 3 }}>{t.name}</div>
+                  <div style={{ color: '#64748b', fontSize: 11.5, lineHeight: 1.4 }}>{t.desc}</div>
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button onClick={() => setStep(2)} style={ghostBtn}><ChevronLeft size={16} /> Back</button>
+              <button onClick={submit} disabled={creating} className="btn-primary" style={{ ...primaryBtn, opacity: creating ? 0.6 : 1, padding: '13px 32px' }}>
+                {creating ? 'Creating…' : (<><Sparkles size={16} /> Create my website</>)}
               </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+// ═══════════════ OVERVIEW TAB ═══════════════
+function OverviewTab({ site, reload }) {
+  const [stats, setStats] = useState(null)
+  useEffect(() => {
+    getMySiteStats(site.id).then(setStats).catch(() => setStats(null))
+  }, [site.id, site.updated_at]) // eslint-disable-line
+
+  const statCards = stats ? [
+    { label: 'Upcoming bookings', value: stats.bookings?.upcoming || 0, icon: Calendar, color: '#4f46e5' },
+    { label: 'Total bookings', value: stats.bookings?.total || 0, icon: LayoutDashboard, color: '#2563eb' },
+    { label: 'Leads captured', value: stats.leads?.total || 0, icon: Users, color: '#d97706' },
+    { label: 'Consultation revenue', value: `₹${(stats.bookings?.confirmedRevenue || 0) + (stats.bookings?.completedRevenue || 0)}`, icon: IndianRupee, color: '#16a34a' },
+    { label: 'Active services', value: stats.services?.active || 0, icon: Star, color: '#7c3aed' },
+    { label: 'Store orders', value: stats.store?.ordersTotal || 0, icon: ShoppingBag, color: '#db2777' },
+  ] : []
+
+  return (
+    <div>
+      {stats === null ? (
+        <div style={{ color: '#64748b', padding: 40, textAlign: 'center' }}>Loading your stats…</div>
+      ) : (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 24 }}>
+            {statCards.map((s) => (
+              <div key={s.label} style={{ ...cardStyle, padding: 18 }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10, background: `${s.color}15`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+                }}>
+                  <s.icon size={18} color={s.color} />
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a' }}>{s.value}</div>
+                <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600, marginTop: 2 }}>{s.label}</div>
+              </div>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <button onClick={() => setStep(2)} style={ghostBtn}><ChevronLeft size={16} /> Back</button>
-            <button onClick={submit} disabled={creating} className="btn-primary" style={{ ...primaryBtn, opacity: creating ? 0.6 : 1 }}>
-              {creating ? 'Creating…' : (<><Sparkles size={16} /> Create my website</>)}
-            </button>
+
+          <div style={{ ...cardStyle }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Clock size={16} color="#4f46e5" /> Next appointments
+            </h3>
+            {(stats.upcoming || []).length === 0 ? (
+              <p style={{ color: '#64748b', fontSize: 13, padding: '16px 0' }}>
+                No upcoming bookings yet. Share your site link on WhatsApp and Instagram to get started!
+              </p>
+            ) : (
+              <div style={{ marginTop: 12 }}>
+                {(stats.upcoming || []).map((b) => (
+                  <div key={b.id} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
+                    padding: '12px 4px', borderBottom: '1px solid #f1f5f9', flexWrap: 'wrap',
+                  }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{b.client_name}</div>
+                      <div style={{ color: '#64748b', fontSize: 12, marginTop: 2 }}>
+                        {b.service_name || 'Consultation'} · {b.date} · {b.start_time}
+                      </div>
+                    </div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{b.amount ? `₹${b.amount}` : 'Free'}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        </motion.div>
+
+          {/* setup checklist */}
+          <div style={{ ...cardStyle, marginTop: 20 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <TrendingUp size={16} color="#d97706" /> Grow faster — quick setup
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, marginTop: 14 }}>
+              {[
+                { ok: site.hero_image, text: 'Add your photo (hero image)' },
+                { ok: site.settings?.whatsappNumber, text: 'Set your WhatsApp number' },
+                { ok: site.custom_domain, text: 'Connect your own domain' },
+                { ok: (site.settings?.instagram || site.settings?.youtube || site.settings?.facebook), text: 'Add your social media links' },
+              ].map((c) => (
+                <div key={c.text} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 600,
+                  color: c.ok ? '#16a34a' : '#475569', padding: '10px 14px',
+                  background: c.ok ? 'rgba(34,197,94,0.06)' : 'rgba(79,70,229,0.04)', borderRadius: 10,
+                }}>
+                  <div style={{
+                    width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                    background: c.ok ? '#16a34a' : '#cbd5e1', color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <Check size={12} strokeWidth={3} />
+                  </div>
+                  {c.text}
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
       )}
     </div>
   )
@@ -296,15 +431,21 @@ function ContentTab({ site, reload }) {
 
   const set = (k, v) => setContent((c) => ({ ...c, [k]: v }))
 
+  const testiList = Array.isArray(content.testimonials) ? content.testimonials : []
+  const setTesti = (i, patch) => setContent((c) => ({
+    ...c,
+    testimonials: (c.testimonials || []).map((t, j) => (j === i ? { ...t, ...patch } : t)),
+  }))
+
   return (
     <div>
       <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
         {['home', 'about', 'contact'].map((k) => (
           <button key={k} onClick={() => setPageKey(k)} style={{
             ...ghostBtn, padding: '8px 18px', fontSize: 13,
-            background: pageKey === k ? 'rgba(124,58,237,0.15)' : 'transparent',
-            borderColor: pageKey === k ? 'var(--accent-purple)' : 'var(--border-color)',
-            color: pageKey === k ? '#4f46e5' : 'var(--text-primary)',
+            background: pageKey === k ? 'rgba(79,70,229,0.1)' : 'transparent',
+            borderColor: pageKey === k ? '#4f46e5' : '#e2e8f0',
+            color: pageKey === k ? '#4f46e5' : '#0f172a',
           }}>
             <FileText size={14} /> {k === 'home' ? 'Home' : k === 'about' ? 'About' : 'Contact'}
           </button>
@@ -322,13 +463,51 @@ function ContentTab({ site, reload }) {
               <label style={labelStyle}>Sub-headline</label>
               <textarea rows={2} value={content.heroSubtitle || ''} onChange={(e) => set('heroSubtitle', e.target.value)} style={{ ...inputStyle, resize: 'vertical' }} />
             </div>
+
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12,
+              padding: 16, background: 'rgba(79,70,229,0.04)', borderRadius: 12, marginBottom: 18,
+            }}>
+              {[
+                ['statsYears', 'Years of practice (e.g. 15+)'],
+                ['statsReadings', 'Kundlis read (e.g. 10,000+)'],
+                ['statsRating', 'Client rating (e.g. 4.9)'],
+              ].map(([k, ph]) => (
+                <div key={k}>
+                  <label style={{ ...labelStyle, fontSize: 12 }}>{ph}</label>
+                  <input value={content[k] || ''} onChange={(e) => set(k, e.target.value)} style={{ ...inputStyle, fontSize: 13 }} />
+                </div>
+              ))}
+            </div>
+
             <div style={{ marginBottom: 18 }}>
               <label style={labelStyle}>About section title</label>
               <input value={content.aboutTitle || ''} onChange={(e) => set('aboutTitle', e.target.value)} style={inputStyle} />
             </div>
-            <div style={{ marginBottom: 18 }}>
+            <div style={{ marginBottom: 24 }}>
               <label style={labelStyle}>About section text</label>
               <textarea rows={4} value={content.aboutText || ''} onChange={(e) => set('aboutText', e.target.value)} style={{ ...inputStyle, resize: 'vertical' }} />
+            </div>
+
+            {/* Testimonials editor */}
+            <div style={{
+              border: '1px solid #e2e8f0', borderRadius: 14, padding: 18, marginBottom: 24,
+            }}>
+              <label style={{ ...labelStyle, fontSize: 15 }}>Client testimonials (shown on your site)</label>
+              {testiList.map((t, i) => (
+                <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'flex-start' }}>
+                  <input value={t.name || ''} onChange={(e) => setTesti(i, { name: e.target.value })} placeholder="Client name" style={{ ...inputStyle, width: 130, flexShrink: 0 }} />
+                  <textarea value={t.text || ''} onChange={(e) => setTesti(i, { text: e.target.value })} placeholder="What they said…" rows={2} style={{ ...inputStyle, resize: 'vertical', flex: 1 }} />
+                  <button onClick={() => setContent((c) => ({ ...c, testimonials: (c.testimonials || []).filter((_, j) => j !== i) }))}
+                    title="Remove" style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 8 }}>
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
+              <button onClick={() => setContent((c) => ({ ...c, testimonials: [...(c.testimonials || []), { name: '', text: '', rating: 5 }] }))}
+                style={{ ...ghostBtn, padding: '7px 14px', fontSize: 12 }}>
+                <Plus size={13} /> Add testimonial
+              </button>
             </div>
           </>
         )}
@@ -368,7 +547,7 @@ function DesignTab({ site, reload }) {
     setSaving(true)
     try {
       await updateMySite(site.id, { template: tid, theme: merged })
-      toast.success('Design updated')
+      toast.success('Theme applied!')
       reload()
     } catch { toast.error('Could not update design') }
     finally { setSaving(false) }
@@ -417,32 +596,46 @@ function DesignTab({ site, reload }) {
 
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Template</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 32 }}>
+      <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>Professional themes</h3>
+      <p style={{ color: '#64748b', fontSize: 13, marginBottom: 18 }}>One tap applies the whole look — colors, fonts and background.</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14, marginBottom: 32 }}>
         {TEMPLATES.map((t) => (
           <button key={t.id} onClick={() => applyTemplate(t.id)} disabled={saving}
             style={{
-              ...cardStyle, padding: 18, cursor: 'pointer', textAlign: 'left',
-              border: `2px solid ${site.template === t.id ? 'var(--accent-purple)' : 'var(--border-color)'}`,
-              background: site.template === t.id ? 'rgba(79,70,229,0.05)' : 'var(--bg-card)',
+              ...cardStyle, padding: 16, cursor: 'pointer', textAlign: 'left', position: 'relative',
+              border: `2px solid ${site.template === t.id ? '#4f46e5' : '#e2e8f0'}`,
+              background: site.template === t.id ? 'rgba(79,70,229,0.04)' : '#fff',
             }}>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-              {t.colors.map((c) => <div key={c} style={{ width: 22, height: 22, borderRadius: 6, background: c }} />)}
+            {t.tier === 'Premium' && (
+              <span style={{
+                position: 'absolute', top: 10, right: 10, fontSize: 9, fontWeight: 800, letterSpacing: 0.5,
+                padding: '3px 8px', borderRadius: 10, background: 'linear-gradient(135deg,#d97706,#f59e0b)', color: '#fff',
+              }}>PREMIUM</span>
+            )}
+            <div style={{
+              height: 84, borderRadius: 10, marginBottom: 12, position: 'relative', overflow: 'hidden',
+              background: t.id === 'celestial' || t.id === 'royal' || t.id === 'tantra' || t.id === 'classic'
+                ? `linear-gradient(160deg, ${t.colors[0]}22, #0a0a1a)` : `linear-gradient(160deg, ${t.colors[0]}18, #f8fafc)`,
+              border: `1px solid ${t.colors[0]}33`,
+            }}>
+              <div style={{ position: 'absolute', top: 10, left: 10, width: 20, height: 20, borderRadius: 6, background: `linear-gradient(135deg, ${t.colors[0]}, ${t.colors[1]})` }} />
+              <div style={{ position: 'absolute', top: 40, left: 10, width: '60%', height: 8, borderRadius: 4, background: `${t.colors[0]}55` }} />
+              <div style={{ position: 'absolute', top: 40, right: 10, width: 26, height: 26, borderRadius: 6, background: `linear-gradient(135deg, ${t.colors[0]}, ${t.colors[1]})`, opacity: 0.8 }} />
             </div>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>{t.name}</div>
-            <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>{t.desc}</div>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>{t.name}</div>
+            <div style={{ color: '#64748b', fontSize: 11.5, marginTop: 4, lineHeight: 1.4 }}>{t.desc}</div>
           </button>
         ))}
       </div>
 
-      <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Your logo & photo</h3>
+      <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 16 }}>Your logo & photo</h3>
       <div style={{ ...cardStyle, display: 'flex', gap: 32, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 32 }}>
         <div>
           <label style={labelStyle}>Logo</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {logoUrl
-              ? <img src={logoUrl} alt="logo" style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'cover', border: '1px solid var(--border-color)' }} />
-              : <div style={{ width: 56, height: 56, borderRadius: 12, background: 'rgba(79,70,229,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImageIcon size={22} color="var(--text-muted)" /></div>}
+              ? <img src={logoUrl} alt="logo" style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'cover', border: '1px solid #e2e8f0' }} />
+              : <div style={{ width: 56, height: 56, borderRadius: 12, background: 'rgba(79,70,229,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImageIcon size={22} color="#94a3b8" /></div>}
             <label style={{ ...ghostBtn, padding: '8px 14px', fontSize: 13, cursor: 'pointer' }}>
               {logoUrl ? 'Change' : 'Upload'}
               <input type="file" accept="image/*" onChange={pickLogo} style={{ display: 'none' }} />
@@ -457,8 +650,8 @@ function DesignTab({ site, reload }) {
           <label style={labelStyle}>Hero photo (appears on your homepage)</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {heroImage
-              ? <img src={heroImage} alt="hero" style={{ width: 96, height: 56, borderRadius: 10, objectFit: 'cover', border: '1px solid var(--border-color)' }} />
-              : <div style={{ width: 96, height: 56, borderRadius: 10, background: 'rgba(79,70,229,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImageIcon size={22} color="var(--text-muted)" /></div>}
+              ? <img src={heroImage} alt="hero" style={{ width: 96, height: 56, borderRadius: 10, objectFit: 'cover', border: '1px solid #e2e8f0' }} />
+              : <div style={{ width: 96, height: 56, borderRadius: 10, background: 'rgba(79,70,229,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImageIcon size={22} color="#94a3b8" /></div>}
             <label style={{ ...ghostBtn, padding: '8px 14px', fontSize: 13, cursor: 'pointer' }}>
               {heroImage ? 'Change' : 'Upload'}
               <input type="file" accept="image/*" onChange={pickHero} style={{ display: 'none' }} />
@@ -471,7 +664,7 @@ function DesignTab({ site, reload }) {
         </div>
       </div>
 
-      <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Colors</h3>
+      <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 16 }}>Fine-tune colors</h3>
       <div style={{ ...cardStyle, display: 'flex', gap: 32, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <div>
           <label style={labelStyle}>Primary color</label>
@@ -538,17 +731,17 @@ function ServicesTab({ site, reload }) {
         {(site.services || []).map((s) => (
           <div key={s.id} style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
-            padding: '14px 16px', border: '1px solid var(--border-color)', borderRadius: 12, marginBottom: 10, flexWrap: 'wrap',
+            padding: '14px 16px', border: '1px solid #e2e8f0', borderRadius: 12, marginBottom: 10, flexWrap: 'wrap',
           }}>
             <div style={{ flex: 1, minWidth: 180 }}>
-              <div style={{ fontWeight: 600, fontSize: 15 }}>{s.name} {!s.is_active && <span style={{ color: '#64748b', fontSize: 12 }}>(hidden)</span>}</div>
-              <div style={{ color: '#475569', fontSize: 13 }}>{s.description}</div>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>{s.name} {!s.is_active && <span style={{ color: '#94a3b8', fontSize: 12 }}>(hidden)</span>}</div>
+              <div style={{ color: '#64748b', fontSize: 13 }}>{s.description}</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ fontSize: 14, fontWeight: 600 }}>₹{s.price}</div>
-              <div style={{ color: '#475569', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}><Clock size={13} /> {s.duration_minutes}m</div>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>₹{s.price}</div>
+              <div style={{ color: '#64748b', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}><Clock size={13} /> {s.duration_minutes}m</div>
               <button onClick={() => toggleActive(s)} title={s.is_active ? 'Hide from site' : 'Show on site'}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: s.is_active ? '#16a34a' : '#64748b' }}>
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: s.is_active ? '#16a34a' : '#94a3b8' }}>
                 {s.is_active ? <Eye size={17} /> : <EyeOff size={17} />}
               </button>
               <button onClick={() => remove(s)} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}>
@@ -557,7 +750,7 @@ function ServicesTab({ site, reload }) {
             </div>
           </div>
         ))}
-        <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: 18, marginTop: 8 }}>
+        <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 18, marginTop: 8 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 14 }}>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>New service name</label>
@@ -581,6 +774,250 @@ function ServicesTab({ site, reload }) {
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ═══════════════ STORE TAB (products + orders) ═══════════════
+function StoreTab({ site, reload }) {
+  const [sub, setSub] = useState('products')
+  const [products, setProducts] = useState(null)
+  const [orders, setOrders] = useState(null)
+  const [form, setForm] = useState({ name: '', description: '', price: 500, stock: -1 })
+  const [busy, setBusy] = useState(false)
+
+  const loadProducts = () => getMyProducts(site.id).then(setProducts).catch(() => setProducts([]))
+  const loadOrders = () => getMyOrders(site.id).then(setOrders).catch(() => setOrders([]))
+  useEffect(() => {
+    if (sub === 'products') loadProducts()
+    else loadOrders()
+  }, [sub, site.id, site.updated_at]) // eslint-disable-line
+
+  const addProduct = async (e) => {
+    e.preventDefault()
+    if (!form.name.trim()) return toast.error('Give the product a name')
+    setBusy(true)
+    try {
+      let image
+      const f = e.target.elements?.photo?.files?.[0]
+      if (f) image = await fileToDataUrl(f, 900, 0.85)
+      await createMyProduct(site.id, { ...form, image: image || undefined })
+      toast.success('Product added')
+      setForm({ name: '', description: '', price: 500, stock: -1 })
+      e.target.reset?.()
+      loadProducts()
+      reload()
+    } catch (err) {
+      toast.error(errDetail(err, 'Could not add product'))
+    } finally { setBusy(false) }
+  }
+
+  const toggleProduct = async (p) => {
+    try {
+      await updateMyProduct(site.id, p.id, { name: p.name, price: p.price, is_active: !p.is_active })
+      loadProducts()
+    } catch { toast.error('Could not update') }
+  }
+
+  const removeProduct = async (p) => {
+    try {
+      await deleteMyProduct(site.id, p.id)
+      toast.success('Product removed')
+      loadProducts()
+      reload()
+    } catch { toast.error('Could not remove') }
+  }
+
+  const setOrderStatus = async (o, status) => {
+    try {
+      await updateMyOrder(site.id, o.id, { status })
+      loadOrders()
+    } catch { toast.error('Could not update order') }
+  }
+
+  const orderBadge = {
+    new: { bg: 'rgba(245,158,11,0.12)', c: '#d97706' },
+    confirmed: { bg: 'rgba(34,197,94,0.12)', c: '#16a34a' },
+    fulfilled: { bg: 'rgba(59,130,246,0.12)', c: '#2563eb' },
+    cancelled: { bg: 'rgba(239,68,68,0.12)', c: '#ef4444' },
+  }
+
+  return (
+    <div>
+      {/* toggle store visibility */}
+      <div style={{ ...cardStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
+        <div>
+          <h3 style={{ fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Store size={16} color="#4f46e5" /> Online store on your website
+          </h3>
+          <p style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
+            Sell gemstones, rudraksha, puja items and reports. {site.settings?.showStore ? 'The store is live on your site.' : 'Turn on to show the Shop section to visitors.'}
+          </p>
+        </div>
+        <button
+          onClick={async () => {
+            try {
+              await setMySiteSettings(site.id, { show_store: !site.settings?.showStore })
+              toast.success(site.settings?.showStore ? 'Store hidden' : 'Store is live on your site!')
+              reload()
+            } catch (e) { toast.error(errDetail(e)) }
+          }}
+          className={site.settings?.showStore ? 'btn-primary' : ''}
+          style={site.settings?.showStore ? primaryBtn : { ...ghostBtn, borderColor: '#4f46e5', color: '#4f46e5' }}>
+          {site.settings?.showStore ? <><Eye size={15} /> Store live</> : <><EyeOff size={15} /> Enable store</>}
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+        {[['products', 'Products', Package], ['orders', 'Orders', ShoppingBag]].map(([id, label, Icon]) => (
+          <button key={id} onClick={() => setSub(id)} style={{
+            ...ghostBtn, padding: '8px 18px', fontSize: 13,
+            background: sub === id ? 'rgba(79,70,229,0.1)' : 'transparent',
+            borderColor: sub === id ? '#4f46e5' : '#e2e8f0',
+            color: sub === id ? '#4f46e5' : '#0f172a',
+          }}>
+            <Icon size={14} /> {label}
+          </button>
+        ))}
+      </div>
+
+      {sub === 'products' && (
+        <>
+          {products === null ? (
+            <div style={{ color: '#64748b', padding: 40, textAlign: 'center' }}>Loading products…</div>
+          ) : products.length === 0 ? (
+            <div style={{ ...cardStyle, textAlign: 'center', color: '#64748b', padding: 40 }}>
+              <Package size={32} style={{ marginBottom: 12 }} />
+              <div>No products yet. Add your first product below — it appears in your site's Shop section.</div>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 14, marginBottom: 24 }}>
+              {products.map((p) => (
+                <div key={p.id} style={{ ...cardStyle, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {p.image
+                    ? <img src={p.image} alt={p.name} style={{ width: '100%', height: 130, objectFit: 'cover', borderRadius: 10 }} />
+                    : <div style={{ width: '100%', height: 130, borderRadius: 10, background: 'rgba(79,70,229,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={28} color="#cbd5e1" /></div>}
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{p.name} {!p.is_active && <span style={{ color: '#94a3b8', fontSize: 11, fontWeight: 600 }}>(hidden)</span>}</div>
+                    {p.description && <div style={{ color: '#64748b', fontSize: 12, marginTop: 3, lineHeight: 1.5 }}>{p.description}</div>}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontWeight: 800, fontSize: 15 }}>₹{p.price}</div>
+                    <div style={{ fontSize: 12, color: p.stock === -1 ? '#94a3b8' : p.stock > 0 ? '#16a34a' : '#ef4444', fontWeight: 600 }}>
+                      {p.stock === -1 ? 'Unlimited' : p.stock > 0 ? `${p.stock} in stock` : 'Out of stock'}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, borderTop: '1px solid #f1f5f9', paddingTop: 10 }}>
+                    <button onClick={() => toggleProduct(p)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: p.is_active ? '#16a34a' : '#94a3b8', flex: 1, display: 'flex', justifyContent: 'center' }}>
+                      {p.is_active ? <Eye size={16} /> : <EyeOff size={16} />}
+                    </button>
+                    <button onClick={() => removeProduct(p)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', flex: 1, display: 'flex', justifyContent: 'center' }}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={cardStyle}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Add a product</h3>
+            <form onSubmit={addProduct}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 14 }}>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={labelStyle}>Product name</label>
+                  <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Yellow Sapphire (Pukhraj) 5.25 ct" style={inputStyle} />
+                </div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={labelStyle}>Description (optional)</label>
+                  <input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Certified, government-lab tested" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Price (₹)</label>
+                  <input type="number" min="0" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: +e.target.value }))} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Stock (-1 = unlimited)</label>
+                  <input type="number" min="-1" value={form.stock} onChange={(e) => setForm((f) => ({ ...f, stock: +e.target.value }))} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Photo (optional)</label>
+                  <input type="file" name="photo" accept="image/*" style={{ ...inputStyle, padding: '7px 10px', fontSize: 12 }} />
+                </div>
+              </div>
+              <button type="submit" disabled={busy} className="btn-primary" style={{ ...primaryBtn, opacity: busy ? 0.6 : 1 }}>
+                <Plus size={15} /> {busy ? 'Adding…' : 'Add product'}
+              </button>
+            </form>
+          </div>
+        </>
+      )}
+
+      {sub === 'orders' && (
+        <>
+          {orders === null ? (
+            <div style={{ color: '#64748b', padding: 40, textAlign: 'center' }}>Loading orders…</div>
+          ) : orders.length === 0 ? (
+            <div style={{ ...cardStyle, textAlign: 'center', color: '#64748b', padding: 40 }}>
+              <ShoppingBag size={32} style={{ marginBottom: 12 }} />
+              <div>No orders yet. When visitors buy from your store, orders appear here with WhatsApp follow-up links.</div>
+            </div>
+          ) : (
+            orders.map((o) => (
+              <div key={o.id} style={{ ...cardStyle, padding: '16px 20px', marginBottom: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1, minWidth: 220 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 700, fontSize: 15 }}>#{o.id} · {o.client_name}</span>
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 12,
+                        background: orderBadge[o.status]?.bg, color: orderBadge[o.status]?.c,
+                      }}>{o.status}</span>
+                    </div>
+                    <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
+                      {o.client_phone ? `${o.client_phone} · ` : ''}{new Date(o.created_at).toLocaleString()}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                      {(o.items || []).map((it, i) => (
+                        <span key={i} style={{ fontSize: 12, background: 'rgba(79,70,229,0.06)', padding: '3px 10px', borderRadius: 8, color: '#475569' }}>
+                          {it.name} × {it.qty} (₹{it.price})
+                        </span>
+                      ))}
+                    </div>
+                    {o.address && <div style={{ color: '#64748b', fontSize: 12, marginTop: 8 }}>📍 {o.address}</div>}
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 10 }}>₹{o.amount}</div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      {o.client_phone && (
+                        <a href={`https://wa.me/${String(o.client_phone).replace(/[^\d]/g, '').length >= 10 ? String(o.client_phone).replace(/[^\d]/g, '') : '91' + String(o.client_phone).replace(/[^\d]/g, '')}`}
+                          target="_blank" rel="noopener noreferrer" style={{ ...ghostBtn, padding: '6px 12px', fontSize: 12 }}>
+                          WhatsApp
+                        </a>
+                      )}
+                      {o.status === 'new' && (
+                        <>
+                          <button onClick={() => setOrderStatus(o, 'confirmed')} style={{ ...ghostBtn, padding: '6px 12px', fontSize: 12, borderColor: 'rgba(34,197,94,0.4)', color: '#16a34a' }}>
+                            <Check size={13} /> Confirm
+                          </button>
+                          <button onClick={() => setOrderStatus(o, 'cancelled')} style={{ ...ghostBtn, padding: '6px 12px', fontSize: 12, borderColor: 'rgba(239,68,68,0.4)', color: '#ef4444' }}>
+                            <X size={13} /> Cancel
+                          </button>
+                        </>
+                      )}
+                      {o.status === 'confirmed' && (
+                        <button onClick={() => setOrderStatus(o, 'fulfilled')} style={{ ...ghostBtn, padding: '6px 12px', fontSize: 12, borderColor: 'rgba(59,130,246,0.4)', color: '#2563eb' }}>
+                          <Check size={13} /> Fulfilled
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </>
+      )}
     </div>
   )
 }
@@ -620,18 +1057,18 @@ function HoursTab({ site, reload }) {
   return (
     <div style={cardStyle}>
       <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>Weekly working hours</h3>
-      <p style={{ color: '#475569', fontSize: 13, marginBottom: 20 }}>Clients can only book inside these windows. Uncheck a day to mark it closed.</p>
+      <p style={{ color: '#64748b', fontSize: 13, marginBottom: 20 }}>Clients can only book inside these windows. Uncheck a day to mark it closed.</p>
       {rules.map((r, i) => (
         <div key={i} style={{
           display: 'flex', alignItems: 'center', gap: 14, padding: '10px 12px',
-          borderBottom: '1px solid rgba(124,58,237,0.08)', flexWrap: 'wrap',
+          borderBottom: '1px solid #f1f5f9', flexWrap: 'wrap',
         }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, width: 120, fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: r.enabled ? 1 : 0.45 }}>
-            <input type="checkbox" checked={r.enabled} onChange={(e) => set(i, { enabled: e.target.checked })} style={{ accentColor: '#7c3aed' }} />
+            <input type="checkbox" checked={r.enabled} onChange={(e) => set(i, { enabled: e.target.checked })} style={{ accentColor: '#4f46e5' }} />
             {WEEKDAYS[i].slice(0, 3)}
           </label>
           <input type="time" value={r.start_time} disabled={!r.enabled} onChange={(e) => set(i, { start_time: e.target.value })} style={{ ...inputStyle, width: 110 }} />
-          <span style={{ color: '#64748b' }}>to</span>
+          <span style={{ color: '#94a3b8' }}>to</span>
           <input type="time" value={r.end_time} disabled={!r.enabled} onChange={(e) => set(i, { end_time: e.target.value })} style={{ ...inputStyle, width: 110 }} />
         </div>
       ))}
@@ -658,13 +1095,13 @@ function LeadsTab({ site }) {
 
   return (
     <div>
-      <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 20 }}>
+      <p style={{ color: '#475569', fontSize: 14, marginBottom: 20 }}>
         People who used your free tools (kundli etc.) and shared their contact — a warm list of potential clients.
       </p>
       {leads === null ? (
-        <div style={{ color: 'var(--text-muted)', padding: 40, textAlign: 'center' }}>Loading leads…</div>
+        <div style={{ color: '#64748b', padding: 40, textAlign: 'center' }}>Loading leads…</div>
       ) : leads.length === 0 ? (
-        <div style={{ ...cardStyle, textAlign: 'center', color: 'var(--text-secondary)', padding: 48 }}>
+        <div style={{ ...cardStyle, textAlign: 'center', color: '#64748b', padding: 48 }}>
           <Users size={32} style={{ marginBottom: 12 }} />
           <div>No leads yet. Your free kundli tool collects contacts automatically — share your site link to grow your client list.</div>
         </div>
@@ -674,14 +1111,14 @@ function LeadsTab({ site }) {
             <div style={{ flex: 1, minWidth: 200 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <span style={{ fontWeight: 700, fontSize: 15 }}>{l.name || 'Anonymous'}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 12, background: 'rgba(79,70,229,0.08)', color: 'var(--accent-purple)' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 12, background: 'rgba(79,70,229,0.08)', color: '#4f46e5' }}>
                   {l.tool === 'kundli' ? 'Free Kundli' : l.tool}
                 </span>
               </div>
-              <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 4 }}>
+              <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
                 {l.phone ? `${l.phone} · ` : ''}{l.details?.date ? `Born ${l.details.date} ${l.details.time || ''}` : ''}{l.details?.place ? ` · ${l.details.place}` : ''}
               </div>
-              <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 2 }}>
+              <div style={{ color: '#94a3b8', fontSize: 12, marginTop: 2 }}>
                 {l.details?.ascendant ? `Ascendant ${l.details.ascendant}` : ''}{l.details?.moonSign ? ` · Moon ${l.details.moonSign}` : ''} · {new Date(l.created_at).toLocaleDateString()}
               </div>
             </div>
@@ -723,9 +1160,9 @@ function BookingsTab({ site }) {
         {[['', 'All'], ['confirmed', 'Upcoming'], ['completed', 'Completed'], ['cancelled', 'Cancelled'], ['no_show', 'No-show']].map(([v, l]) => (
           <button key={v} onClick={() => setFilter(v)} style={{
             ...ghostBtn, padding: '7px 16px', fontSize: 13,
-            background: filter === v ? 'rgba(124,58,237,0.15)' : 'transparent',
-            borderColor: filter === v ? 'var(--accent-purple)' : 'var(--border-color)',
-            color: filter === v ? '#4f46e5' : 'var(--text-primary)',
+            background: filter === v ? 'rgba(79,70,229,0.1)' : 'transparent',
+            borderColor: filter === v ? '#4f46e5' : '#e2e8f0',
+            color: filter === v ? '#4f46e5' : '#0f172a',
           }}>{l}</button>
         ))}
       </div>
@@ -733,7 +1170,7 @@ function BookingsTab({ site }) {
       {bookings === null ? (
         <div style={{ color: '#64748b', padding: 40, textAlign: 'center' }}>Loading bookings…</div>
       ) : visible.length === 0 ? (
-        <div style={{ ...cardStyle, textAlign: 'center', color: '#475569', padding: 48 }}>
+        <div style={{ ...cardStyle, textAlign: 'center', color: '#64748b', padding: 48 }}>
           <Calendar size={32} style={{ marginBottom: 12 }} />
           <div>No bookings yet. Share your site link on WhatsApp and Instagram to get your first booking!</div>
         </div>
@@ -744,7 +1181,7 @@ function BookingsTab({ site }) {
             <div key={b.id} style={{
               ...cardStyle, padding: '16px 20px', marginBottom: 10, display: 'flex',
               justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap',
-              borderColor: upcoming ? 'rgba(34,197,94,0.3)' : 'var(--border-color)',
+              borderColor: upcoming ? 'rgba(34,197,94,0.3)' : '#e2e8f0',
             }}>
               <div style={{ flex: 1, minWidth: 200 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -755,22 +1192,31 @@ function BookingsTab({ site }) {
                     color: b.status === 'confirmed' ? '#16a34a' : b.status === 'completed' ? '#2563eb' : '#ef4444',
                   }}>{b.status.replace('_', ' ')}</span>
                 </div>
-                <div style={{ color: '#475569', fontSize: 13, marginTop: 4 }}>
+                <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
                   {b.date} · {b.start_time}–{b.end_time}
                   {b.client_phone ? ` · ${b.client_phone}` : ''}
                   {b.amount ? ` · ₹${b.amount}` : ''}
                 </div>
+                {b.notes && <div style={{ color: '#94a3b8', fontSize: 12, marginTop: 3 }}>📝 {b.notes}</div>}
               </div>
-              {b.status === 'confirmed' && (
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => setStatus(b, 'completed')} style={{ ...ghostBtn, padding: '7px 14px', fontSize: 12 }}>
-                    <Check size={13} /> Completed
-                  </button>
-                  <button onClick={() => setStatus(b, 'cancelled')} style={{ ...ghostBtn, padding: '7px 14px', fontSize: 12, color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}>
-                    <X size={13} /> Cancel
-                  </button>
-                </div>
-              )}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {b.client_phone && (
+                  <a href={`https://wa.me/${String(b.client_phone).replace(/[^\d]/g, '').length >= 10 ? String(b.client_phone).replace(/[^\d]/g, '') : '91' + String(b.client_phone).replace(/[^\d]/g, '')}?text=${encodeURIComponent(`Namaste ${b.client_name}, confirming your consultation on ${b.date} at ${b.start_time}. — ${site.name}`)}`}
+                    target="_blank" rel="noopener noreferrer" style={{ ...ghostBtn, padding: '7px 12px', fontSize: 12 }}>
+                    WhatsApp
+                  </a>
+                )}
+                {b.status === 'confirmed' && (
+                  <>
+                    <button onClick={() => setStatus(b, 'completed')} style={{ ...ghostBtn, padding: '7px 14px', fontSize: 12 }}>
+                      <Check size={13} /> Completed
+                    </button>
+                    <button onClick={() => setStatus(b, 'cancelled')} style={{ ...ghostBtn, padding: '7px 14px', fontSize: 12, color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}>
+                      <X size={13} /> Cancel
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           )
         })
@@ -803,7 +1249,7 @@ function DomainTab({ site, reload }) {
     if (!domain.trim()) return toast.error('Enter your domain')
     setBusy(true)
     try {
-      const res = await setMySiteDomain(site.id, domain)
+      await setMySiteDomain(site.id, domain)
       toast.success('Domain saved — now add the DNS record and verify')
       setVerifyResult(null)
       reload()
@@ -843,7 +1289,7 @@ function DomainTab({ site, reload }) {
     <div>
       <div style={cardStyle}>
         <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>Your own domain</h3>
-        <p style={{ color: '#475569', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
+        <p style={{ color: '#64748b', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
           Use your own domain like <strong>astrovakra.com</strong> instead of the free address. Free SSL (the 🔒 padlock) is included automatically.
         </p>
 
@@ -860,7 +1306,7 @@ function DomainTab({ site, reload }) {
             </button>
           ) : (
             <button onClick={verify} disabled={busy} className="btn-primary" style={{ ...primaryBtn, opacity: busy ? 0.6 : 1 }}>
-              <RefreshCw size={15} /> {busy ? 'Verifying…' : 'Verify DNS'}
+              Verify DNS
             </button>
           )}
         </div>
@@ -909,20 +1355,50 @@ function DomainTab({ site, reload }) {
   )
 }
 
-// ═══════════════ SETTINGS TAB (alerts, plan, danger zone) ═══════════════
+// ═══════════════ SETTINGS TAB (alerts, social, contact, plan, danger zone) ═══════════════
 function SettingsTab({ site, reload }) {
   const [wa, setWa] = useState(site.settings?.whatsappNumber || '')
   const [alertsOn, setAlertsOn] = useState(site.settings?.bookingAlerts !== false)
   const [reminderHours, setReminderHours] = useState(site.settings?.reminderHours || 24)
+  const [social, setSocial] = useState({
+    instagram: site.settings?.instagram || '',
+    youtube: site.settings?.youtube || '',
+    facebook: site.settings?.facebook || '',
+    twitter: site.settings?.twitter || '',
+    linkedin: site.settings?.linkedin || '',
+    telegram: site.settings?.telegram || '',
+    websiteUrl: site.settings?.websiteUrl || '',
+  })
+  const [contact, setContact] = useState({
+    email: site.settings?.email || '',
+    phone: site.settings?.phone || '',
+    city: site.settings?.city || '',
+  })
+  const [showTestimonials, setShowTestimonials] = useState(site.settings?.showTestimonials !== false)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     setWa(site.settings?.whatsappNumber || '')
     setAlertsOn(site.settings?.bookingAlerts !== false)
     setReminderHours(site.settings?.reminderHours || 24)
+    setSocial({
+      instagram: site.settings?.instagram || '',
+      youtube: site.settings?.youtube || '',
+      facebook: site.settings?.facebook || '',
+      twitter: site.settings?.twitter || '',
+      linkedin: site.settings?.linkedin || '',
+      telegram: site.settings?.telegram || '',
+      websiteUrl: site.settings?.websiteUrl || '',
+    })
+    setContact({
+      email: site.settings?.email || '',
+      phone: site.settings?.phone || '',
+      city: site.settings?.city || '',
+    })
+    setShowTestimonials(site.settings?.showTestimonials !== false)
   }, [site.id, site.updated_at]) // eslint-disable-line
 
-  const saveSettings = async () => {
+  const saveAlerts = async () => {
     setSaving(true)
     try {
       await setMySiteSettings(site.id, { whatsapp_number: wa, booking_alerts: alertsOn, reminder_hours: reminderHours })
@@ -932,14 +1408,40 @@ function SettingsTab({ site, reload }) {
     finally { setSaving(false) }
   }
 
+  const saveSocial = async () => {
+    setSaving(true)
+    try {
+      await setMySiteSettings(site.id, {
+        instagram: social.instagram, youtube: social.youtube, facebook: social.facebook,
+        twitter: social.twitter, linkedin: social.linkedin, telegram: social.telegram,
+        website_url: social.websiteUrl,
+        contact_email: contact.email, contact_phone: contact.phone, city: contact.city,
+        show_testimonials: showTestimonials,
+      })
+      toast.success('Links saved — they now appear on your site')
+      reload()
+    } catch (e) { toast.error(errDetail(e, 'Could not save links')) }
+    finally { setSaving(false) }
+  }
+
+  const socialFields = [
+    ['instagram', 'Instagram URL or @handle'],
+    ['youtube', 'YouTube channel URL'],
+    ['facebook', 'Facebook page URL'],
+    ['twitter', 'Twitter / X URL'],
+    ['linkedin', 'LinkedIn URL'],
+    ['telegram', 'Telegram URL'],
+    ['websiteUrl', 'Any other website link'],
+  ]
+
   return (
     <div>
       {/* WhatsApp alerts */}
       <div style={cardStyle}>
         <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Bell size={17} color="var(--accent-purple)" /> WhatsApp alerts
+          <Bell size={17} color="#4f46e5" /> WhatsApp alerts
         </h3>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 18, lineHeight: 1.6 }}>
+        <p style={{ color: '#64748b', fontSize: 13, marginBottom: 18, lineHeight: 1.6 }}>
           You and your clients get alerts on WhatsApp — booking confirmations and reminders before each appointment.
         </p>
         <div style={{ marginBottom: 16 }}>
@@ -948,7 +1450,7 @@ function SettingsTab({ site, reload }) {
         </div>
         <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 18 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-            <input type="checkbox" checked={alertsOn} onChange={(e) => setAlertsOn(e.target.checked)} style={{ accentColor: 'var(--accent-purple)' }} />
+            <input type="checkbox" checked={alertsOn} onChange={(e) => setAlertsOn(e.target.checked)} style={{ accentColor: '#4f46e5' }} />
             Booking confirmations & reminders
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600 }}>
@@ -962,8 +1464,46 @@ function SettingsTab({ site, reload }) {
             before
           </label>
         </div>
-        <button onClick={saveSettings} disabled={saving} className="btn-primary" style={{ ...primaryBtn, opacity: saving ? 0.6 : 1 }}>
+        <button onClick={saveAlerts} disabled={saving} className="btn-primary" style={{ ...primaryBtn, opacity: saving ? 0.6 : 1 }}>
           <Save size={15} /> {saving ? 'Saving…' : 'Save alerts settings'}
+        </button>
+      </div>
+
+      {/* Social links + contact */}
+      <div style={{ ...cardStyle, marginTop: 20 }}>
+        <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Link2 size={17} color="#4f46e5" /> Social media & contact
+        </h3>
+        <p style={{ color: '#64748b', fontSize: 13, marginBottom: 18, lineHeight: 1.6 }}>
+          These links appear in your website's header, footer and contact section.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 20 }}>
+          {socialFields.map(([key, ph]) => (
+            <div key={key}>
+              <label style={labelStyle}>{ph}</label>
+              <input value={social[key]} onChange={(e) => setSocial((s) => ({ ...s, [key]: e.target.value }))}
+                placeholder="https://…" style={inputStyle} />
+            </div>
+          ))}
+          <div>
+            <label style={labelStyle}>Contact email (shown to visitors)</label>
+            <input value={contact.email} onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))} placeholder="pandit@example.com" style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Contact phone (shown to visitors)</label>
+            <input value={contact.phone} onChange={(e) => setContact((c) => ({ ...c, phone: e.target.value }))} placeholder="+91 98765 43210" style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>City (good for local SEO)</label>
+            <input value={contact.city} onChange={(e) => setContact((c) => ({ ...c, city: e.target.value }))} placeholder="Jaipur, Rajasthan" style={inputStyle} />
+          </div>
+        </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 18 }}>
+          <input type="checkbox" checked={showTestimonials} onChange={(e) => setShowTestimonials(e.target.checked)} style={{ accentColor: '#4f46e5' }} />
+          Show testimonials section on my website
+        </label>
+        <button onClick={saveSocial} disabled={saving} className="btn-primary" style={{ ...primaryBtn, opacity: saving ? 0.6 : 1 }}>
+          <Save size={15} /> {saving ? 'Saving…' : 'Save links & contact'}
         </button>
       </div>
 
@@ -974,9 +1514,9 @@ function SettingsTab({ site, reload }) {
         </h3>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginTop: 12 }}>
           <div>
-            <div style={{ fontSize: 20, fontWeight: 800 }}>Free <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>plan</span></div>
-            <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 4 }}>
-              Website · booking · free kundli tool · 1 custom domain
+            <div style={{ fontSize: 20, fontWeight: 800 }}>Free <span style={{ fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>plan</span></div>
+            <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
+              Website · booking · free kundli tool · store · 1 custom domain
             </div>
           </div>
           <button className="btn-primary" style={{ ...primaryBtn, opacity: 0.85 }} onClick={() => toast('Pro plan with payments, ecommerce & social posting is coming soon!', { icon: '🚀' })}>
@@ -997,7 +1537,7 @@ function SettingsTab({ site, reload }) {
           <input defaultValue={site.tagline} onBlur={(e) => updateMySite(site.id, { tagline: e.target.value }).then(reload).catch(() => {})} style={inputStyle} />
         </div>
         <button onClick={() => {
-          if (window.confirm('Delete your website permanently? All bookings and content will be lost.')) {
+          if (window.confirm('Delete your website permanently? All bookings, orders and content will be lost.')) {
             deleteMySite(site.id).then(() => { toast.success('Site deleted'); window.location.reload() }).catch(() => toast.error('Could not delete'))
           }
         }} style={{ ...ghostBtn, color: '#dc2626', borderColor: 'rgba(220,38,38,0.3)' }}>
@@ -1008,11 +1548,13 @@ function SettingsTab({ site, reload }) {
   )
 }
 
-// ═══════════════ MAIN PAGE ═══════════════
+// ═══════════════ MAIN PAGE (sidebar dashboard) ═══════════════
 const TABS = [
+  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'content', label: 'Content', icon: FileText },
   { id: 'design', label: 'Design', icon: Palette },
-  { id: 'services', label: 'Services', icon: Store },
+  { id: 'services', label: 'Services', icon: Star },
+  { id: 'store', label: 'Store', icon: Store },
   { id: 'hours', label: 'Hours', icon: Clock },
   { id: 'bookings', label: 'Bookings', icon: Calendar },
   { id: 'leads', label: 'Leads', icon: Users },
@@ -1021,11 +1563,12 @@ const TABS = [
 ]
 
 export default function MySite() {
-  const { user, isAuthenticated, loading: authLoading, clerkSignedIn } = useAuth()
+  const { user, isAuthenticated, loading: authLoading } = useAuth()
   const [sites, setSites] = useState(null)
   const [site, setSite] = useState(null)
-  const [tab, setTab] = useState('content')
+  const [tab, setTab] = useState('overview')
   const [pubBusy, setPubBusy] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -1070,102 +1613,128 @@ export default function MySite() {
   if (!isAuthenticated) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 72, flexDirection: 'column', gap: 20 }}>
-        <Shield size={48} color="#64748b" />
+        <Shield size={48} color="#94a3b8" />
         <h2 style={{ fontSize: 24, fontWeight: 700 }}>Sign in to manage your website</h2>
         <p style={{ color: '#475569', fontSize: 15, maxWidth: 380, textAlign: 'center' }}>
           Create and manage your astrology business website — bookings, services, domain and more.
         </p>
-        {CLERK_ENABLED ? (
-          <SignedOut>
-            <SignInButton mode="modal">
-              <button className="btn-primary" style={{ padding: '14px 32px', fontSize: 16 }}>
-                <LogIn size={18} /> Sign In
-              </button>
-            </SignInButton>
-          </SignedOut>
-        ) : (
-          <Link to="/login" className="btn-primary" style={{ padding: '14px 32px', fontSize: 16 }}>
-            <LogIn size={18} /> Sign In <ArrowRight size={16} />
+        <div style={{ display: 'flex', gap: 12 }}>
+          <Link to="/login" className="btn-primary" style={{ padding: '14px 32px', fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <LogIn size={18} /> Sign In
           </Link>
-        )}
+          <Link to="/register" className="btn-secondary" style={{ padding: '14px 32px', fontSize: 16, display: 'flex', alignItems: 'center' }}>
+            Create free account
+          </Link>
+        </div>
       </div>
     )
   }
 
   return (
-    <div style={{ minHeight: '100vh', paddingTop: 72 }}>
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 20px 80px' }}>
-        {site === null ? (
-          sites === null ? (
-            <div style={{ color: '#64748b', padding: 60, textAlign: 'center' }}>Loading…</div>
-          ) : (
-            <div>
-              <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                <h1 style={{ fontSize: 34, fontWeight: 800, marginBottom: 10 }}>Create your website</h1>
-                <p style={{ color: '#475569', fontSize: 16 }}>Live in under a minute — no coding, no design skills.</p>
-              </div>
-              <CreateSiteWizard onCreated={(s) => {
-                getMySite(s.id).then(setSite).catch(() => setSite(s))
-                setSites([s]); setTab('content')
-              }} />
+    <div style={{ minHeight: '100vh', paddingTop: 72, background: '#f8fafc' }}>
+      {/* top bar */}
+      <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {site && (
+              <button className="mysite-mobile-nav-btn" onClick={() => setMobileNavOpen((o) => !o)}
+                style={{ display: 'none', background: 'none', border: '1px solid #e2e8f0', borderRadius: 8, padding: 6, color: '#0f172a' }}>
+                <Menu size={18} />
+              </button>
+            )}
+            {site ? (
+              <>
+                <Globe size={20} color="#4f46e5" />
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 17, fontWeight: 800 }}>{site.name}</span>
+                    <span style={{
+                      fontSize: 10.5, fontWeight: 700, padding: '2px 10px', borderRadius: 12,
+                      background: site.status === 'published' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+                      color: site.status === 'published' ? '#16a34a' : '#d97706',
+                    }}>{site.status === 'published' ? 'LIVE' : 'DRAFT'}</span>
+                  </div>
+                  <div style={{ color: '#64748b', fontSize: 12, marginTop: 1 }}>
+                    {site.custom_domain && site.domain_status === 'active' ? site.custom_domain : `${site.slug}.astrovakta.com`}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <span style={{ fontSize: 16, fontWeight: 700 }}>My Website</span>
+            )}
+          </div>
+          {site && (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {site.status === 'published' && (
+                <a href={tenantSiteUrl(site.slug)} target="_blank" rel="noopener noreferrer">
+                  <button style={ghostBtn}><ExternalLink size={15} /> View site</button>
+                </a>
+              )}
+              <button onClick={togglePublish} disabled={pubBusy} className="btn-primary" style={{ ...primaryBtn, opacity: pubBusy ? 0.6 : 1 }}>
+                {site.status === 'published' ? (<><EyeOff size={15} /> Unpublish</>) : (<><Sparkles size={15} /> Publish site</>)}
+              </button>
             </div>
-          )
-        ) : (
-          <>
-            {/* Site header bar */}
-            <div style={{
-              ...cardStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              gap: 16, flexWrap: 'wrap', marginBottom: 24, padding: '20px 24px',
-              borderColor: site.status === 'published' ? 'rgba(34,197,94,0.3)' : 'var(--border-color)',
+          )}
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', gap: 0, alignItems: 'flex-start' }}>
+        {/* sidebar */}
+        {site && (
+          <aside
+            className="mysite-sidebar"
+            style={{
+              width: 220, flexShrink: 0, borderRight: '1px solid #e2e8f0', background: '#fff',
+              padding: '20px 12px', position: 'sticky', top: 121, bottom: 0,
+              minHeight: 'calc(100vh - 121px)', display: 'flex', flexDirection: 'column', gap: 2,
             }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <Globe size={20} color="#4f46e5" />
-                  <span style={{ fontSize: 20, fontWeight: 800 }}>{site.name}</span>
-                  <span style={{
-                    fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 12,
-                    background: site.status === 'published' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
-                    color: site.status === 'published' ? '#16a34a' : '#d97706',
-                  }}>{site.status === 'published' ? 'LIVE' : 'DRAFT'}</span>
-                </div>
-                <div style={{ color: '#475569', fontSize: 13, marginTop: 6 }}>
-                  {site.custom_domain && site.domain_status === 'active'
-                    ? site.custom_domain
-                    : `${site.slug}.astrovakta.com`}
-                  {site.status !== 'published' && ' (visible only to you until published)'}
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                {site.status === 'published' && (
-                  <a href={tenantSiteUrl(site.slug)} target="_blank" rel="noopener noreferrer">
-                    <button style={ghostBtn}><ExternalLink size={15} /> View site</button>
-                  </a>
-                )}
-                <button onClick={togglePublish} disabled={pubBusy} className="btn-primary" style={{ ...primaryBtn, opacity: pubBusy ? 0.6 : 1 }}>
-                  {site.status === 'published' ? (<><EyeOff size={15} /> Unpublish</>) : (<><Sparkles size={15} /> Publish site</>)}
-                </button>
-              </div>
-            </div>
-
-            {/* Tabs */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 24, overflowX: 'auto', paddingBottom: 4 }}>
-              {TABS.map((t) => (
-                <button key={t.id} onClick={() => setTab(t.id)} style={{
-                  ...ghostBtn, padding: '9px 16px', fontSize: 13, whiteSpace: 'nowrap',
-                  background: tab === t.id ? 'rgba(124,58,237,0.15)' : 'transparent',
-                  borderColor: tab === t.id ? 'var(--accent-purple)' : 'var(--border-color)',
-                  color: tab === t.id ? '#4f46e5' : 'var(--text-primary)',
+            {TABS.map((t) => (
+              <button key={t.id} onClick={() => { setTab(t.id); setMobileNavOpen(false) }}
+                className={tab === t.id ? 'mysite-tab-active' : ''}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10,
+                  fontSize: 14, fontWeight: tab === t.id ? 700 : 500, cursor: 'pointer',
+                  background: tab === t.id ? 'rgba(79,70,229,0.08)' : 'transparent',
+                  color: tab === t.id ? '#4f46e5' : '#475569',
+                  border: 'none', textAlign: 'left', transition: 'all 0.15s',
                 }}>
-                  <t.icon size={14} /> {t.label}
-                </button>
-              ))}
+                <t.icon size={16} /> {t.label}
+              </button>
+            ))}
+            <div style={{ marginTop: 'auto', padding: '12px 14px' }}>
+              <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>
+                Signed in as<br />
+                <span style={{ color: '#475569', fontWeight: 600 }}>{user?.email}</span>
+              </div>
             </div>
+          </aside>
+        )}
 
+        {/* main panel */}
+        <div style={{ flex: 1, padding: '28px 24px 80px', minWidth: 0 }}>
+          {site === null ? (
+            sites === null ? (
+              <div style={{ color: '#64748b', padding: 60, textAlign: 'center' }}>Loading…</div>
+            ) : (
+              <div>
+                <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                  <h1 style={{ fontSize: 34, fontWeight: 800, marginBottom: 10 }}>Create your website</h1>
+                  <p style={{ color: '#475569', fontSize: 16 }}>Live in under a minute — no coding, no design skills.</p>
+                </div>
+                <CreateSiteWizard onCreated={(s) => {
+                  getMySite(s.id).then(setSite).catch(() => setSite(s))
+                  setSites([s]); setTab('overview')
+                }} />
+              </div>
+            )
+          ) : (
             <AnimatePresence mode="wait">
               <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
+                {tab === 'overview' && <OverviewTab site={site} reload={reload} />}
                 {tab === 'content' && <ContentTab site={site} reload={reload} />}
                 {tab === 'design' && <DesignTab site={site} reload={reload} />}
                 {tab === 'services' && <ServicesTab site={site} reload={reload} />}
+                {tab === 'store' && <StoreTab site={site} reload={reload} />}
                 {tab === 'hours' && <HoursTab site={site} reload={reload} />}
                 {tab === 'bookings' && <BookingsTab site={site} />}
                 {tab === 'leads' && <LeadsTab site={site} />}
@@ -1173,9 +1742,41 @@ export default function MySite() {
                 {tab === 'settings' && <SettingsTab site={site} reload={reload} />}
               </motion.div>
             </AnimatePresence>
-          </>
-        )}
+          )}
+        </div>
       </div>
+
+      {/* mobile tab bar */}
+      {site && (
+        <div className="mysite-mobile-tabs" style={{
+          display: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
+          background: '#fff', borderTop: '1px solid #e2e8f0', padding: '8px 6px',
+          overflowX: 'auto',
+        }}>
+          <div style={{ display: 'flex', gap: 4, minWidth: 'max-content' }}>
+            {TABS.map((t) => (
+              <button key={t.id} onClick={() => setTab(t.id)}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                  padding: '6px 10px', borderRadius: 10, fontSize: 10.5, fontWeight: tab === t.id ? 700 : 500,
+                  background: tab === t.id ? 'rgba(79,70,229,0.08)' : 'transparent',
+                  color: tab === t.id ? '#4f46e5' : '#64748b', border: 'none', cursor: 'pointer',
+                }}>
+                <t.icon size={17} /> {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @media (max-width: 900px) {
+          .mysite-sidebar { display: none !important; }
+          .mysite-mobile-tabs { display: block !important; }
+          .mysite-mobile-nav-btn { display: flex !important; }
+        }
+        .mysite-tab-active:hover { background: rgba(79,70,229,0.12) !important; }
+      `}</style>
     </div>
   )
 }
