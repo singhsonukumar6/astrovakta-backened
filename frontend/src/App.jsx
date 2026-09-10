@@ -6,6 +6,7 @@ import Landing from './pages/Landing.jsx'
 import Developer from './pages/Developer.jsx'
 import Pricing from './pages/Pricing.jsx'
 import MySite from './pages/MySite.jsx'
+import Onboarding from './pages/Onboarding.jsx'
 import TenantSite from './pages/TenantSite.jsx'
 import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
@@ -34,6 +35,7 @@ function AppRoutes() {
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/dashboard" element={<Navigate to="/mysite" replace />} />
       <Route path="/mysite" element={<MySite />} />
+      <Route path="/onboarding" element={<Onboarding />} />
       {/* Public tenant site (astrologer's branded website) */}
       <Route path="/s/:slug" element={<TenantSite />} />
       <Route path="/admin" element={<Admin />} />
@@ -63,7 +65,7 @@ export default function App() {
   // Tenant sites are standalone brands — no platform navbar/footer/starfield.
   const isTenantSite = pathname.startsWith('/s/')
   // The builder dashboard is a full app surface with its own fixed header + sidebar.
-  const isDashboard = pathname === '/mysite'
+  const isDashboard = pathname === '/mysite' || pathname === '/onboarding'
 
   if (isTenantSite || isDashboard) {
     return (
