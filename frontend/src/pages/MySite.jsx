@@ -6,7 +6,7 @@ import {
   Store, Globe2, Eye, EyeOff, Sparkles, Clock, ChevronLeft, Settings2,
   Save, LogIn, Shield, ArrowRight, Image as ImageIcon, Users,
   Bell, Crown, Loader2, LayoutDashboard, Package, ShoppingBag, Link2,
-  Phone, Star, TrendingUp, IndianRupee, Menu,
+  Phone, Star, TrendingUp, IndianRupee, Menu, LogOut, PanelLeft, Home,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth.jsx'
@@ -1563,13 +1563,23 @@ const TABS = [
 ]
 
 export default function MySite() {
-  const { user, isAuthenticated, loading: authLoading } = useAuth()
+  const { user, isAuthenticated, loading: authLoading, logout } = useAuth()
   const [sites, setSites] = useState(null)
   const [site, setSite] = useState(null)
   const [tab, setTab] = useState('overview')
   const [pubBusy, setPubBusy] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('av-sidebar-collapsed') === '1')
+  const [avatarOpen, setAvatarOpen] = useState(false)
+  const avatarRef = useRef(null)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!avatarOpen) return
+    const close = (e) => { if (avatarRef.current && !avatarRef.current.contains(e.target)) setAvatarOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [avatarOpen])
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -1604,7 +1614,7 @@ export default function MySite() {
 
   if (authLoading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 72 }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div className="gradient-text" style={{ fontSize: 18, fontWeight: 600 }}>Loading…</div>
       </div>
     )
@@ -1612,7 +1622,7 @@ export default function MySite() {
 
   if (!isAuthenticated) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 72, flexDirection: 'column', gap: 20 }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20 }}>
         <Shield size={48} color="#94a3b8" />
         <h2 style={{ fontSize: 24, fontWeight: 700 }}>Sign in to manage your website</h2>
         <p style={{ color: '#475569', fontSize: 15, maxWidth: 380, textAlign: 'center' }}>
@@ -1631,87 +1641,179 @@ export default function MySite() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', paddingTop: 72, background: '#f8fafc' }}>
-      {/* top bar */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {site && (
-              <button className="mysite-mobile-nav-btn" onClick={() => setMobileNavOpen((o) => !o)}
-                style={{ display: 'none', background: 'none', border: '1px solid #e2e8f0', borderRadius: 8, padding: 6, color: '#0f172a' }}>
-                <Menu size={18} />
-              </button>
-            )}
-            {site ? (
-              <>
-                <Globe size={20} color="#4f46e5" />
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 17, fontWeight: 800 }}>{site.name}</span>
-                    <span style={{
-                      fontSize: 10.5, fontWeight: 700, padding: '2px 10px', borderRadius: 12,
-                      background: site.status === 'published' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
-                      color: site.status === 'published' ? '#16a34a' : '#d97706',
-                    }}>{site.status === 'published' ? 'LIVE' : 'DRAFT'}</span>
-                  </div>
-                  <div style={{ color: '#64748b', fontSize: 12, marginTop: 1 }}>
-                    {site.custom_domain && site.domain_status === 'active' ? site.custom_domain : `${site.slug}.astrovakta.com`}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <span style={{ fontSize: 16, fontWeight: 700 }}>My Website</span>
-            )}
-          </div>
-          {site && (
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              {site.status === 'published' && (
-                <a href={tenantSiteUrl(site.slug)} target="_blank" rel="noopener noreferrer">
-                  <button style={ghostBtn}><ExternalLink size={15} /> View site</button>
-                </a>
-              )}
-              <button onClick={togglePublish} disabled={pubBusy} className="btn-primary" style={{ ...primaryBtn, opacity: pubBusy ? 0.6 : 1 }}>
-                {site.status === 'published' ? (<><EyeOff size={15} /> Unpublish</>) : (<><Sparkles size={15} /> Publish site</>)}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', gap: 0, alignItems: 'flex-start' }}>
-        {/* sidebar */}
+    <div style={{ minHeight: '100vh', background: '#f1f5f9' }}>
+      {/* fixed dashboard top bar */}
+      <header style={{
+        position: 'fixed', top: 0, left: 0, right: 0, height: 60, zIndex: 60,
+        background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(10px)', borderBottom: '1px solid #e2e8f0',
+        display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px',
+      }}>
         {site && (
-          <aside
-            className="mysite-sidebar"
-            style={{
-              width: 220, flexShrink: 0, borderRight: '1px solid #e2e8f0', background: '#fff',
-              padding: '20px 12px', position: 'sticky', top: 121, bottom: 0,
-              minHeight: 'calc(100vh - 121px)', display: 'flex', flexDirection: 'column', gap: 2,
-            }}>
+          <>
+            <button className="mysite-collapse-btn" onClick={() => { setSidebarCollapsed((c) => { localStorage.setItem('av-sidebar-collapsed', c ? '0' : '1'); return !c }) }}
+              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 9, border: 'none', background: 'transparent', color: '#475569', cursor: 'pointer' }}>
+              <PanelLeft size={18} />
+            </button>
+            <button className="mysite-mobile-nav-btn" onClick={() => setMobileNavOpen(true)}
+              style={{ display: 'none', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 9, border: '1px solid #e2e8f0', background: '#fff', color: '#0f172a', cursor: 'pointer' }}>
+              <Menu size={19} />
+            </button>
+          </>
+        )}
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 7, textDecoration: 'none', flexShrink: 0 }}>
+          <div style={{ width: 30, height: 30, borderRadius: 9, background: 'var(--gradient-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Sparkles size={15} color="#fff" />
+          </div>
+          <span className="mysite-brand-text" style={{ fontSize: 16.5, fontWeight: 900, color: '#0f172a', letterSpacing: '-0.3px' }}>
+            Astro<span className="gradient-text">Vakta</span>
+          </span>
+        </Link>
+        <div style={{ width: 1, height: 22, background: '#e2e8f0', flexShrink: 0 }} />
+        {site ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+            <span style={{ fontSize: 14.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{site.name}</span>
+            <span style={{
+              fontSize: 10, fontWeight: 800, padding: '2px 9px', borderRadius: 12, flexShrink: 0,
+              background: site.status === 'published' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+              color: site.status === 'published' ? '#16a34a' : '#d97706',
+            }}>{site.status === 'published' ? 'LIVE' : 'DRAFT'}</span>
+            <span className="mysite-domain" style={{ color: '#94a3b8', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {site.custom_domain && site.domain_status === 'active' ? site.custom_domain : `${site.slug}.astrovakta.com`}
+            </span>
+          </div>
+        ) : (
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#64748b', flex: 1 }}>Website builder</span>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          {site && site.status === 'published' && (
+            <a className="mysite-view-site" href={tenantSiteUrl(site.slug)} target="_blank" rel="noopener noreferrer"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#475569', textDecoration: 'none', padding: '7px 12px', borderRadius: 9, border: '1px solid #e2e8f0', background: '#fff' }}>
+              <ExternalLink size={14} /> <span className="mysite-btn-label">View site</span>
+            </a>
+          )}
+          {site && (
+            <button onClick={togglePublish} disabled={pubBusy}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: 'var(--gradient-primary)', color: '#fff', border: 'none', borderRadius: 9, fontWeight: 600, fontSize: 13, cursor: pubBusy ? 'wait' : 'pointer', opacity: pubBusy ? 0.6 : 1 }}>
+              {site.status === 'published' ? <EyeOff size={14} /> : <Sparkles size={14} />}
+              <span className="mysite-btn-label">{site.status === 'published' ? 'Unpublish' : 'Publish site'}</span>
+            </button>
+          )}
+          {/* profile avatar + menu */}
+          <div ref={avatarRef} style={{ position: 'relative' }}>
+            <button onClick={() => setAvatarOpen((o) => !o)} title={user?.name || user?.email}
+              style={{ width: 36, height: 36, borderRadius: '50%', border: '2px solid #e2e8f0', background: 'var(--gradient-primary)', color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', textTransform: 'uppercase' }}>
+              {(user?.name || user?.email || '?').trim().charAt(0)}
+            </button>
+            <AnimatePresence>
+              {avatarOpen && (
+                <motion.div initial={{ opacity: 0, y: -6, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.98 }} transition={{ duration: 0.14 }}
+                  style={{ position: 'absolute', right: 0, top: 46, width: 232, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, boxShadow: '0 16px 40px rgba(15,23,42,0.14)', padding: 8, zIndex: 70 }}>
+                  <div style={{ padding: '9px 11px', borderBottom: '1px solid #f1f5f9', marginBottom: 5 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{user?.name || 'Astrologer'}</div>
+                    <div style={{ fontSize: 12, color: '#64748b', wordBreak: 'break-all' }}>{user?.email}</div>
+                  </div>
+                  <button onClick={() => { setAvatarOpen(false); navigate('/') }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 11px', borderRadius: 9, border: 'none', background: 'transparent', color: '#334155', fontSize: 13.5, fontWeight: 500, cursor: 'pointer', textAlign: 'left' }}>
+                    <Home size={15} /> Back to home
+                  </button>
+                  <button onClick={() => { setAvatarOpen(false); logout(); navigate('/') }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 11px', borderRadius: 9, border: 'none', background: 'transparent', color: '#dc2626', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', textAlign: 'left' }}>
+                    <LogOut size={15} /> Log Out
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </header>
+
+      <div style={{ display: 'flex', paddingTop: 60, minHeight: '100vh', alignItems: 'stretch' }}>
+        {/* fixed collapsible sidebar (desktop) */}
+        {site && (
+          <aside className="mysite-sidebar" style={{
+            position: 'fixed', top: 60, bottom: 0, left: 0, zIndex: 40,
+            width: sidebarCollapsed ? 66 : 216, background: '#fff', borderRight: '1px solid #e2e8f0',
+            padding: '14px 10px', display: 'flex', flexDirection: 'column', gap: 3,
+            transition: 'width 0.2s ease', overflowX: 'hidden', overflowY: 'auto',
+          }}>
             {TABS.map((t) => (
-              <button key={t.id} onClick={() => { setTab(t.id); setMobileNavOpen(false) }}
+              <button key={t.id} onClick={() => setTab(t.id)} title={sidebarCollapsed ? t.label : undefined}
                 className={tab === t.id ? 'mysite-tab-active' : ''}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10,
-                  fontSize: 14, fontWeight: tab === t.id ? 700 : 500, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', gap: 11,
+                  padding: '10px 12px', borderRadius: 10, fontSize: 13.5, fontWeight: tab === t.id ? 700 : 500, cursor: 'pointer',
                   background: tab === t.id ? 'rgba(79,70,229,0.08)' : 'transparent',
                   color: tab === t.id ? '#4f46e5' : '#475569',
-                  border: 'none', textAlign: 'left', transition: 'all 0.15s',
+                  border: 'none', textAlign: 'left', transition: 'all 0.15s', flexShrink: 0, whiteSpace: 'nowrap',
                 }}>
-                <t.icon size={16} /> {t.label}
+                <t.icon size={17} style={{ flexShrink: 0 }} />
+                {!sidebarCollapsed && t.label}
               </button>
             ))}
-            <div style={{ marginTop: 'auto', padding: '12px 14px' }}>
-              <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>
-                Signed in as<br />
-                <span style={{ color: '#475569', fontWeight: 600 }}>{user?.email}</span>
+            {!sidebarCollapsed && (
+              <div style={{ marginTop: 'auto', padding: '12px 8px 4px' }}>
+                <div style={{ fontSize: 11.5, color: '#94a3b8', lineHeight: 1.6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  Signed in as<br />
+                  <span style={{ color: '#475569', fontWeight: 600 }}>{user?.email}</span>
+                </div>
               </div>
-            </div>
+            )}
           </aside>
         )}
 
+        {/* mobile drawer */}
+        {site && (
+          <AnimatePresence>
+            {mobileNavOpen && (
+              <>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
+                  onClick={() => setMobileNavOpen(false)}
+                  style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 75 }} />
+                <motion.aside initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: 'tween', duration: 0.22 }}
+                  style={{ position: 'fixed', top: 0, bottom: 0, left: 0, width: 258, background: '#fff', zIndex: 80, padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 3, borderRadius: '0 18px 18px 0', overflowY: 'auto' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 6px 12px', borderBottom: '1px solid #f1f5f9', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--gradient-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Sparkles size={14} color="#fff" />
+                      </div>
+                      <span style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>Astro<span className="gradient-text">Vakta</span></span>
+                    </div>
+                    <button onClick={() => setMobileNavOpen(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: 'none', background: '#f1f5f9', color: '#475569', cursor: 'pointer' }}>
+                      <X size={17} />
+                    </button>
+                  </div>
+                  {TABS.map((t) => (
+                    <button key={t.id} onClick={() => { setTab(t.id); setMobileNavOpen(false) }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 11, padding: '11px 12px', borderRadius: 10,
+                        fontSize: 14, fontWeight: tab === t.id ? 700 : 500, cursor: 'pointer',
+                        background: tab === t.id ? 'rgba(79,70,229,0.08)' : 'transparent',
+                        color: tab === t.id ? '#4f46e5' : '#475569', border: 'none', textAlign: 'left',
+                      }}>
+                      <t.icon size={17} /> {t.label}
+                    </button>
+                  ))}
+                  <div style={{ marginTop: 'auto', padding: '14px 8px 6px', borderTop: '1px solid #f1f5f9' }}>
+                    <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8 }}>
+                      Signed in as<br /><span style={{ color: '#475569', fontWeight: 600, wordBreak: 'break-all' }}>{user?.email}</span>
+                    </div>
+                    <button onClick={() => { setMobileNavOpen(false); logout(); navigate('/') }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+                      <LogOut size={15} /> Log Out
+                    </button>
+                  </div>
+                </motion.aside>
+              </>
+            )}
+          </AnimatePresence>
+        )}
+
         {/* main panel */}
-        <div style={{ flex: 1, padding: '28px 24px 80px', minWidth: 0 }}>
+        <main className="mysite-main" style={{
+          flex: 1, minWidth: 0, padding: '26px 26px 90px',
+          marginLeft: site ? (sidebarCollapsed ? 66 : 216) : 0, transition: 'margin-left 0.2s ease',
+        }}>
           {site === null ? (
             sites === null ? (
               <div style={{ color: '#64748b', padding: 60, textAlign: 'center' }}>Loading…</div>
@@ -1743,37 +1845,21 @@ export default function MySite() {
               </motion.div>
             </AnimatePresence>
           )}
-        </div>
+        </main>
       </div>
-
-      {/* mobile tab bar */}
-      {site && (
-        <div className="mysite-mobile-tabs" style={{
-          display: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
-          background: '#fff', borderTop: '1px solid #e2e8f0', padding: '8px 6px',
-          overflowX: 'auto',
-        }}>
-          <div style={{ display: 'flex', gap: 4, minWidth: 'max-content' }}>
-            {TABS.map((t) => (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                  padding: '6px 10px', borderRadius: 10, fontSize: 10.5, fontWeight: tab === t.id ? 700 : 500,
-                  background: tab === t.id ? 'rgba(79,70,229,0.08)' : 'transparent',
-                  color: tab === t.id ? '#4f46e5' : '#64748b', border: 'none', cursor: 'pointer',
-                }}>
-                <t.icon size={17} /> {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       <style>{`
         @media (max-width: 900px) {
           .mysite-sidebar { display: none !important; }
-          .mysite-mobile-tabs { display: block !important; }
+          .mysite-collapse-btn { display: none !important; }
           .mysite-mobile-nav-btn { display: flex !important; }
+          .mysite-brand-text { display: none !important; }
+          .mysite-domain { display: none !important; }
+          .mysite-main { margin-left: 0 !important; padding: 18px 14px 90px !important; }
+        }
+        @media (max-width: 640px) {
+          .mysite-btn-label { display: none !important; }
+          .mysite-view-site { padding: 7px 9px !important; }
         }
         .mysite-tab-active:hover { background: rgba(79,70,229,0.12) !important; }
       `}</style>

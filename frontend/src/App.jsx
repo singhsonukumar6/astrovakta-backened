@@ -63,8 +63,10 @@ export default function App() {
   const { pathname } = useLocation()
   // Tenant sites are standalone brands — no platform navbar/footer/starfield.
   const isTenantSite = pathname.startsWith('/s/')
+  // The builder dashboard is a full app surface with its own fixed header + sidebar.
+  const isDashboard = pathname === '/mysite'
 
-  if (isTenantSite) {
+  if (isTenantSite || isDashboard) {
     return (
       <>
         <SeoManager />
