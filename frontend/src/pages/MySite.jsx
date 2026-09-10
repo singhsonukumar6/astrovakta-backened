@@ -1661,15 +1661,6 @@ export default function MySite() {
             </button>
           </>
         )}
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 7, textDecoration: 'none', flexShrink: 0 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 9, background: 'var(--gradient-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Sparkles size={15} color="#fff" />
-          </div>
-          <span className="mysite-brand-text" style={{ fontSize: 16.5, fontWeight: 900, color: '#0f172a', letterSpacing: '-0.3px' }}>
-            Astro<span className="gradient-text">Vakta</span>
-          </span>
-        </Link>
-        <div style={{ width: 1, height: 22, background: '#e2e8f0', flexShrink: 0 }} />
         {site ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
             <span style={{ fontSize: 14.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{site.name}</span>
@@ -1777,7 +1768,7 @@ export default function MySite() {
                       <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--gradient-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Sparkles size={14} color="#fff" />
                       </div>
-                      <span style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>Astro<span className="gradient-text">Vakta</span></span>
+                      <span style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 170 }}>{site.name}</span>
                     </div>
                     <button onClick={() => setMobileNavOpen(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: 'none', background: '#f1f5f9', color: '#475569', cursor: 'pointer' }}>
                       <X size={17} />
@@ -1853,7 +1844,6 @@ export default function MySite() {
           .mysite-sidebar { display: none !important; }
           .mysite-collapse-btn { display: none !important; }
           .mysite-mobile-nav-btn { display: flex !important; }
-          .mysite-brand-text { display: none !important; }
           .mysite-domain { display: none !important; }
           .mysite-main { margin-left: 0 !important; padding: 18px 14px 90px !important; }
         }
