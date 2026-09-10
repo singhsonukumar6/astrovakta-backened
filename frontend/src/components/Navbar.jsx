@@ -80,7 +80,7 @@ export default function Navbar() {
               <button onClick={() => navigate('/mysite')} className="btn-secondary" style={{ padding: '10px 18px', fontSize: 14 }}>
                 <Globe size={15} /> My Website
               </button>
-              <button onClick={() => navigate('/dashboard')} className="btn-primary" style={{ padding: '10px 20px', fontSize: 14 }}>
+              <button onClick={() => navigate('/mysite')} className="btn-primary" style={{ padding: '10px 20px', fontSize: 14 }}>
                 <LayoutDashboard size={16} /> Dashboard
               </button>
               <button onClick={() => { logout(); navigate('/') }} className="btn-secondary" style={{ padding: '10px 18px', fontSize: 14 }}>
@@ -124,7 +124,7 @@ export default function Navbar() {
                   <button onClick={() => navigate('/mysite')} className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>
                     <Globe size={15} /> My Website
                   </button>
-                  <button onClick={() => navigate('/dashboard')} className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
+                  <button onClick={() => navigate('/mysite')} className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
                     Dashboard
                   </button>
                   <button onClick={() => { logout(); navigate('/') }} className="btn-secondary" style={{ flex: '1 1 100%', justifyContent: 'center' }}>

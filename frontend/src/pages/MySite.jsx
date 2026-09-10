@@ -7,9 +7,12 @@ import {
   Save, LogIn, Shield, ArrowRight, Image as ImageIcon, Users,
   Bell, Crown, Loader2, LayoutDashboard, Package, ShoppingBag, Link2,
   Phone, Star, TrendingUp, IndianRupee, Menu, LogOut, PanelLeft, Home,
+  Key, Bot, ScrollText, Zap, BarChart3, User,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth.jsx'
+import KundaliReport from './KundaliReport.jsx'
+import { APIKeys, AIProvidersTab, ReportsTab, UsagePanel, Profile } from '../components/DevTabs.jsx'
 import { tenantSiteUrl } from '../lib/tenant.js'
 import {
   getMySites, createMySite, getMySite, updateMySite, publishMySite, unpublishMySite,
@@ -18,7 +21,7 @@ import {
   getMyAvailability, setMyAvailability, getMyBookings, updateMyBooking,
   checkSlugAvailability, checkDomainAvailability, setMySiteMedia, setMySiteSettings, getMyLeads,
   getMySiteStats, getMyProducts, createMyProduct, updateMyProduct, deleteMyProduct,
-  getMyOrders, updateMyOrder,
+  getMyOrders, updateMyOrder, getKeys,
 } from '../lib/api.js'
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -1562,6 +1565,19 @@ const TABS = [
   { id: 'settings', label: 'Settings', icon: Settings2 },
 ]
 
+// Developer tools (formerly the /dashboard page) + account, grouped in the same sidebar.
+const DEV_TABS = [
+  { id: 'keys', label: 'API Keys', icon: Key },
+  { id: 'ai', label: 'AI Providers', icon: Bot },
+  { id: 'reports', label: 'Reports', icon: ScrollText },
+  { id: 'kundali', label: 'Kundali Report', icon: Zap },
+  { id: 'usage', label: 'Usage', icon: BarChart3 },
+]
+
+const ACCOUNT_TABS = [
+  { id: 'account', label: 'Account', icon: User },
+]
+
 export default function MySite() {
   const { user, isAuthenticated, loading: authLoading, logout } = useAuth()
   const [sites, setSites] = useState(null)
@@ -1571,8 +1587,22 @@ export default function MySite() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('av-sidebar-collapsed') === '1')
   const [avatarOpen, setAvatarOpen] = useState(false)
+  const [keys, setKeys] = useState([])
+  const [displayUser, setDisplayUser] = useState(null)
   const avatarRef = useRef(null)
   const navigate = useNavigate()
+
+  useEffect(() => { setDisplayUser(user) }, [user])
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      getKeys().then((data) => setKeys(Array.isArray(data) ? data : data.keys || [])).catch(() => {})
+    }
+  }, [isAuthenticated])
+
+  const refreshKeys = () => {
+    getKeys().then((data) => setKeys(Array.isArray(data) ? data : data.keys || [])).catch(() => {})
+  }
 
   useEffect(() => {
     if (!avatarOpen) return
@@ -1742,6 +1772,42 @@ export default function MySite() {
                 {!sidebarCollapsed && t.label}
               </button>
             ))}
+            <div style={{ height: 1, background: '#f1f5f9', margin: '10px 2px', flexShrink: 0 }} />
+            {!sidebarCollapsed && (
+              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, color: '#94a3b8', padding: '2px 12px 6px', flexShrink: 0 }}>DEVELOPER</div>
+            )}
+            {DEV_TABS.map((t) => (
+              <button key={t.id} onClick={() => setTab(t.id)} title={sidebarCollapsed ? t.label : undefined}
+                className={tab === t.id ? 'mysite-tab-active' : ''}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', gap: 11,
+                  padding: '10px 12px', borderRadius: 10, fontSize: 13.5, fontWeight: tab === t.id ? 700 : 500, cursor: 'pointer',
+                  background: tab === t.id ? 'rgba(79,70,229,0.08)' : 'transparent',
+                  color: tab === t.id ? '#4f46e5' : '#475569',
+                  border: 'none', textAlign: 'left', transition: 'all 0.15s', flexShrink: 0, whiteSpace: 'nowrap',
+                }}>
+                <t.icon size={17} style={{ flexShrink: 0 }} />
+                {!sidebarCollapsed && t.label}
+              </button>
+            ))}
+            <div style={{ height: 1, background: '#f1f5f9', margin: '10px 2px', flexShrink: 0 }} />
+            {!sidebarCollapsed && (
+              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, color: '#94a3b8', padding: '2px 12px 6px', flexShrink: 0 }}>ACCOUNT</div>
+            )}
+            {ACCOUNT_TABS.map((t) => (
+              <button key={t.id} onClick={() => setTab(t.id)} title={sidebarCollapsed ? t.label : undefined}
+                className={tab === t.id ? 'mysite-tab-active' : ''}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', gap: 11,
+                  padding: '10px 12px', borderRadius: 10, fontSize: 13.5, fontWeight: tab === t.id ? 700 : 500, cursor: 'pointer',
+                  background: tab === t.id ? 'rgba(79,70,229,0.08)' : 'transparent',
+                  color: tab === t.id ? '#4f46e5' : '#475569',
+                  border: 'none', textAlign: 'left', transition: 'all 0.15s', flexShrink: 0, whiteSpace: 'nowrap',
+                }}>
+                <t.icon size={17} style={{ flexShrink: 0 }} />
+                {!sidebarCollapsed && t.label}
+              </button>
+            ))}
             {!sidebarCollapsed && (
               <div style={{ marginTop: 'auto', padding: '12px 8px 4px' }}>
                 <div style={{ fontSize: 11.5, color: '#94a3b8', lineHeight: 1.6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -1775,6 +1841,30 @@ export default function MySite() {
                     </button>
                   </div>
                   {TABS.map((t) => (
+                    <button key={t.id} onClick={() => { setTab(t.id); setMobileNavOpen(false) }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 11, padding: '11px 12px', borderRadius: 10,
+                        fontSize: 14, fontWeight: tab === t.id ? 700 : 500, cursor: 'pointer',
+                        background: tab === t.id ? 'rgba(79,70,229,0.08)' : 'transparent',
+                        color: tab === t.id ? '#4f46e5' : '#475569', border: 'none', textAlign: 'left',
+                      }}>
+                      <t.icon size={17} /> {t.label}
+                    </button>
+                  ))}
+                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, color: '#94a3b8', padding: '12px 12px 4px' }}>DEVELOPER</div>
+                  {DEV_TABS.map((t) => (
+                    <button key={t.id} onClick={() => { setTab(t.id); setMobileNavOpen(false) }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 11, padding: '11px 12px', borderRadius: 10,
+                        fontSize: 14, fontWeight: tab === t.id ? 700 : 500, cursor: 'pointer',
+                        background: tab === t.id ? 'rgba(79,70,229,0.08)' : 'transparent',
+                        color: tab === t.id ? '#4f46e5' : '#475569', border: 'none', textAlign: 'left',
+                      }}>
+                      <t.icon size={17} /> {t.label}
+                    </button>
+                  ))}
+                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, color: '#94a3b8', padding: '12px 12px 4px' }}>ACCOUNT</div>
+                  {ACCOUNT_TABS.map((t) => (
                     <button key={t.id} onClick={() => { setTab(t.id); setMobileNavOpen(false) }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 11, padding: '11px 12px', borderRadius: 10,
@@ -1821,20 +1911,24 @@ export default function MySite() {
               </div>
             )
           ) : (
-            <AnimatePresence mode="wait">
-              <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
-                {tab === 'overview' && <OverviewTab site={site} reload={reload} />}
-                {tab === 'content' && <ContentTab site={site} reload={reload} />}
-                {tab === 'design' && <DesignTab site={site} reload={reload} />}
-                {tab === 'services' && <ServicesTab site={site} reload={reload} />}
-                {tab === 'store' && <StoreTab site={site} reload={reload} />}
-                {tab === 'hours' && <HoursTab site={site} reload={reload} />}
-                {tab === 'bookings' && <BookingsTab site={site} />}
-                {tab === 'leads' && <LeadsTab site={site} />}
-                {tab === 'domain' && <DomainTab site={site} reload={reload} />}
-                {tab === 'settings' && <SettingsTab site={site} reload={reload} />}
-              </motion.div>
-            </AnimatePresence>
+            <div key={tab} className="mysite-tab-fade">
+              {tab === 'overview' && <OverviewTab site={site} reload={reload} />}
+              {tab === 'content' && <ContentTab site={site} reload={reload} />}
+              {tab === 'design' && <DesignTab site={site} reload={reload} />}
+              {tab === 'services' && <ServicesTab site={site} reload={reload} />}
+              {tab === 'store' && <StoreTab site={site} reload={reload} />}
+              {tab === 'hours' && <HoursTab site={site} reload={reload} />}
+              {tab === 'bookings' && <BookingsTab site={site} />}
+              {tab === 'leads' && <LeadsTab site={site} />}
+              {tab === 'domain' && <DomainTab site={site} reload={reload} />}
+              {tab === 'settings' && <SettingsTab site={site} reload={reload} />}
+              {tab === 'keys' && <APIKeys keys={keys} onRefresh={refreshKeys} />}
+              {tab === 'ai' && <AIProvidersTab />}
+              {tab === 'reports' && <ReportsTab />}
+              {tab === 'kundali' && <KundaliReport />}
+              {tab === 'usage' && <UsagePanel keys={keys} />}
+              {tab === 'account' && <Profile user={displayUser || user} onUserUpdate={setDisplayUser} />}
+            </div>
           )}
         </main>
       </div>
@@ -1852,6 +1946,8 @@ export default function MySite() {
           .mysite-view-site { padding: 7px 9px !important; }
         }
         .mysite-tab-active:hover { background: rgba(79,70,229,0.12) !important; }
+        .mysite-tab-fade { animation: mysiteTabIn 0.18s ease; }
+        @keyframes mysiteTabIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
       `}</style>
     </div>
   )

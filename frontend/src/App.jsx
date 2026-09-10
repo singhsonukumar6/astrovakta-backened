@@ -5,7 +5,6 @@ import SeoManager from './components/SEO.jsx'
 import Landing from './pages/Landing.jsx'
 import Developer from './pages/Developer.jsx'
 import Pricing from './pages/Pricing.jsx'
-import Dashboard from './pages/Dashboard.jsx'
 import MySite from './pages/MySite.jsx'
 import TenantSite from './pages/TenantSite.jsx'
 import Login from './pages/Login.jsx'
@@ -33,7 +32,7 @@ function AppRoutes() {
       <Route path="/" element={<Landing />} />
       <Route path="/developer" element={<Developer />} />
       <Route path="/pricing" element={<Pricing />} />
-      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/dashboard" element={<Navigate to="/mysite" replace />} />
       <Route path="/mysite" element={<MySite />} />
       {/* Public tenant site (astrologer's branded website) */}
       <Route path="/s/:slug" element={<TenantSite />} />

@@ -1,59 +1,21 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  LayoutDashboard,
-  Key,
-  BarChart3,
-  User,
-  LogOut,
-  Plus,
-  Copy,
-  Trash2,
-  Eye,
-  EyeOff,
-  X,
-  Activity,
-  TrendingUp,
-  Zap,
-  Shield,
-  FileText,
-  Bot,
-  Send,
-  CheckCircle2,
-  Clock,
-  XCircle,
-  Download,
-  Sparkles,
-  Settings,
-  Mail,
-  ScrollText,
-  LogIn,
-  Gauge,
-  Coins,
+  Activity, Bot, CheckCircle2, Clock, Coins, Copy, Download, Eye, EyeOff,
+  FileText, Gauge, Key, Loader2, Mail, Plus, Send, Settings, Shield,
+  Sparkles, TrendingUp, User, X, XCircle, Zap,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth.jsx'
-import KundaliReport from './KundaliReport.jsx'
 import {
-  getKeys, createKey, revokeKey,
+  createKey, revokeKey,
   listProviders, createProvider, deleteProvider, testProvider,
   getMyJobs, submitPdfJob,
   updateProfile, changePassword,
   resendVerification,
   getUsageStats,
-  createCheckout,
 } from '../lib/api.js'
 
-const tabs = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { id: 'keys', label: 'API Keys', icon: Key },
-  { id: 'ai', label: 'AI Providers', icon: Bot },
-  { id: 'reports', label: 'Reports', icon: FileText },
-  { id: 'kundali', label: 'Kundali Report', icon: ScrollText },
-  { id: 'usage', label: 'Usage', icon: BarChart3 },
-  { id: 'profile', label: 'Profile', icon: User },
-]
 
 const providerMeta = {
   openai: { name: 'OpenAI', color: '#16a34a', models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'] },
@@ -69,97 +31,6 @@ const jobStatusColors = {
   failed: { bg: 'rgba(239,68,68,0.15)', text: '#ef4444', icon: XCircle },
 }
 
-// ──────────── OVERVIEW TAB ────────────
-function Overview({ user, keys }) {
-  const [resending, setResending] = useState(false)
-  const totalKeys = keys?.length || 0
-  const activeKeys = keys?.filter((k) => k.is_active).length || 0
-
-  const handleResendVerification = async () => {
-    setResending(true)
-    try {
-      await resendVerification(user?.email)
-      toast.success('Verification email sent! Check your inbox.')
-    } catch {
-      toast.error('Failed to send verification email')
-    } finally {
-      setResending(false)
-    }
-  }
-
-  return (
-    <div>
-      <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>
-        Welcome back, <span className="gradient-text">{user?.name || 'User'}</span>
-      </h2>
-      <p style={{ color: '#475569', marginBottom: 32 }}>
-        Here's an overview of your AstroVakta developer account.
-      </p>
-
-      {user && !user.email_verified && (
-        <div className="glass" style={{
-          borderRadius: 'var(--radius-lg)', padding: 16, marginBottom: 24,
-          border: '1px solid rgba(245,158,11,0.3)', display: 'flex',
-          alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Mail size={18} color="#d97706" />
-            <span style={{ color: '#d97706', fontSize: 14, fontWeight: 500 }}>
-              Please verify your email address.
-            </span>
-          </div>
-          <button
-            onClick={handleResendVerification}
-            disabled={resending}
-            className="btn-secondary"
-            style={{ fontSize: 13, padding: '6px 14px' }}
-          >
-            {resending ? 'Sending...' : 'Resend Verification'}
-          </button>
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20, marginBottom: 32 }}>
-        {[
-          { label: 'API Keys', value: totalKeys, icon: Key, color: '#7c3aed' },
-          { label: 'Active Keys', value: activeKeys, icon: Activity, color: '#16a34a' },
-          { label: 'Credit Limit', value: (user?.monthly_limit ?? 500).toLocaleString(), icon: Coins, color: '#2563eb' },
-          { label: 'Current Plan', value: user?.plan || 'Free', icon: Zap, color: '#d97706' },
-        ].map((s) => (
-          <div key={s.label} className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 16 }}>
-              <span style={{ color: '#475569', fontSize: 14 }}>{s.label}</span>
-              <div style={{
-                width: 36, height: 36, borderRadius: 10,
-                background: `${s.color}20`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <s.icon size={18} color={s.color} />
-              </div>
-            </div>
-            <div style={{ fontSize: 28, fontWeight: 800 }}>{s.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {user?.is_admin && (
-        <div className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 20, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <Shield size={20} color="#d97706" />
-          <span style={{ color: '#1e293b', fontSize: 14 }}>
-            You have admin access.
-            <a href="/admin" style={{ color: '#4f46e5', marginLeft: 8, fontWeight: 600, textDecoration: 'underline' }}>Open Admin Panel →</a>
-          </span>
-        </div>
-      )}
-
-      <style>{`
-        @media (max-width: 640px) {
-          .overview-verify { flex-direction: column !important; align-items: flex-start !important; }
-        }
-      `}</style>
-    </div>
-  )
-}
 
 // ──────────── API KEYS TAB ────────────
 function APIKeys({ keys, onRefresh }) {
@@ -887,177 +758,5 @@ function Profile({ user, onUserUpdate }) {
 }
 
 // ──────────── MAIN DASHBOARD ────────────
-export default function Dashboard() {
-  const { user, logout, isAuthenticated, loading: authLoading } = useAuth()
-  const [keys, setKeys] = useState([])
-  const [localUser, setLocalUser] = useState(null)
-  const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const activeTab = searchParams.get('tab') || 'overview'
 
-  const goToTab = (tabId) => {
-    setSearchParams({ tab: tabId }, { replace: true })
-  }
-
-  useEffect(() => {
-    setLocalUser(user)
-  }, [user])
-
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) navigate('/')
-  }, [authLoading, isAuthenticated, navigate])
-
-  useEffect(() => {
-    if (isAuthenticated && user && !user.email_verified) {
-      navigate('/verify-email-prompt', { state: { email: user.email } })
-    }
-  }, [isAuthenticated, user, navigate])
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      getKeys().then((data) => setKeys(Array.isArray(data) ? data : data.keys || [])).catch(() => {})
-    }
-  }, [isAuthenticated])
-
-  const refreshKeys = () => {
-    getKeys().then((data) => setKeys(Array.isArray(data) ? data : data.keys || [])).catch(() => {})
-  }
-
-  const handleUserUpdate = (updated) => {
-    setLocalUser(updated)
-  }
-
-  if (authLoading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 72 }}>
-        <div className="gradient-text" style={{ fontSize: 18, fontWeight: 600 }}>Loading...</div>
-      </div>
-    )
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 72, flexDirection: 'column', gap: 20 }}>
-        <Shield size={48} color="#64748b" />
-        <h2 style={{ fontSize: 24, fontWeight: 700 }}>Access Required</h2>
-        <p style={{ color: '#475569', fontSize: 15, maxWidth: 360, textAlign: 'center' }}>
-          You need to sign in to access the dashboard.
-        </p>
-        <Link to="/login" className="btn-primary" style={{ padding: '14px 32px', fontSize: 16 }}>
-          <LogIn size={18} /> Sign In
-        </Link>
-      </div>
-    )
-  }
-
-  const displayUser = localUser || user
-
-  return (
-    <div style={{ minHeight: '100vh', paddingTop: 72 }}>
-      <aside className="dash-sidebar" style={{
-        width: 240, borderRight: '1px solid var(--border-color)',
-        padding: '24px 12px', display: 'flex', flexDirection: 'column',
-        position: 'fixed', top: 72, left: 0, bottom: 0, zIndex: 40,
-      }}>
-        <div style={{ flex: 1 }}>
-          {tabs.map((tab) => (
-            <button key={tab.id} onClick={() => goToTab(tab.id)}
-              style={{
-                width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                padding: '10px 14px', borderRadius: 10, border: 'none',
-                background: activeTab === tab.id ? 'rgba(124,58,237,0.15)' : 'transparent',
-                color: activeTab === tab.id ? '#4f46e5' : '#475569',
-                fontSize: 14, fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s',
-                marginBottom: 4, textAlign: 'left',
-              }}
-            >
-              <tab.icon size={18} />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        {user?.is_admin && (
-          <button onClick={() => navigate('/admin')}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
-              borderRadius: 10, border: '1px solid rgba(245,158,11,0.3)',
-              background: 'rgba(245,158,11,0.08)', color: '#d97706', fontSize: 13,
-              fontWeight: 600, cursor: 'pointer', textAlign: 'left', marginBottom: 4,
-            }}
-          >
-            <Shield size={16} /> Admin Panel
-          </button>
-        )}
-        <button onClick={() => { logout(); navigate('/'); }}
-          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, border: 'none', background: 'transparent', color: '#475569', fontSize: 14, cursor: 'pointer', textAlign: 'left' }}>
-          <LogOut size={18} /> Log Out
-        </button>
-      </aside>
-
-      <nav className="dash-bottombar">
-        {tabs.map((tab) => (
-          <button key={tab.id} onClick={() => goToTab(tab.id)}
-            className={activeTab === tab.id ? 'active' : ''}
-          >
-            <tab.icon size={20} />
-            <span>{tab.label}</span>
-          </button>
-        ))}
-        {user?.is_admin && (
-          <button onClick={() => navigate('/admin')}>
-            <Shield size={20} />
-            <span>Admin</span>
-          </button>
-        )}
-        <button onClick={() => { logout(); navigate('/'); }}>
-          <LogOut size={20} />
-          <span>Logout</span>
-        </button>
-      </nav>
-
-      <main className="dash-main" style={{ padding: 32, overflow: 'auto' }}>
-        <AnimatePresence mode="wait">
-          <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-            {activeTab === 'overview' && <Overview user={displayUser} keys={keys} />}
-            {activeTab === 'keys' && <APIKeys keys={keys} onRefresh={refreshKeys} />}
-            {activeTab === 'ai' && <AIProvidersTab />}
-            {activeTab === 'reports' && <ReportsTab />}
-            {activeTab === 'kundali' && <KundaliReport />}
-            {activeTab === 'usage' && <UsagePanel keys={keys} />}
-            {activeTab === 'profile' && <Profile user={displayUser} onUserUpdate={handleUserUpdate} />}
-          </motion.div>
-        </AnimatePresence>
-      </main>
-
-      <style>{`
-        .dash-main { margin-left: 240px; }
-        .dash-bottombar { display: none; }
-
-        @media (max-width: 768px) {
-          .dash-sidebar { display: none !important; }
-          .dash-main { margin-left: 0 !important; padding: 20px 16px !important; padding-bottom: 90px !important; }
-          .dash-bottombar {
-            display: flex !important;
-            position: fixed; bottom: 0; left: 0; right: 0;
-            background: rgba(255,255,255,0.95); backdrop-filter: blur(12px);
-            border-top: 1px solid var(--border-color);
-            z-index: 50; padding: 6px 8px;
-            justify-content: space-around;
-          }
-          .dash-bottombar button {
-            display: flex; flex-direction: column; align-items: center; gap: 3px;
-            padding: 6px 4px; border: none; background: none;
-            color: #64748b; font-size: 10px; cursor: pointer; border-radius: 8px;
-            min-width: 0; flex: 1;
-          }
-          .dash-bottombar button.active { color: #4f46e5; background: rgba(124,58,237,0.1); }
-          .dash-bottombar button svg { flex-shrink: 0; }
-        }
-
-        @media (max-width: 480px) {
-          .dash-main { padding: 16px 12px !important; padding-bottom: 90px !important; }
-        }
-      `}</style>
-    </div>
-  )
-}
+export { APIKeys, AIProvidersTab, ReportsTab, UsagePanel, Profile }
