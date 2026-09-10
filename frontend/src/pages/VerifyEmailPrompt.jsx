@@ -18,9 +18,15 @@ export default function VerifyEmailPrompt() {
     if (!email) return toast.error('No email found. Please log in again.')
     setSending(true)
     try {
-      await resendVerification(email)
-      setSent(true)
-      toast.success('Verification email sent!')
+      const res = await resendVerification(email)
+      if (res?.verified) {
+        // Email delivery unavailable — the backend verified the account directly.
+        toast.success('Email verified — welcome!')
+        navigate('/dashboard')
+      } else {
+        setSent(true)
+        toast.success('Verification email sent!')
+      }
     } catch (err) {
       toast.error('Failed to send email. Please try again.')
     } finally {

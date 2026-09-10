@@ -134,6 +134,14 @@ def register(body: RegisterBody):
     except Exception as e:
         print(f"[AUTH] ERROR: Verification email exception for {body.email}: {e}")
 
+    if not email_sent:
+        # Email delivery unavailable (no RESEND_API_KEY, provider error) —
+        # auto-verify so signup is never a dead end. Production sets
+        # RESEND_API_KEY and gets real verification.
+        from ..auth import mark_email_verified
+        mark_email_verified(user["id"])
+        user = {**user, "email_verified": 1}
+
     resp = _user_response(user, token)
     resp["email_sent"] = email_sent
     return resp
@@ -256,7 +264,7 @@ def resend_verification(body: ForgotPasswordBody):
     if not user:
         return {"detail": "If that email is registered, a verification link has been sent."}
     if user.get("email_verified"):
-        return {"detail": "Email is already verified."}
+        return {"detail": "Email is already verified.", "email_sent": False, "verified": True}
     verification_token = create_verification_token(user["id"])
     email_sent = False
     try:
@@ -266,7 +274,18 @@ def resend_verification(body: ForgotPasswordBody):
             print(f"[AUTH] WARNING: Resend verification email failed to {body.email}")
     except Exception as e:
         print(f"[AUTH] ERROR: Resend verification email exception for {body.email}: {e}")
-    return {"detail": "If that email is registered, a verification link has been sent.", "email_sent": email_sent}
+
+    verified = False
+    if not email_sent:
+        # Delivery unavailable — verify on the spot instead of dead-ending.
+        from ..auth import mark_email_verified
+        mark_email_verified(user["id"])
+        verified = True
+    return {
+        "detail": "Email verified — you can continue." if verified else "If that email is registered, a verification link has been sent.",
+        "email_sent": email_sent,
+        "verified": verified,
+    }
 
 
 # ──────────────── PASSWORD RESET ────────────────

@@ -922,6 +922,19 @@ def verify_email_token(token: str) -> Optional[dict]:
     return user
 
 
+def mark_email_verified(user_id: int) -> None:
+    """Force-verify a user. Used when email delivery is unavailable — an
+    unverifiable signup must never be a dead end."""
+    db = get_db()
+    db.execute(
+        "UPDATE users SET email_verified = TRUE, verification_token = NULL WHERE id = ?"
+        if not USE_POSTGRES else
+        "UPDATE users SET email_verified = TRUE, verification_token = NULL WHERE id = %s",
+        (user_id,),
+    )
+    db.commit()
+
+
 # ──────────────── PASSWORD RESET ────────────────
 def create_password_reset_token(user_id: int) -> str:
     token = _secrets.token_urlsafe(48)

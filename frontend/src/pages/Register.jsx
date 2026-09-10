@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { Mail, Lock, User, Star, ArrowRight, MailCheck, LogIn } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { register as apiRegister } from '../lib/api.js'
+import { useAuth } from '../lib/auth.jsx'
 
 export default function Register() {
   const [name, setName] = useState('')
@@ -12,6 +13,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false)
   const [registered, setRegistered] = useState(false)
   const navigate = useNavigate()
+  const { login } = useAuth()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -20,12 +22,18 @@ export default function Register() {
     setLoading(true)
     try {
       const data = await apiRegister(email, name, password)
-      if (data.email_sent) {
+      if (data.user?.email_verified) {
+        // Email delivery unavailable → backend auto-verified. Sign straight in.
+        login(data.token, data.user)
+        toast.success('Welcome to AstroVakta! Let\'s create your website.')
+        navigate('/mysite')
+      } else if (data.email_sent) {
         toast.success('Account created! Check your email for the verification link.')
+        setRegistered(true)
       } else {
         toast.error('Account created but email could not be sent. Please contact support or try again later.')
+        setRegistered(true)
       }
-      setRegistered(true)
     } catch (err) {
       toast.error(err.response?.data?.detail || err.response?.data?.error || 'Registration failed')
     } finally {
