@@ -1098,6 +1098,9 @@ function SettingsTab({ site, reload }) {
     city: site.settings?.city || '',
   })
   const [showTestimonials, setShowTestimonials] = useState(site.settings?.showTestimonials !== false)
+  const [payMode, setPayMode] = useState(site.settings?.paymentsMode || 'later')
+  const [upiId, setUpiId] = useState(site.settings?.upiId || '')
+  const [razorpayKeyId, setRazorpayKeyId] = useState(site.settings?.razorpayKeyId || '')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -1119,7 +1122,20 @@ function SettingsTab({ site, reload }) {
       city: site.settings?.city || '',
     })
     setShowTestimonials(site.settings?.showTestimonials !== false)
+    setPayMode(site.settings?.paymentsMode || 'later')
+    setUpiId(site.settings?.upiId || '')
+    setRazorpayKeyId(site.settings?.razorpayKeyId || '')
   }, [site.id, site.updated_at]) // eslint-disable-line
+
+  const savePayments = async () => {
+    setSaving(true)
+    try {
+      await setMySiteSettings(site.id, { payments_mode: payMode, upi_id: upiId, razorpay_key_id: razorpayKeyId })
+      toast.success('Payment settings saved')
+      reload()
+    } catch (e) { toast.error(errDetail(e, 'Could not save payment settings')) }
+    finally { setSaving(false) }
+  }
 
   const saveAlerts = async () => {
     setSaving(true)
@@ -1227,6 +1243,47 @@ function SettingsTab({ site, reload }) {
         </label>
         <button onClick={saveSocial} disabled={saving} className="btn-primary" style={{ ...primaryBtn, opacity: saving ? 0.6 : 1 }}>
           <Save size={15} /> {saving ? 'Saving…' : 'Save links & contact'}
+        </button>
+      </div>
+
+      {/* Payments */}
+      <div style={{ ...cardStyle, marginTop: 20 }}>
+        <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <IndianRupee size={17} color="#16a340" /> Payments for bookings
+        </h3>
+        <p style={{ fontSize: 13.5, color: '#64748b', marginBottom: 16, lineHeight: 1.6 }}>
+          Choose how clients pay when they book. Visitor details are always captured first, so you never lose a lead.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10, marginBottom: 14 }}>
+          {[
+            { id: 'later', title: 'Pay later', desc: 'No online payment. Confirm bookings personally on WhatsApp.' },
+            { id: 'upi', title: 'UPI (GPay, PhonePe, Paytm)', desc: 'Clients get a one-tap UPI link for the consultation amount.' },
+            { id: 'razorpay', title: 'Razorpay', desc: 'Cards, UPI, netbanking via Razorpay Checkout on your site.' },
+          ].map((opt) => (
+            <button key={opt.id} type="button" onClick={() => setPayMode(opt.id)} style={{
+              textAlign: 'left', padding: '12px 14px', borderRadius: 12, cursor: 'pointer',
+              border: `2px solid ${payMode === opt.id ? '#4f46e5' : '#e2e8f0'}`,
+              background: payMode === opt.id ? 'rgba(79,70,229,0.05)' : '#fff',
+            }}>
+              <div style={{ fontWeight: 800, fontSize: 13.5, marginBottom: 3 }}>{opt.title}</div>
+              <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>{opt.desc}</div>
+            </button>
+          ))}
+        </div>
+        {payMode === 'upi' && (
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Your UPI ID</label>
+            <input value={upiId} onChange={(e) => setUpiId(e.target.value)} placeholder="yourname@bank (e.g. okhdfc, ybl, paytm)" style={inputStyle} />
+          </div>
+        )}
+        {payMode === 'razorpay' && (
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Razorpay Key ID</label>
+            <input value={razorpayKeyId} onChange={(e) => setRazorpayKeyId(e.target.value)} placeholder="rzp_live_xxxxxxxx (from your Razorpay dashboard)" style={inputStyle} />
+          </div>
+        )}
+        <button onClick={savePayments} disabled={saving} className="btn-primary" style={{ ...primaryBtn, opacity: saving ? 0.6 : 1 }}>
+          <Save size={15} /> {saving ? 'Saving…' : 'Save payment settings'}
         </button>
       </div>
 

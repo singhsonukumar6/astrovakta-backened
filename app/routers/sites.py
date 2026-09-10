@@ -364,6 +364,9 @@ class SettingsBody(BaseModel):
     show_store: Optional[bool] = None
     show_testimonials: Optional[bool] = None
     show_gallery: Optional[bool] = None
+    payments_mode: Optional[str] = Field(None, pattern="^(later|upi|razorpay)$")
+    upi_id: Optional[str] = Field(None, max_length=120)
+    razorpay_key_id: Optional[str] = Field(None, max_length=120)
 
 
 @router.put("/my/{site_id}/settings")
@@ -408,6 +411,16 @@ def update_my_site_settings(site_id: int, body: SettingsBody, user: dict = Depen
         settings["showTestimonials"] = body.show_testimonials
     if body.show_gallery is not None:
         settings["showGallery"] = body.show_gallery
+    # payments — how clients pay for bookings (pay later / UPI / Razorpay)
+    if body.payments_mode is not None:
+        settings["paymentsMode"] = body.payments_mode
+    if body.upi_id is not None:
+        cleaned_upi = body.upi_id.strip()
+        if cleaned_upi and ("@" not in cleaned_upi):
+            raise HTTPException(status_code=400, detail="Enter a valid UPI ID (e.g. name@bank)")
+        settings["upiId"] = cleaned_upi
+    if body.razorpay_key_id is not None:
+        settings["razorpayKeyId"] = body.razorpay_key_id.strip()
     return update_site(site_id, {"settings": settings})
 
 

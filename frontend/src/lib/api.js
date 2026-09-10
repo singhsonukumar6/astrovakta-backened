@@ -312,6 +312,16 @@ export const publicKundliTool = (resolve, data) => {
   return api.post(`/sites/site/tools/kundli?${qs}`, data).then((r) => r.data)
 }
 
+export const publicMatchingTool = (resolve, data) => {
+  const qs = new URLSearchParams(resolveParams(resolve)).toString()
+  return api.post(`/sites/site/tools/matching?${qs}`, data).then((r) => r.data)
+}
+
+export const publicDoshaTool = (resolve, data) => {
+  const qs = new URLSearchParams(resolveParams(resolve)).toString()
+  return api.post(`/sites/site/tools/dosha?${qs}`, data).then((r) => r.data)
+}
+
 export const publicPanchangTool = (resolve) =>
   api.get('/sites/site/tools/panchang', { params: resolveParams(resolve) }).then((r) => r.data?.data ?? r.data)
 

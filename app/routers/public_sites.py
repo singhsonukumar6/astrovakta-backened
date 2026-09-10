@@ -341,6 +341,127 @@ def tenant_kundli_tool(body: KundliToolBody, slug: str = None, domain: str = Non
     return resp
 
 
+# ─────────────── free tools: match making & dosha (public) ───────────────
+
+class _BirthCoords(BaseModel):
+    date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+    time: str = Field(..., pattern=r"^\d{2}:\d{2}$")
+    lat: Optional[float] = Field(None, ge=-90, le=90)
+    lon: Optional[float] = Field(None, ge=-180, le=180)
+    tz: Optional[str] = Field(None, max_length=60)
+    place: Optional[str] = Field(None, max_length=120)
+
+
+class MatchingToolBody(BaseModel):
+    boy: _BirthCoords
+    girl: _BirthCoords
+
+    class Config:
+        extra = "forbid"
+
+
+class DoshaToolBody(_BirthCoords):
+    pass
+
+
+def _stub_request():
+    """dosha/compat internals only read accept-language off the request."""
+    from types import SimpleNamespace
+    return SimpleNamespace(headers={"accept-language": "en"})
+
+
+@router.post("/site/tools/matching")
+async def tenant_matching_tool(body: MatchingToolBody, slug: str = None, domain: str = None):
+    """Ashtakoota gun milan + manglik check for both partners, computed on the
+    same Swiss-ephemeris engine the platform uses."""
+    site = _resolve_site(slug, domain)
+    from . import compat_standalone as _compat_mod
+    from .compat_standalone import CompatRequest, _full_guna_milan
+    from .dosha_standalone import DoshaStandaloneRequest
+
+    # _full_guna_milan passes `request` through to translate_paragraphs; when
+    # called outside its own route, provide the stub it expects (lang is 'en').
+    if not hasattr(_compat_mod, "request"):
+        _compat_mod.request = _stub_request()
+
+    req = CompatRequest(
+        maleDateOfBirth=body.boy.date, maleTimeOfBirth=body.boy.time,
+        maleLatitude=body.boy.lat if body.boy.lat is not None else _DEFAULT_PLACE["lat"],
+        maleLongitude=body.boy.lon if body.boy.lon is not None else _DEFAULT_PLACE["lon"],
+        maleTimezone=body.boy.tz or _DEFAULT_PLACE["tz"],
+        femaleDateOfBirth=body.girl.date, femaleTimeOfBirth=body.girl.time,
+        femaleLatitude=body.girl.lat if body.girl.lat is not None else _DEFAULT_PLACE["lat"],
+        femaleLongitude=body.girl.lon if body.girl.lon is not None else _DEFAULT_PLACE["lon"],
+        femaleTimezone=body.girl.tz or _DEFAULT_PLACE["tz"],
+        lang="en",
+    )
+    milan = await _full_guna_milan(req, "en")
+
+    async def manglik(p):
+        dsb = DoshaStandaloneRequest(
+            dateOfBirth=p.date, timeOfBirth=p.time,
+            latitude=p.lat if p.lat is not None else _DEFAULT_PLACE["lat"],
+            longitude=p.lon if p.lon is not None else _DEFAULT_PLACE["lon"],
+            timezone=p.tz or _DEFAULT_PLACE["tz"],
+        )
+        return await manglik_detailed(dsb, _stub_request())
+
+    from .dosha_standalone import manglik_detailed
+    boy_manglik = await manglik(body.boy)
+    girl_manglik = await manglik(body.girl)
+
+    def _manglik_summary(m):
+        return {
+            "manglikPresent": m.get("manglikPresent"),
+            "summary": m.get("summary"),
+            "marsHouse": m.get("marsHouse"),
+            "marsSign": m.get("marsSign"),
+            "severityLabel": m.get("severityLabel"),
+        }
+
+    return {
+        "summary": milan.get("summary"),
+        "maleProfile": milan.get("maleProfile"),
+        "femaleProfile": milan.get("femaleProfile"),
+        "ashtakootaGunas": milan.get("ashtakootaGunas"),
+        "boyManglik": _manglik_summary(boy_manglik),
+        "girlManglik": _manglik_summary(girl_manglik),
+        "astrologer": site["name"],
+    }
+
+
+@router.post("/site/tools/dosha")
+async def tenant_dosha_tool(body: DoshaToolBody, slug: str = None, domain: str = None):
+    """Dosha report (manglik analysis + grahan/shrapit checks) for a birth chart."""
+    site = _resolve_site(slug, domain)
+    from .dosha_standalone import DoshaStandaloneRequest, manglik_detailed, grahan_dosha, shrapit_dosha
+
+    dsb = DoshaStandaloneRequest(
+        dateOfBirth=body.date, timeOfBirth=body.time,
+        latitude=body.lat if body.lat is not None else _DEFAULT_PLACE["lat"],
+        longitude=body.lon if body.lon is not None else _DEFAULT_PLACE["lon"],
+        timezone=body.tz or _DEFAULT_PLACE["tz"],
+    )
+    stub = _stub_request()
+    manglik = await manglik_detailed(dsb, stub)
+    try:
+        grahan_res = await grahan_dosha(dsb, stub)
+    except Exception:
+        grahan_res = None
+    try:
+        shrapit_res = await shrapit_dosha(dsb, stub)
+    except Exception:
+        shrapit_res = None
+
+    return {
+        "manglik": manglik,
+        "grahan": grahan_res,
+        "shrapit": shrapit_res,
+        "birthPlace": body.place or _DEFAULT_PLACE["label"],
+        "astrologer": site["name"],
+    }
+
+
 @router.get("/site/tools/panchang")
 def tenant_panchang_tool(slug: str = None, domain: str = None, date_str: str = None):
     """Today's panchang for a tenant site's daily widget."""

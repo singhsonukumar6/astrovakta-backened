@@ -5,7 +5,7 @@ import {
   Star, Calendar, Clock, Check, Sparkles, Moon, ArrowRight,
   ChevronLeft, ChevronRight, Globe, BadgeCheck, Sparkle, Send,
   MapPin, Mail, Phone, ShoppingCart, Plus, Minus, ShoppingCart as CartIcon,
-  ShieldCheck, HeartHandshake, Lock, UserCheck, Package, ShoppingBag,
+  ShieldCheck, HeartHandshake, Lock, UserCheck, Package, ShoppingBag, ScrollText, Heart,
 } from 'lucide-react'
 
 // Brand icons were dropped from newer lucide-react — inline the small SVG paths.
@@ -27,6 +27,7 @@ import {
   publicHoroscopeTool, publicPlaceOrder,
 } from '../lib/api.js'
 import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
+import { KundliPage, MatchingPage } from './TenantTools.jsx'
 import { tenantSiteUrl, tenantSubdomainLabel } from '../lib/tenant.js'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -97,6 +98,84 @@ const socialHref = (v, base) => {
   if (base) return `https://${base}/${s.replace(/^https?:\/\/(www\.)?[^/]+\//i, '').replace(/^\//, '')}`
   return `https://${s}`
 }
+
+// ─── payment step after a booking is placed (visitor details are already captured) ───
+function PaymentBox({ site, confirmed, service, inputStyle }) {
+  const pay = site.settings?.paymentsMode || 'later'
+  const amount = Number(confirmed.amount || service?.price || 0)
+  const [payState, setPayState] = useState('idle') // idle | loading | done
+
+  const openRazorpay = () => {
+    setPayState('loading')
+    const open = () => {
+      const rz = new window.Razorpay({
+        key: site.settings.razorpayKeyId,
+        amount: Math.round(amount * 100),
+        currency: 'INR',
+        name: site.name,
+        description: `Consultation — ${confirmed.date} ${confirmed.start_time}`,
+        theme: { color: site.theme?.primaryColor || '#7c3aed' },
+        modal: { ondismiss: () => setPayState('idle') },
+        handler: () => setPayState('done'),
+      })
+      rz.open()
+    }
+    if (window.Razorpay) return open()
+    const s = document.createElement('script')
+    s.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    s.onload = open
+    s.onerror = () => setPayState('idle')
+    document.body.appendChild(s)
+  }
+
+  const box = { marginTop: 16, padding: 14, borderRadius: 12, border: '1px solid var(--border-color)', background: 'rgba(127,127,127,0.05)' }
+
+  if (pay === 'upi' && site.settings?.upiId && amount > 0) {
+    const upiLink = `upi://pay?pa=${encodeURIComponent(site.settings.upiId)}&pn=${encodeURIComponent(site.name)}&am=${amount}&cu=INR&tn=${encodeURIComponent(`Consultation ${confirmed.date} ${confirmed.start_time}`)}`
+    return (
+      <div style={box}>
+        <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 8 }}>Pay ₹{amount} via UPI</div>
+        <a href={upiLink} style={{ ...inputStyle, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px 14px', cursor: 'pointer', fontWeight: 700, background: gradient_css(site), color: '#fff', border: 'none', textDecoration: 'none' }}>
+          Open a UPI app — GPay, PhonePe, Paytm
+        </a>
+        <div style={{ fontSize: 12.5, opacity: 0.65, marginTop: 8, lineHeight: 1.55 }}>
+          Paid? Send the payment screenshot on WhatsApp below and {site.name} will confirm your slot.
+        </div>
+      </div>
+    )
+  }
+
+  if (pay === 'razorpay' && site.settings?.razorpayKeyId && amount > 0) {
+    return (
+      <div style={box}>
+        <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 8 }}>Consultation fee — ₹{amount}</div>
+        {payState === 'done' ? (
+          <div style={{ fontWeight: 700, color: '#16a34a', fontSize: 14 }}>Payment completed — thank you!</div>
+        ) : (
+          <>
+            <button onClick={openRazorpay} disabled={payState === 'loading'} style={{ ...inputStyle, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px 14px', cursor: 'pointer', fontWeight: 700, background: gradient_css(site), color: '#fff', border: 'none' }}>
+              {payState === 'loading' ? 'Opening…' : 'Pay online (cards, UPI, netbanking)'}
+            </button>
+            <div style={{ fontSize: 12.5, opacity: 0.65, marginTop: 8, lineHeight: 1.55 }}>
+              Secure checkout by Razorpay. Your booking is already reserved — payment confirms it faster.
+            </div>
+          </>
+        )}
+      </div>
+    )
+  }
+
+  // 'later'
+  return (
+    <div style={{ ...box, display: pay === 'later' ? undefined : 'none' }}>
+      <div style={{ fontWeight: 700, fontSize: 13.5 }}>Pay later — no advance needed.</div>
+      <div style={{ fontSize: 12.5, opacity: 0.65, marginTop: 4, lineHeight: 1.55 }}>
+        {site.name} will share payment details while confirming your appointment.
+      </div>
+    </div>
+  )
+}
+const gradient_css = (site) => `linear-gradient(135deg, ${site.theme?.primaryColor || '#7c3aed'}, ${site.theme?.accentColor || '#eab308'})`
 
 // ═══════════════ BOOKING WIDGET ═══════════════
 function BookingWidget({ site, resolve, services, theme }) {
@@ -200,6 +279,7 @@ function BookingWidget({ site, resolve, services, theme }) {
         <p style={{ opacity: 0.6, fontSize: 14 }}>
           {site.name} has been notified and will contact you{confirmed.client_phone ? ` on ${confirmed.client_phone}` : ''}.
         </p>
+        <PaymentBox site={site} confirmed={confirmed} service={service} inputStyle={inputStyle} />
         {site.settings?.whatsappNumber && (
           <a href={`https://wa.me/${String(site.settings.whatsappNumber).replace(/[^\d]/g, '')}?text=${encodeURIComponent(`Namaste, I just booked a consultation (${confirmed.date} at ${confirmed.start_time}).`)}`}
             target="_blank" rel="noopener noreferrer"
@@ -325,266 +405,6 @@ function BookingWidget({ site, resolve, services, theme }) {
 // Basic mode shows a lead-gen snapshot; detail mode is the full software:
 // North-Indian chart SVG, house table, planet table with degrees, and the
 // Vimshottari dasha timeline — same Swiss-ephemeris engine as the platform.
-function KundliSoftware({ site, resolve, theme, COLORS }) {
-  const [form, setForm] = useState({ name: '', phone: '', date: '', time: '', place: '' })
-  const [coords, setCoords] = useState(null)
-  const [result, setResult] = useState(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
-  const [view, setView] = useState('summary')
-
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-
-  const submit = async (e) => {
-    e.preventDefault()
-    if (!form.date || !form.time) { setError('Please enter your birth date and time'); return }
-    setBusy(true); setError(null)
-    try {
-      const res = await publicKundliTool(resolve, {
-        name: form.name.trim() || undefined,
-        phone: form.phone.trim() || undefined,
-        date: form.date, time: form.time,
-        place: (coords?.label || form.place.trim()) || undefined,
-        lat: coords?.lat,
-        lon: coords?.lon,
-        tz: coords?.tz || undefined,
-        detail: true,
-        chart_theme: theme.bgStyle === 'dark' ? 'dark' : 'light',
-      })
-      setResult(res)
-      setView('summary')
-    } catch (err) {
-      setError(errDetail(err))
-    } finally { setBusy(false) }
-  }
-
-  const inputStyle = {
-    width: '100%', padding: '11px 14px', borderRadius: 10, fontSize: 14,
-    border: '1px solid var(--border-color)', background: 'rgba(127,127,127,0.05)',
-    color: 'inherit', outline: 'none',
-  }
-  const card = {
-    background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 24,
-  }
-  const tabBtn = (id, label) => (
-    <button key={id} onClick={() => setView(id)} style={{
-      padding: '8px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer',
-      border: `1.5px solid ${view === id ? theme.primaryColor : COLORS.border}`,
-      background: view === id ? theme.primaryColor : 'transparent',
-      color: view === id ? '#fff' : COLORS.text,
-    }}>{label}</button>
-  )
-
-  const dashaColor = (lord) => {
-    const map = {
-      Ketu: '#8b5cf6', Venus: '#f472b6', Sun: '#f59e0b', Moon: '#94a3b8',
-      Mars: '#ef4444', Rahu: '#3b82f6', Jupiter: '#eab308', Saturn: '#64748b', Mercury: '#10b981',
-    }
-    return map[lord] || theme.primaryColor
-  }
-
-  return (
-    <div style={card}>
-      <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Free Kundli Software</h3>
-      <p style={{ fontSize: 13, color: COLORS.textDim, marginBottom: 20 }}>
-        Complete Vedic birth chart — North-Indian kundli, planets with degrees, houses and Vimshottari dasha.
-        Computed with the professional Swiss-ephemeris engine.
-      </p>
-
-      {result ? (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-          {/* view tabs */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-            {tabBtn('summary', 'Summary')}
-            {result.chartSvg && tabBtn('chart', 'Kundli Chart')}
-            {tabBtn('planets', 'Planets & Houses')}
-            {result.dasha && tabBtn('dasha', 'Dasha')}
-          </div>
-
-          {view === 'summary' && (
-            <div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 16 }}>
-                {[
-                  ['Ascendant (Lagna)', result.ascendant?.sign],
-                  ['Lagna Lord', result.ascendant?.lord],
-                  ['Moon Sign (Rashi)', result.moonSign],
-                  ['Birth Nakshatra', result.moonNakshatra],
-                  ['Sun Sign', result.sunSign],
-                  ['Lucky Gemstone', result.gemstone?.stone],
-                ].map(([k, v]) => (
-                  <div key={k} style={{ padding: '12px', background: 'rgba(127,127,127,0.06)', borderRadius: 10 }}>
-                    <div style={{ fontSize: 11, color: COLORS.textDim, fontWeight: 600 }}>{k}</div>
-                    <div style={{ fontWeight: 800, fontSize: 15 }}>{v || '—'}</div>
-                  </div>
-                ))}
-              </div>
-              {result.currentDasha && (
-                <div style={{
-                  padding: '14px 16px', borderRadius: 12, marginBottom: 14,
-                  background: `color-mix(in srgb, ${dashaColor(result.currentDasha.mahadasha)} 12%, transparent)`,
-                  border: `1px solid ${dashaColor(result.currentDasha.mahadasha)}44`,
-                }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, opacity: 0.7, marginBottom: 4 }}>CURRENT MAHADASHA</div>
-                  <div style={{ fontWeight: 800, fontSize: 16 }}>
-                    {result.currentDasha.mahadasha}
-                    {result.currentDasha.antardasha && <> → <span style={{ fontSize: 14 }}>{result.currentDasha.antardasha} antardasha</span></>}
-                  </div>
-                  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>
-                    {result.currentDasha.from} → {result.currentDasha.to}
-                  </div>
-                </div>
-              )}
-              {result.leadCreated && (
-                <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(5,150,105,0.08)', color: '#059669', fontSize: 13, fontWeight: 600 }}>
-                  ✓ {result.astrologer} has been notified — you'll be contacted personally.
-                </div>
-              )}
-            </div>
-          )}
-
-          {view === 'chart' && result.chartSvg && (
-            <div style={{ textAlign: 'center' }}>
-              <div
-                style={{ maxWidth: 480, margin: '0 auto', background: theme.bgStyle === 'dark' ? '#fff' : '#fff', borderRadius: 14, padding: 8, border: `1px solid ${COLORS.border}` }}
-                dangerouslySetInnerHTML={{ __html: result.chartSvg }}
-              />
-              <p style={{ fontSize: 12, color: COLORS.textDim, marginTop: 10 }}>
-                North-Indian style birth chart{result.birthPlace ? ` · Place: ${result.birthPlace}` : ''}
-              </p>
-            </div>
-          )}
-
-          {view === 'planets' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8, letterSpacing: 0.5 }}>PLANETS</div>
-                <div style={{ border: `1px solid ${COLORS.border}`, borderRadius: 10, overflow: 'hidden' }}>
-                  <table style={{ width: '100%', fontSize: 12.5, borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ textAlign: 'left', color: COLORS.textDim, background: 'rgba(127,127,127,0.06)' }}>
-                        <th style={{ padding: '7px 10px', fontWeight: 600 }}>Planet</th>
-                        <th style={{ padding: '7px 10px', fontWeight: 600 }}>Sign</th>
-                        <th style={{ padding: '7px 10px', fontWeight: 600 }}>Hse</th>
-                        <th style={{ padding: '7px 10px', fontWeight: 600 }}>Degree</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(result.planets || []).map((p) => (
-                        <tr key={p.name} style={{ borderTop: `1px solid ${COLORS.border}` }}>
-                          <td style={{ padding: '6px 10px', fontWeight: 700 }}>{p.name}{p.retrograde ? ' ℞' : ''}{p.combust ? ' ¤' : ''}</td>
-                          <td style={{ padding: '6px 10px' }}>{p.sign}</td>
-                          <td style={{ padding: '6px 10px' }}>{p.house}</td>
-                          <td style={{ padding: '6px 10px', fontVariantNumeric: 'tabular-nums' }}>{p.degreeDMS || '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <p style={{ fontSize: 11, color: COLORS.textDim, marginTop: 6 }}>℞ retrograde · ¤ combust</p>
-              </div>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8, letterSpacing: 0.5 }}>HOUSES</div>
-                <div style={{ border: `1px solid ${COLORS.border}`, borderRadius: 10, overflow: 'hidden' }}>
-                  <table style={{ width: '100%', fontSize: 12.5, borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ textAlign: 'left', color: COLORS.textDim, background: 'rgba(127,127,127,0.06)' }}>
-                        <th style={{ padding: '7px 10px', fontWeight: 600 }}>House</th>
-                        <th style={{ padding: '7px 10px', fontWeight: 600 }}>Sign</th>
-                        <th style={{ padding: '7px 10px', fontWeight: 600 }}>Planets</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(result.houses || []).map((h) => (
-                        <tr key={h.number} style={{ borderTop: `1px solid ${COLORS.border}` }}>
-                          <td style={{ padding: '6px 10px', fontWeight: 700 }}>{h.number}</td>
-                          <td style={{ padding: '6px 10px' }}>{h.sign}</td>
-                          <td style={{ padding: '6px 10px' }}>{(h.planets || []).join(', ') || '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {view === 'dasha' && (
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12, letterSpacing: 0.5 }}>VIMSHOTTARI MAHADASHA TIMELINE</div>
-              {(result.dasha || []).map((d, i) => {
-                const today = new Date().toISOString().slice(0, 10)
-                const active = result.currentDasha?.mahadasha === d.lord && d.from <= today
-                return (
-                  <div key={i} style={{
-                    display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, marginBottom: 6,
-                    border: `1px solid ${active ? dashaColor(d.lord) : COLORS.border}`,
-                    background: active ? `color-mix(in srgb, ${dashaColor(d.lord)} 12%, transparent)` : 'transparent',
-                  }}>
-                    <div style={{
-                      width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: dashaColor(d.lord), color: '#fff', fontWeight: 800, fontSize: 11,
-                    }}>{d.lord?.slice(0, 2)}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>{d.lord} Mahadasha {active && <span style={{ fontSize: 11, color: dashaColor(d.lord) }}>· running now</span>}</div>
-                      <div style={{ fontSize: 12, color: COLORS.textDim }}>{d.from} → {d.to}</div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          <button onClick={() => setResult(null)} style={{ ...inputStyle, marginTop: 18, cursor: 'pointer', fontWeight: 700, background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`, color: '#fff', border: 'none' }}>
-            Check another kundli
-          </button>
-        </motion.div>
-      ) : (
-        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Your name" style={inputStyle} />
-            <input value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="Phone (get personal follow-up)" style={inputStyle} />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: 12, color: COLORS.textDim, marginBottom: 4, fontWeight: 600 }}>Birth date *</label>
-              <input type="date" value={form.date} onChange={(e) => set('date', e.target.value)} style={inputStyle} />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 12, color: COLORS.textDim, marginBottom: 4, fontWeight: 600 }}>Birth time *</label>
-              <input type="time" value={form.time} onChange={(e) => set('time', e.target.value)} style={inputStyle} />
-            </div>
-          </div>
-          <div>
-            <PlaceAutocomplete
-              inputStyle={inputStyle}
-              placeholder="Birth place (start typing and pick your city)"
-              onSelect={(sel) => {
-                setCoords(sel)
-                if (sel) set('place', sel.label)
-              }}
-            />
-            {!coords && (
-              <div style={{ fontSize: 11.5, color: COLORS.textDim, marginTop: 4 }}>
-                Type a few letters and pick your city — the chart then uses its exact coordinates.
-              </div>
-            )}
-          </div>
-          {error && <div style={{ color: '#dc2626', fontSize: 13 }}>{error}</div>}
-          <button type="submit" disabled={busy} style={{
-            ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none',
-            background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`, color: '#fff',
-            opacity: busy ? 0.7 : 1,
-          }}>
-            {busy ? 'Calculating your kundli…' : 'Generate My Kundli'}
-          </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', fontSize: 11.5, opacity: 0.5 }}>
-            <BadgeCheck size={12} /> Swiss-ephemeris precision · Lal Kitab-style accuracy
-          </div>
-        </form>
-      )}
-    </div>
-  )
-}
 
 // ═══════════════ DAILY HOROSCOPE WIDGET ═══════════════
 function HoroscopeWidget({ resolve, theme, COLORS }) {
@@ -889,6 +709,13 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
   const resolve = domainProp ? { domain: domainProp } : { slug }
   const [bundle, setBundle] = useState(null)
   const [error, setError] = useState(null)
+  const [route, setRoute] = useState(() => window.location.hash)
+
+  useEffect(() => {
+    const onHash = () => setRoute(window.location.hash)
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
 
   useEffect(() => {
     setBundle(null); setError(null)
@@ -937,6 +764,10 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
     : { bg: '#0a0a1a', surface: 'rgba(255,255,255,0.04)', text: '#f1f0ff', textDim: 'rgba(241,240,255,0.6)', border: 'rgba(255,255,255,0.1)', heroOverlay: 'rgba(10,10,26,0.6)' }
 
   const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+
+  // Tool pages live on their own hash routes so the landing page stays clean.
+  if (route.startsWith('#/kundli')) return <KundliPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
+  if (route.startsWith('#/matching')) return <MatchingPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
 
   const sectionStyle = { maxWidth: 1000, margin: '0 auto', padding: '72px 20px' }
   const h2Style = { fontSize: 32, fontWeight: 800, marginBottom: 12, color: COLORS.text, textAlign: 'center' }
@@ -989,7 +820,8 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
             <a href="#about" style={{ color: COLORS.textDim, textDecoration: 'none' }}>About</a>
             <a href="#services" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Services</a>
             {showStore && <a href="#shop" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Shop</a>}
-            <a href="#tools" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Free Kundli</a>
+            <a href="#/kundli" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Free Kundli</a>
+            <a href="#/matching" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Match Making</a>
             <a href="#book" style={{
               padding: '9px 20px', borderRadius: 10, background: gradient, color: '#fff', textDecoration: 'none',
               display: 'flex', alignItems: 'center', gap: 6,
@@ -1191,7 +1023,26 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
             A complete kundli, today's rashifal and daily panchang — free for every visitor, powered by a professional Vedic engine.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20, alignItems: 'start' }}>
-            <KundliSoftware site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <a href="#/kundli" style={{ textDecoration: 'none', color: 'inherit' }}>
+                <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 26, height: '100%', cursor: 'pointer', transition: 'transform 0.15s' }}>
+                  <ScrollText size={22} color={theme.primaryColor} />
+                  <h3 style={{ fontSize: 18, fontWeight: 800, margin: '10px 0 6px' }}>Free Kundli</h3>
+                  <p style={{ fontSize: 13.5, color: COLORS.textDim, lineHeight: 1.6, margin: 0 }}>
+                    Your complete birth chart — lagna, planets, dasha timeline and dosha analysis in a detailed report.
+                  </p>
+                </div>
+              </a>
+              <a href="#/matching" style={{ textDecoration: 'none', color: 'inherit' }}>
+                <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 26, height: '100%', cursor: 'pointer', transition: 'transform 0.15s' }}>
+                  <Heart size={22} color={theme.accentColor} />
+                  <h3 style={{ fontSize: 18, fontWeight: 800, margin: '10px 0 6px' }}>Match Making</h3>
+                  <p style={{ fontSize: 13.5, color: COLORS.textDim, lineHeight: 1.6, margin: 0 }}>
+                    Ashtakoota gun milan across all 36 gunas with manglik analysis for both partners.
+                  </p>
+                </div>
+              </a>
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <HoroscopeWidget resolve={resolve} theme={theme} COLORS={COLORS} />
               <PanchangCard resolve={resolve} COLORS={COLORS} />
