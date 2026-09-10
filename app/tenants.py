@@ -259,7 +259,7 @@ def create_site(user_id: int, data: dict) -> dict:
         db.execute(
             _convert(
                 "INSERT INTO site_pages (site_id, page_key, title, content, is_published, updated_at) "
-                "VALUES (?, ?, ?, ?, 1, ?)"
+                "VALUES (?, ?, ?, ?, TRUE, ?)"
             ),
             (site_id, page_key, page["title"], json.dumps(page["content"]), now),
         )
@@ -268,7 +268,7 @@ def create_site(user_id: int, data: dict) -> dict:
         db.execute(
             _convert(
                 "INSERT INTO site_services (site_id, name, description, duration_minutes, price, currency, is_active, sort_order, created_at) "
-                "VALUES (?, ?, ?, ?, ?, 'INR', 1, ?, ?)"
+                "VALUES (?, ?, ?, ?, ?, 'INR', TRUE, ?, ?)"
             ),
             (site_id, svc["name"], svc["description"], svc["duration_minutes"], svc["price"], i, now),
         )
@@ -353,7 +353,7 @@ def get_page(site_id: int, page_key: str, published_only: bool = True):
     db = get_db()
     if published_only:
         row = db.execute(
-            _convert("SELECT * FROM site_pages WHERE site_id = ? AND page_key = ? AND is_published = 1"),
+            _convert("SELECT * FROM site_pages WHERE site_id = ? AND page_key = ? AND is_published = TRUE"),
             (site_id, page_key),
         ).fetchone()
     else:
@@ -380,12 +380,12 @@ def upsert_page(site_id: int, page_key: str, data: dict) -> dict:
     if existing:
         db.execute(
             _convert("UPDATE site_pages SET title = ?, content = ?, is_published = ?, updated_at = ? WHERE site_id = ? AND page_key = ?"),
-            (data.get("title"), content, 1 if data.get("is_published", True) else 0, _now(), site_id, page_key),
+            (data.get("title"), content, bool(data.get("is_published", True)), _now(), site_id, page_key),
         )
     else:
         db.execute(
             _convert("INSERT INTO site_pages (site_id, page_key, title, content, is_published, updated_at) VALUES (?, ?, ?, ?, ?, ?)"),
-            (site_id, page_key, data.get("title"), content, 1 if data.get("is_published", True) else 0, _now()),
+            (site_id, page_key, data.get("title"), content, bool(data.get("is_published", True)), _now()),
         )
     db.commit()
     return get_page(site_id, page_key, published_only=False)
@@ -399,7 +399,7 @@ def list_services(site_id: int, active_only: bool = False):
     db = get_db()
     if active_only:
         rows = db.execute(
-            _convert("SELECT * FROM site_services WHERE site_id = ? AND is_active = 1 ORDER BY sort_order, id"),
+            _convert("SELECT * FROM site_services WHERE site_id = ? AND is_active = TRUE ORDER BY sort_order, id"),
             (site_id,),
         ).fetchall()
     else:
@@ -431,7 +431,7 @@ def create_service(site_id: int, data: dict) -> dict:
             data.get("duration_minutes", 30),
             data.get("price", 0),
             data.get("currency", "INR"),
-            1 if data.get("is_active", True) else 0,
+            bool(data.get("is_active", True)),
             data.get("sort_order", 0),
             _now(),
         ),
@@ -449,7 +449,7 @@ def update_service(site_id: int, service_id: int, data: dict) -> dict:
             params.append(data[col])
     if "is_active" in data:
         fields.append("is_active = ?")
-        params.append(1 if data["is_active"] else 0)
+        params.append(bool(data["is_active"]))
     if fields:
         params.append(site_id)
         params.append(service_id)
