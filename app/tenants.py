@@ -838,6 +838,77 @@ def update_order(site_id: int, order_id: int, data: dict) -> dict:
 
 
 # ═══════════════════════════════════════════════
+#  Social media queue
+# ═══════════════════════════════════════════════
+
+def list_social_posts(site_id: int) -> list:
+    rows = get_db().execute(
+        _convert("SELECT * FROM site_social_posts WHERE site_id = ? ORDER BY created_at DESC, id DESC"),
+        (site_id,),
+    ).fetchall()
+    return [_to_dict(r) for r in rows]
+
+
+def get_social_post(site_id: int, post_id: int):
+    row = get_db().execute(
+        _convert("SELECT * FROM site_social_posts WHERE site_id = ? AND id = ?"), (site_id, post_id)
+    ).fetchone()
+    return _to_dict(row)
+
+
+def create_social_post(site_id: int, data: dict) -> dict:
+    db = get_db()
+    cur = db.execute(
+        _convert(
+            "INSERT INTO site_social_posts (site_id, content, kind, platforms, scheduled_at, status) "
+            "VALUES (?, ?, ?, ?, ?, ?) RETURNING id"
+        ),
+        (
+            site_id,
+            data.get("content", ""),
+            data.get("kind", "custom"),
+            data.get("platforms", ""),
+            data.get("scheduled_at"),
+            data.get("status", "draft"),
+        ),
+    )
+    post_id = cur.fetchone()[0]
+    db.commit()
+    return get_social_post(site_id, post_id)
+
+
+def update_social_post(site_id: int, post_id: int, data: dict) -> dict:
+    db = get_db()
+    existing = get_social_post(site_id, post_id)
+    if not existing:
+        return existing
+    fields = {
+        "content": data.get("content", existing.get("content")),
+        "platforms": data.get("platforms", existing.get("platforms")),
+        "scheduled_at": data.get("scheduled_at", existing.get("scheduled_at")),
+        "status": data.get("status", existing.get("status")),
+    }
+    posted_at = existing.get("posted_at")
+    if data.get("status") == "posted" and not posted_at:
+        from datetime import datetime as _dt
+        posted_at = _dt.utcnow().isoformat()
+    if data.get("status") != "posted":
+        posted_at = None if data.get("status") in ("draft", "scheduled", "cancelled") else posted_at
+    db.execute(
+        _convert("UPDATE site_social_posts SET content = ?, platforms = ?, scheduled_at = ?, status = ?, posted_at = ? WHERE site_id = ? AND id = ?"),
+        (fields["content"], fields["platforms"], fields["scheduled_at"], fields["status"], posted_at, site_id, post_id),
+    )
+    db.commit()
+    return get_social_post(site_id, post_id)
+
+
+def delete_social_post(site_id: int, post_id: int) -> None:
+    db = get_db()
+    db.execute(_convert("DELETE FROM site_social_posts WHERE site_id = ? AND id = ?"), (site_id, post_id))
+    db.commit()
+
+
+# ═══════════════════════════════════════════════
 #  Owner dashboard stats
 # ═══════════════════════════════════════════════
 

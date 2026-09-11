@@ -338,6 +338,23 @@ export const getLocationTimezone = (lat, lon) =>
     .then((r) => r.data?.timezone ?? r.data?.data?.timezone ?? 'UTC')
     .catch(() => 'UTC')
 
+// ──── SOCIAL MEDIA AUTOMATION ────
+export const getMySocial = (siteId, ensure) =>
+  api.get(`/sites/my/${siteId}/social`, { params: ensure ? { ensure: 1 } : {} })
+    .then((r) => r.data?.posts ?? r.data?.data?.posts ?? [])
+
+export const generateSocialPost = (siteId, kind, topic) =>
+  api.post(`/sites/my/${siteId}/social/generate`, { kind, topic: topic || undefined }).then((r) => r.data)
+
+export const createSocialPost = (siteId, data) =>
+  api.post(`/sites/my/${siteId}/social`, data).then((r) => r.data)
+
+export const updateSocialPost = (siteId, postId, data) =>
+  api.put(`/sites/my/${siteId}/social/${postId}`, data).then((r) => r.data)
+
+export const deleteSocialPost = (siteId, postId) =>
+  api.delete(`/sites/my/${siteId}/social/${postId}`).then((r) => r.data)
+
 export const publicPlaceOrder = (resolve, data) => {
   const qs = new URLSearchParams(resolveParams(resolve)).toString()
   return api.post(`/sites/site/order?${qs}`, data).then((r) => r.data)

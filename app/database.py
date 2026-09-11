@@ -351,6 +351,18 @@ CREATE TABLE IF NOT EXISTS site_orders (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (site_id) REFERENCES sites(id)
 );
+CREATE TABLE IF NOT EXISTS site_social_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    kind TEXT DEFAULT 'custom',
+    platforms TEXT DEFAULT '',
+    scheduled_at TEXT,
+    status TEXT DEFAULT 'draft',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    posted_at TIMESTAMP,
+    FOREIGN KEY (site_id) REFERENCES sites(id)
+);
 """
 
 _PG_DDL = """
@@ -564,6 +576,18 @@ CREATE TABLE IF NOT EXISTS site_orders (
     status TEXT DEFAULT 'new',
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS site_social_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    kind TEXT DEFAULT 'custom',
+    platforms TEXT DEFAULT '',
+    scheduled_at TEXT,
+    status TEXT DEFAULT 'draft',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    posted_at TIMESTAMP,
+    FOREIGN KEY (site_id) REFERENCES sites(id)
 );
 """
 

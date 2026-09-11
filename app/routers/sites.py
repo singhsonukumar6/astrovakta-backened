@@ -5,6 +5,7 @@ their site via /sites/my/* — sites are looked up by id and verified against th
 owner's user id, so tenants can never touch each other's data.
 """
 import re
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, List
@@ -18,6 +19,7 @@ from ..tenants import (
     list_bookings, get_booking, create_booking, update_booking,
     list_leads,
     list_products, get_product, create_product, update_product, delete_product,
+    list_social_posts, create_social_post, update_social_post, delete_social_post,
     list_orders, get_order, create_order, update_order, ORDER_STATUSES,
     site_stats, adjust_product_stock,
 )
@@ -367,6 +369,7 @@ class SettingsBody(BaseModel):
     payments_mode: Optional[str] = Field(None, pattern="^(later|upi|razorpay)$")
     upi_id: Optional[str] = Field(None, max_length=120)
     razorpay_key_id: Optional[str] = Field(None, max_length=120)
+    social_auto_daily: Optional[bool] = None
 
 
 @router.put("/my/{site_id}/settings")
@@ -421,6 +424,8 @@ def update_my_site_settings(site_id: int, body: SettingsBody, user: dict = Depen
         settings["upiId"] = cleaned_upi
     if body.razorpay_key_id is not None:
         settings["razorpayKeyId"] = body.razorpay_key_id.strip()
+    if body.social_auto_daily is not None:
+        settings["socialAutoDaily"] = body.social_auto_daily
     return update_site(site_id, {"settings": settings})
 
 
@@ -520,6 +525,160 @@ def update_my_booking(site_id: int, booking_id: int, body: UpdateBookingBody, us
 def my_site_stats(site_id: int, user: dict = Depends(get_current_user)):
     _require_owned_site(site_id, user)
     return site_stats(site_id)
+
+
+# ─────────────── social media automation ───────────────
+
+class SocialPostBody(BaseModel):
+    content: str = Field(..., min_length=1, max_length=3000)
+    platforms: Optional[str] = Field("", max_length=120)
+    scheduled_at: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}")
+    status: Optional[str] = Field("draft", pattern="^(draft|scheduled|posted|cancelled)$")
+
+
+class GeneratePostBody(BaseModel):
+    kind: str = Field("daily", pattern="^(daily|festival|promo|custom)$")
+    topic: Optional[str] = Field(None, max_length=200)
+
+
+_TIPS = [
+    "A calm mind attracts favourable planets — start your day with 5 minutes of silence.",
+    "Light a diya at sunrise and let gratitude set the tone of your day.",
+    "Offer water to the Sun (Surya Arghya) for confidence and clarity.",
+    "Keep your north-east corner clean and clutter-free for positive energy.",
+    "Chanting even one mantra daily with devotion is more powerful than a hundred done absent-mindedly.",
+    "Thursdays are auspicious for worshiping Lord Vishnu and donating yellow food.",
+    "Wearing gemstones without consulting your chart can do more harm than good — always check first.",
+    "Charity done quietly multiplies good karma — donate what you can, when you can.",
+]
+
+
+def _compose_social_post(site: dict, kind: str, topic: Optional[str] = None) -> str:
+    """Compose a ready-to-post update from the live astrology engines."""
+    from datetime import date as _date, datetime as _datetime
+    from .festival import HINDU_FESTIVALS
+    from ..utils import compute_panchang
+
+    name = site.get("name") or "Your astrologer"
+    site_url = f"https://{site.get('slug')}.astrovakta.com" if site.get("slug") else ""
+    today = _date.today()
+
+    if kind == "daily":
+        p = compute_panchang(today.isoformat(), "12:00", "Asia/Kolkata", 28.6139, 77.2090)
+        tithi = p.get("tithi") or p.get("Tithi") or ""
+        nak = p.get("nakshatra") or p.get("Nakshatra") or ""
+        tip = _TIPS[today.timetuple().tm_yday % len(_TIPS)]
+        lines = [
+            f"🕉️ {today.strftime('%A, %d %B %Y')} — Today's Panchang",
+            f"Tithi: {tithi} | Nakshatra: {nak}" if (tithi or nak) else "Auspicious day for new beginnings.",
+            "",
+            f"✨ Astro tip of the day: {tip}",
+            "",
+            f"For a personal reading, book a consultation with {name}." + (f" 👉 {site_url}" if site_url else ""),
+            "#astrology #vedicastrology #panchang #dailyhoroscope #jyotish",
+        ]
+        return "\n".join(lines)
+
+    if kind == "festival":
+        year = today.year
+        upcoming = []
+        for fest, fest_date in (HINDU_FESTIVALS.get(year, {})).items():
+            try:
+                d = _datetime.strptime(fest_date, "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                continue
+            if d >= today:
+                upcoming.append((d, fest))
+        upcoming.sort()
+        if upcoming:
+            d, fest = upcoming[0]
+            days_to = (d - today).days
+            when = f"tomorrow!" if days_to == 0 else f"on {d.strftime('%d %B')} ({days_to} days to go)"
+            lines = [
+                f"🪔 {fest} falls {when}",
+                "",
+                f"Wishing you and your family divine blessings on this auspicious occasion. "
+                f"Celebrate with devotion — and if you want to know what this festival means for your chart, "
+                f"book a consultation with {name}." + (f" 👉 {site_url}" if site_url else ""),
+                "#festival #hindufestival #astrology #vedicastrology",
+            ]
+            return "\n".join(lines)
+        return _compose_social_post(site, "daily")
+
+    if kind == "promo":
+        from .tenants import list_services
+        svcs = list_services(site.get("id")) or []
+        svc_lines = "\n".join(f"• {s['name']} — ₹{s.get('price', 0)}" for s in svcs[:4])
+        lines = [
+            "🔮 Consultations now open!",
+            "",
+            svc_lines or "• Kundli reading • Match making • Career & business guidance",
+            "",
+            f"Book online in under a minute." + (f" 👉 {site_url}" if site_url else ""),
+            "#astrologyconsultation #kundli #vedicastrology #booknow",
+        ]
+        return "\n".join(lines)
+
+    # custom
+    clean_topic = (topic or "").strip() or "Astrology wisdom for everyday life"
+    lines = [
+        f"✨ {clean_topic}",
+        "",
+        f"— {name}" + (f" | {site_url}" if site_url else ""),
+        "#astrology #vedicastrology #jyotish",
+    ]
+    return "\n".join(lines)
+
+
+@router.get("/my/{site_id}/social")
+def my_social_posts(site_id: int, ensure: int = 0, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    if ensure:
+        site = get_site_by_id(site_id)
+        settings = site.get("settings") or {}
+        if settings.get("socialAutoDaily"):
+            today = date.today().isoformat()
+            posts = list_social_posts(site_id)
+            if not any((p.get("created_at") or "")[:10] == today and p.get("kind") == "daily" for p in posts):
+                content = _compose_social_post(site, "daily")
+                create_social_post(site_id, {"content": content, "kind": "daily", "status": "scheduled",
+                                             "scheduled_at": f"{today}T09:00", "platforms": "whatsapp,facebook"})
+    return {"posts": list_social_posts(site_id)}
+
+
+@router.post("/my/{site_id}/social/generate")
+def generate_social_post(site_id: int, body: GeneratePostBody, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    site = get_site_by_id(site_id)
+    content = _compose_social_post(site, body.kind, body.topic)
+    return {"content": content}
+
+
+@router.post("/my/{site_id}/social")
+def add_social_post(site_id: int, body: SocialPostBody, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    status = body.status
+    if body.scheduled_at and status == "draft":
+        status = "scheduled"
+    post = create_social_post(site_id, {"content": body.content, "platforms": body.platforms,
+                                        "scheduled_at": body.scheduled_at, "status": status, "kind": "custom"})
+    return post
+
+
+@router.put("/my/{site_id}/social/{post_id}")
+def edit_social_post(site_id: int, post_id: int, body: SocialPostBody, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    post = update_social_post(site_id, post_id, body.model_dump(exclude_none=True))
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return post
+
+
+@router.delete("/my/{site_id}/social/{post_id}")
+def remove_social_post(site_id: int, post_id: int, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    delete_social_post(site_id, post_id)
+    return {"ok": True}
 
 
 # ─────────────── products (store) ───────────────

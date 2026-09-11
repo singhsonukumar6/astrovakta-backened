@@ -8,6 +8,7 @@ import {
   Bell, Crown, Loader2, LayoutDashboard, Package, ShoppingBag, Link2,
   Phone, Star, TrendingUp, IndianRupee, Menu, LogOut, PanelLeft, Home,
   Key, Bot, ScrollText, Zap, BarChart3, User,
+  Share2, Copy, Calendar as CalendarIcon, Clock as ClockIcon,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth.jsx'
@@ -26,6 +27,7 @@ import {
   checkSlugAvailability, checkDomainAvailability, setMySiteMedia, setMySiteSettings, getMyLeads,
   getMySiteStats, getMyProducts, createMyProduct, updateMyProduct, deleteMyProduct,
   getMyOrders, updateMyOrder, getKeys,
+  getMySocial, generateSocialPost, createSocialPost, updateSocialPost, deleteSocialPost,
 } from '../lib/api.js'
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -1078,6 +1080,209 @@ function DomainTab({ site, reload }) {
   )
 }
 
+// ═══════════════ SOCIAL TAB (content automation + queue + one-tap sharing) ═══════════════
+const SOCIAL_PLATFORMS = [
+  { id: 'whatsapp', label: 'WhatsApp' },
+  { id: 'facebook', label: 'Facebook' },
+  { id: 'instagram', label: 'Instagram' },
+  { id: 'x', label: 'X / Twitter' },
+  { id: 'telegram', label: 'Telegram' },
+  { id: 'linkedin', label: 'LinkedIn' },
+]
+
+function SocialTab({ site, reload }) {
+  const [posts, setPosts] = useState(null)
+  const [content, setContent] = useState('')
+  const [topic, setTopic] = useState('')
+  const [platforms, setPlatforms] = useState(['whatsapp', 'facebook'])
+  const [scheduleAt, setScheduleAt] = useState('')
+  const [autoDaily, setAutoDaily] = useState(site.settings?.socialAutoDaily || false)
+  const [busy, setBusy] = useState('')
+  const siteUrl = tenantSiteUrl(site.slug)
+
+  const load = (ensure) => {
+    getMySocial(site.id, ensure ? 1 : 0).then(setPosts).catch(() => setPosts([]))
+  }
+  useEffect(() => { load(true) }, [site.id]) // eslint-disable-line
+
+  const doGenerate = async (kind) => {
+    setBusy(kind)
+    try {
+      const res = await generateSocialPost(site.id, kind, topic)
+      setContent(res.content)
+      toast.success('Post drafted — edit it if you like, then schedule or share')
+    } catch (e) { toast.error(errDetail(e, 'Could not generate a post')) }
+    finally { setBusy('') }
+  }
+
+  const addToQueue = async (status) => {
+    if (!content.trim()) return toast.error('Generate or write a post first')
+    if (status === 'scheduled' && !scheduleAt) return toast.error('Pick a date & time to schedule')
+    setBusy('save')
+    try {
+      await createSocialPost(site.id, { content, platforms: platforms.join(','), scheduled_at: scheduleAt || undefined, status })
+      setContent(''); setTopic(''); setScheduleAt('')
+      toast.success(status === 'scheduled' ? 'Added to your queue' : 'Saved as draft')
+      load()
+    } catch (e) { toast.error(errDetail(e, 'Could not save the post')) }
+    finally { setBusy('') }
+  }
+
+  const toggleAuto = async () => {
+    const next = !autoDaily
+    setAutoDaily(next)
+    try {
+      await setMySiteSettings(site.id, { social_auto_daily: next })
+      toast.success(next ? 'Daily post will be auto-drafted every morning' : 'Auto-daily turned off')
+      reload()
+    } catch { setAutoDaily(!next); toast.error('Could not update setting') }
+  }
+
+  const shareLinks = (post) => {
+    const enc = encodeURIComponent(post.content)
+    return {
+      whatsapp: `https://wa.me/?text=${enc}`,
+      telegram: `https://t.me/share/url?url=${encodeURIComponent(siteUrl)}&text=${enc}`,
+      x: `https://twitter.com/intent/tweet?text=${enc}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(siteUrl)}&quote=${enc.slice(0, 300)}`,
+      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(siteUrl)}`,
+      instagram: null,
+    }
+  }
+
+  const markPosted = async (post) => {
+    try {
+      await updateSocialPost(site.id, post.id, { content: post.content, status: 'posted' })
+      toast.success('Marked as posted')
+      load()
+    } catch { toast.error('Could not update') }
+  }
+
+  const removePost = async (post) => {
+    try {
+      await deleteSocialPost(site.id, post.id)
+      load()
+    } catch { toast.error('Could not delete') }
+  }
+
+  const statusChip = (s) => ({
+    draft: { bg: 'rgba(148,163,184,0.15)', color: '#64748b' },
+    scheduled: { bg: 'rgba(59,130,246,0.12)', color: '#2563eb' },
+    posted: { bg: 'rgba(34,197,94,0.12)', color: '#16a34a' },
+    cancelled: { bg: 'rgba(239,68,68,0.12)', color: '#dc2626' },
+  }[s] || { bg: '#eee', color: '#666' })
+
+  return (
+    <div>
+      {/* automation setting */}
+      <div style={{ ...cardStyle, marginBottom: 20, borderColor: 'rgba(79,70,229,0.3)' }}>
+        <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Share2 size={17} color="#4f46e5" /> Social media automation
+        </h3>
+        <p style={{ fontSize: 13.5, color: '#64748b', marginBottom: 12, lineHeight: 1.6 }}>
+          Ready-to-post updates generated from your live panchang and the festival calendar — daily panchang posts,
+          festival greetings and consultation promos. Share them anywhere in one tap.
+        </p>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+          <input type="checkbox" checked={autoDaily} onChange={toggleAuto} style={{ accentColor: '#4f46e5', width: 16, height: 16 }} />
+          Auto-create today's panchang post every morning (queued for 9:00 AM)
+        </label>
+      </div>
+
+      {/* composer */}
+      <div style={{ ...cardStyle, marginBottom: 20 }}>
+        <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>Compose a post</h3>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+          {[['daily', '📅 Daily panchang'], ['festival', '🪔 Festival greeting'], ['promo', '📣 Consultation promo']].map(([kind, label]) => (
+            <button key={kind} onClick={() => doGenerate(kind)} disabled={!!busy}
+              style={{ ...ghostBtn, padding: '9px 14px', fontSize: 13, opacity: busy ? 0.6 : 1 }}>
+              {busy === kind ? <Loader2 size={14} className="spin" /> : label}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Custom topic (e.g. benefits of Rudraksha)" style={inputStyle} />
+          <button onClick={() => doGenerate('custom')} disabled={!!busy || !topic.trim()} style={{ ...primaryBtn, padding: '10px 16px', fontSize: 13, opacity: busy || !topic.trim() ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+            {busy === 'custom' ? <Loader2 size={14} className="spin" /> : 'Draft'}
+          </button>
+        </div>
+        <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={8}
+          placeholder="Your post will appear here — edit freely before scheduling."
+          style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6 }} />
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', margin: '12px 0' }}>
+          {SOCIAL_PLATFORMS.map((p) => (
+            <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#475569' }}>
+              <input type="checkbox" checked={platforms.includes(p.id)}
+                onChange={(e) => setPlatforms((cur) => e.target.checked ? [...cur, p.id] : cur.filter((x) => x !== p.id))}
+                style={{ accentColor: '#4f46e5' }} />
+              {p.label}
+            </label>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input type="datetime-local" value={scheduleAt} onChange={(e) => setScheduleAt(e.target.value)} style={{ ...inputStyle, maxWidth: 230 }} />
+          <button onClick={() => addToQueue('scheduled')} disabled={busy === 'save'} className="btn-primary" style={{ ...primaryBtn, opacity: busy === 'save' ? 0.6 : 1 }}>
+            <CalendarIcon size={15} /> Schedule
+          </button>
+          <button onClick={() => addToQueue('draft')} disabled={busy === 'save'} style={{ ...ghostBtn, opacity: busy === 'save' ? 0.6 : 1 }}>
+            Save as draft
+          </button>
+        </div>
+      </div>
+
+      {/* queue */}
+      <h3 style={{ fontSize: 17, fontWeight: 700, margin: '24px 0 12px' }}>
+        Content queue {posts ? `(${posts.length})` : ''}
+      </h3>
+      {posts === null ? (
+        <div style={{ color: '#64748b', padding: 24 }}>Loading…</div>
+      ) : posts.length === 0 ? (
+        <div style={{ ...cardStyle, color: '#64748b', textAlign: 'center', padding: 32 }}>
+          No posts yet — generate one above or turn on auto-daily.
+        </div>
+      ) : (
+        posts.map((post) => {
+          const chip = statusChip(post.status)
+          const links = shareLinks(post)
+          return (
+            <div key={post.id} style={{ ...cardStyle, marginBottom: 12, padding: 18 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 12, background: chip.bg, color: chip.color }}>{post.status}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 12, background: '#f1f5f9', color: '#475569' }}>{post.kind}</span>
+                  {post.scheduled_at && <span style={{ fontSize: 12, color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: 4 }}><ClockIcon size={12} /> {String(post.scheduled_at).replace('T', ' ')}</span>}
+                </div>
+                <button onClick={() => removePost(post)} title="Delete" style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 4 }}>
+                  <Trash2 size={15} />
+                </button>
+              </div>
+              <div style={{ whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.65, color: '#334155', marginBottom: 12 }}>{post.content}</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                {SOCIAL_PLATFORMS.filter((p) => links[p.id]).map((p) => (
+                  <a key={p.id} href={links[p.id]} target="_blank" rel="noopener noreferrer"
+                    onClick={() => { if (post.status !== 'posted') markPosted(post) }}
+                    style={{ fontSize: 12, fontWeight: 700, padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', color: '#475569', textDecoration: 'none' }}>
+                    {p.label}
+                  </a>
+                ))}
+                <button onClick={() => { navigator.clipboard.writeText(post.content); toast.success('Copied — paste it in the app, then it is marked posted') }}
+                  style={{ fontSize: 12, fontWeight: 700, padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', color: '#475569', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <Copy size={12} /> Copy {post.platforms?.includes('instagram') ? '(Instagram)' : ''}
+                </button>
+                {post.status !== 'posted' && (
+                  <button onClick={() => markPosted(post)} style={{ fontSize: 12, fontWeight: 700, padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(34,197,94,0.4)', background: 'rgba(34,197,94,0.08)', color: '#16a34a', cursor: 'pointer' }}>
+                    Mark posted
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        })
+      )}
+    </div>
+  )
+}
+
 // ═══════════════ SETTINGS TAB (alerts, social, contact, plan, danger zone) ═══════════════
 function SettingsTab({ site, reload }) {
   const [wa, setWa] = useState(site.settings?.whatsappNumber || '')
@@ -1338,6 +1543,7 @@ const TABS = [
   { id: 'hours', label: 'Hours', icon: Clock },
   { id: 'bookings', label: 'Bookings', icon: Calendar },
   { id: 'leads', label: 'Leads', icon: Users },
+  { id: 'social', label: 'Social', icon: Share2 },
   { id: 'domain', label: 'Domain', icon: Globe2 },
   { id: 'settings', label: 'Settings', icon: Settings2 },
 ]
@@ -1689,6 +1895,7 @@ export default function MySite() {
               {tab === 'hours' && <HoursTab site={site} reload={reload} />}
               {tab === 'bookings' && <BookingsTab site={site} />}
               {tab === 'leads' && <LeadsTab site={site} />}
+              {tab === 'social' && <SocialTab site={site} reload={reload} />}
               {tab === 'domain' && <DomainTab site={site} reload={reload} />}
               {tab === 'settings' && <SettingsTab site={site} reload={reload} />}
               {tab === 'keys' && <APIKeys keys={keys} onRefresh={refreshKeys} />}
