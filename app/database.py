@@ -584,9 +584,9 @@ CREATE TABLE IF NOT EXISTS site_social_posts (
     kind TEXT DEFAULT 'custom',
     platforms TEXT DEFAULT '',
     scheduled_at TEXT,
+    status TEXT DEFAULT 'draft',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     posted_at TIMESTAMPTZ,
-    posted_at TIMESTAMP,
     FOREIGN KEY (site_id) REFERENCES sites(id)
 );
 """
