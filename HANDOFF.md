@@ -1,0 +1,71 @@
+# AstroVakta — Project Handoff & Roadmap
+
+_Last updated: 2026-09-11. Start here when resuming work._
+
+## What the product is
+
+Multi-tenant website builder on the AstroVakta astrology API. An astrologer signs up,
+creates a site (slug.astrovakta.com or custom domain), and manages everything from the
+`/mysite` dashboard: content, themes, services, store, hours, bookings, leads, **social
+media**, custom domain, payments, settings (+ developer tools: API keys, usage).
+
+## Deploy
+
+- **Backend**: DigitalOcean droplet 159.65.144.202 — `ssh root@159.65.144.202; cd /opt/astrovakta-backened; git pull origin main; docker compose up -d --build` (needed whenever `app/` changes; DDL uses `CREATE TABLE IF NOT EXISTS` so new tables self-create on container start).
+- **Frontend**: Vercel auto-deploys on push (dev.astrovakta.com). `VITE_API_BASE_URL=https://api.astrovakta.com`.
+- **DNS**: Vercel nameservers. `api` A record → 159.65.144.202. Wildcard `*` serves tenant subdomains.
+- **Local dev**: uvicorn on 8901 (`DATABASE_URL="sqlite:///./astrovakta.db" .venv/bin/uvicorn app.main:app --port 8901`) + vite on 4188.
+
+## Recently shipped (in commit order)
+
+- Login/Register redesign (Clerk removed; email/password JWT), 10-tab dashboard, complete
+  tenant landing page, store (stock lifecycle), 8 themes, payments (pay-later / UPI /
+  Razorpay checkout), public kundli + match-making + dosha tools on hash routes
+  (`#/kundli`, `#/matching`), birth-place autocomplete (public `/api/location/*`, 30 req/min
+  per-IP limit), dedicated onboarding route, developer dashboard merged into `/mysite`.
+- **Social media automation** (Social tab): content engine (daily panchang post, festival
+  greetings from `HINDU_FESTIVALS`, promos, custom topic), auto-daily queue setting
+  (`settings.socialAutoDaily`, ensure=1 idempotent per day), scheduled queue, one-tap
+  share links (WhatsApp/Telegram/X/Facebook/LinkedIn), copy-for-Instagram, mark-posted.
+- **Phase-1 media pipeline** (`app/social_media.py`): branded 1080×1080 image cards
+  (Pillow, theme gradient + astrologer branding) and short square slideshow videos
+  (ffmpeg h264). `POST /sites/my/{id}/social/media {content, format}` returns a base64
+  data URL; Social tab has per-post/composer "Image/Video" buttons with download.
+  Dockerfile now installs `ffmpeg fonts-dejavu-core`.
+
+## Phase 2 — platform connections (NOT started)
+
+Goal: astrologer OAuth-connects Instagram/Facebook, YouTube, LinkedIn, X.
+
+- New table `social_accounts (id, site_id, platform, external_id, username, access_token,
+  refresh_token, token_expires_at, scopes, status, created_at)`.
+- OAuth connect/callback endpoints per platform; client IDs/secrets from server env:
+  `META_APP_ID/SECRET` (Instagram needs IG **Business/Creator** account + linked FB Page;
+  App Review for `pages_manage_posts`, `instagram_content_publish`), `GOOGLE_CLIENT_ID/SECRET`
+  (YouTube upload; video-only), `LINKEDIN_CLIENT_ID/SECRET` (`w_member_social`), `X_*`
+  (write access is PAID — Basic ~$200/mo).
+- Connect buttons in the Social tab render dormant until env credentials exist — no code
+  change needed to activate.
+- Persisting generated media (currently on-demand base64) likely needed for IG/YouTube:
+  add a `media` column or file storage.
+
+## Phase 3 — auto-poster (NOT started)
+
+- Celery beat (worker exists: `celery -A app.celery_app worker -Q pdf,ai,default`) with a
+  periodic task that fires due `site_social_posts` (status='scheduled', scheduled_at passed).
+- Per-platform posting adapters using stored tokens; record per-post delivery status +
+  retries; rate-limit conservatively (few posts/day/account — platforms flag spam).
+- Social tab: per-post delivery status badges; failure alerts via existing WhatsApp setting.
+
+## Known notes / gotchas
+
+- `tests/conftest.py` autouse fixture wipes the dev DB `users` table per test — re-login
+  after running pytest.
+- `AnimatePresence mode="wait"` is banned in app surfaces: throttled-rAF environments
+  freeze exit animations. Use the CSS-fade pattern (`mysite-tab-fade`, `wiz-step-in`).
+- Embedded-browser automation sometimes drops synthetic clicks; React handler invocation
+  via `__reactProps$` is the reliable test path.
+- `/api/*` is API-key protected by `APIKeyMiddleware` except `PUBLIC_CONTENT_PREFIXES`
+  (page-config, blogs, `/api/location/`). Tenant public tools live under `/sites/site/tools/*`.
+- Sites endpoints return unwrapped JSON; `/api/*` and `/sites/*` (after ResponseWrap
+  middleware) may wrap in `{success, data}` — frontend unwraps both shapes.

@@ -681,6 +681,30 @@ def remove_social_post(site_id: int, post_id: int, user: dict = Depends(get_curr
     return {"ok": True}
 
 
+class SocialMediaBody(BaseModel):
+    content: str = Field(..., min_length=1, max_length=3000)
+    format: str = Field("image", pattern="^(image|video)$")
+
+
+@router.post("/my/{site_id}/social/media")
+def social_post_media(site_id: int, body: SocialMediaBody, user: dict = Depends(get_current_user)):
+    """Phase-1 media pipeline: branded image card (Pillow) or short slideshow
+    video (ffmpeg) rendered from the post text in the site's theme colors."""
+    _require_owned_site(site_id, user)
+    site = get_site_by_id(site_id)
+    from ..social_media import render_image, render_video
+    lines = [ln.strip() for ln in body.content.split("\n") if ln.strip()]
+    headline = lines[0].lstrip("🕉️🪔✨🔮📅📣 ") if lines else site.get("name") or "AstroVakta"
+    body_lines = lines[1:] or [""]
+    footer = f"{site.get('slug')}.astrovakta.com" if site.get("slug") else ""
+    try:
+        if body.format == "video":
+            return {"dataUrl": render_video(site, headline, body_lines, footer)}
+        return {"dataUrl": render_image(site, headline, body_lines, footer)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not render media: {e}")
+
+
 # ─────────────── products (store) ───────────────
 
 @router.get("/my/{site_id}/products")

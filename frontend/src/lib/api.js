@@ -355,6 +355,9 @@ export const updateSocialPost = (siteId, postId, data) =>
 export const deleteSocialPost = (siteId, postId) =>
   api.delete(`/sites/my/${siteId}/social/${postId}`).then((r) => r.data)
 
+export const socialPostMedia = (siteId, content, format) =>
+  api.post(`/sites/my/${siteId}/social/media`, { content, format }).then((r) => r.data?.dataUrl ?? r.data?.data?.dataUrl)
+
 export const publicPlaceOrder = (resolve, data) => {
   const qs = new URLSearchParams(resolveParams(resolve)).toString()
   return api.post(`/sites/site/order?${qs}`, data).then((r) => r.data)

@@ -13,9 +13,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # ─── Runtime Stage ───
 FROM python:3.11-slim
 
-# Runtime libs for cairosvg, bcrypt, pyswisseph
+# Runtime libs for cairosvg, bcrypt, pyswisseph + ffmpeg for social video rendering
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libffi8 \
+    libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libffi8 ffmpeg fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

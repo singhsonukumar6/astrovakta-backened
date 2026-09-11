@@ -27,7 +27,7 @@ import {
   checkSlugAvailability, checkDomainAvailability, setMySiteMedia, setMySiteSettings, getMyLeads,
   getMySiteStats, getMyProducts, createMyProduct, updateMyProduct, deleteMyProduct,
   getMyOrders, updateMyOrder, getKeys,
-  getMySocial, generateSocialPost, createSocialPost, updateSocialPost, deleteSocialPost,
+  getMySocial, generateSocialPost, createSocialPost, updateSocialPost, deleteSocialPost, socialPostMedia,
 } from '../lib/api.js'
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -1099,6 +1099,31 @@ function SocialTab({ site, reload }) {
   const [autoDaily, setAutoDaily] = useState(site.settings?.socialAutoDaily || false)
   const [busy, setBusy] = useState('')
   const siteUrl = tenantSiteUrl(site.slug)
+  const [media, setMedia] = useState({})
+
+  const makeMedia = async (key, content, format) => {
+    setMedia((m) => ({ ...m, [key]: 'loading' }))
+    try {
+      const url = await socialPostMedia(site.id, content, format)
+      setMedia((m) => ({ ...m, [key]: url }))
+    } catch { setMedia((m) => ({ ...m, [key]: 'error' })); toast.error('Could not render media') }
+  }
+
+  const MediaPreview = ({ k, name }) => {
+    const u = media[k]
+    if (!u || u === 'loading' || u === 'error') return null
+    const dl = u.startsWith('data:video') ? `post-${name}.mp4` : `post-${name}.png`
+    return (
+      <div style={{ marginTop: 10 }}>
+        {u.startsWith('data:video')
+          ? <video src={u} controls style={{ width: '100%', maxWidth: 300, borderRadius: 12 }} />
+          : <img src={u} alt="post media" style={{ width: '100%', maxWidth: 300, borderRadius: 12 }} />}
+        <a href={u} download={dl} style={{ display: 'inline-block', marginTop: 6, fontSize: 12.5, fontWeight: 700, color: '#4f46e5', textDecoration: 'none' }}>
+          ⬇ Download {u.startsWith('data:video') ? 'video' : 'image'}
+        </a>
+      </div>
+    )
+  }
 
   const load = (ensure) => {
     getMySocial(site.id, ensure ? 1 : 0).then(setPosts).catch(() => setPosts([]))
@@ -1228,6 +1253,11 @@ function SocialTab({ site, reload }) {
             Save as draft
           </button>
         </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+          <button onClick={() => makeMedia('composer-i', content, 'image')} disabled={!content.trim()} style={{ ...ghostBtn, padding: '8px 12px', fontSize: 12.5, opacity: !content.trim() ? 0.5 : 1 }}>🖼 Generate image card</button>
+          <button onClick={() => makeMedia('composer-v', content, 'video')} disabled={!content.trim()} style={{ ...ghostBtn, padding: '8px 12px', fontSize: 12.5, opacity: !content.trim() ? 0.5 : 1 }}>🎬 Generate video</button>
+        </div>
+        {content.trim() && <><MediaPreview k="composer-i" name="draft-i" /><MediaPreview k="composer-v" name="draft-v" /></>}
       </div>
 
       {/* queue */}
@@ -1274,7 +1304,11 @@ function SocialTab({ site, reload }) {
                     Mark posted
                   </button>
                 )}
+                <button onClick={() => makeMedia('p' + post.id + 'i', post.content, 'image')} style={{ fontSize: 12, fontWeight: 700, padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', color: '#475569', cursor: 'pointer' }}>🖼 Image</button>
+                <button onClick={() => makeMedia('p' + post.id + 'v', post.content, 'video')} style={{ fontSize: 12, fontWeight: 700, padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', color: '#475569', cursor: 'pointer' }}>🎬 Video</button>
               </div>
+              <MediaPreview k={'p' + post.id + 'i'} name={post.id + '-i'} />
+              <MediaPreview k={'p' + post.id + 'v'} name={post.id + '-v'} />
             </div>
           )
         })
