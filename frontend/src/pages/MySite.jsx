@@ -1830,6 +1830,18 @@ export default function MySite() {
                 {!sidebarCollapsed && t.label}
               </button>
             ))}
+            {user?.is_admin && (
+              <button onClick={() => navigate('/admin')} title={sidebarCollapsed ? 'Admin Panel' : undefined}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', gap: 11,
+                  marginTop: 8, padding: '10px 12px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  border: '1px solid rgba(245,158,11,0.35)', background: 'rgba(245,158,11,0.08)', color: '#d97706',
+                  textAlign: 'left', whiteSpace: 'nowrap', flexShrink: 0,
+                }}>
+                <Shield size={16} style={{ flexShrink: 0 }} />
+                {!sidebarCollapsed && 'Admin Panel'}
+              </button>
+            )}
             {!sidebarCollapsed && (
               <div style={{ marginTop: 'auto', padding: '12px 8px 4px' }}>
                 <div style={{ fontSize: 11.5, color: '#94a3b8', lineHeight: 1.6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -1897,6 +1909,12 @@ export default function MySite() {
                       <t.icon size={17} /> {t.label}
                     </button>
                   ))}
+                  {user?.is_admin && (
+                    <button onClick={() => { setMobileNavOpen(false); navigate('/admin') }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 12px', borderRadius: 10, border: '1px solid rgba(245,158,11,0.35)', background: 'rgba(245,158,11,0.08)', color: '#d97706', fontSize: 14, fontWeight: 700, cursor: 'pointer', marginTop: 8 }}>
+                      <Shield size={16} /> Admin Panel
+                    </button>
+                  )}
                   <div style={{ marginTop: 'auto', padding: '14px 8px 6px', borderTop: '1px solid #f1f5f9' }}>
                     <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8 }}>
                       Signed in as<br /><span style={{ color: '#475569', fontWeight: 600, wordBreak: 'break-all' }}>{user?.email}</span>
