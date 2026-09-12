@@ -69,3 +69,34 @@ Goal: astrologer OAuth-connects Instagram/Facebook, YouTube, LinkedIn, X.
   (page-config, blogs, `/api/location/`). Tenant public tools live under `/sites/site/tools/*`.
 - Sites endpoints return unwrapped JSON; `/api/*` and `/sites/*` (after ResponseWrap
   middleware) may wrap in `{success, data}` — frontend unwraps both shapes.
+
+## Backend audit (2026-09-11) — gaps, bugs, opportunities
+
+### Known bugs / inconsistencies (fix candidates)
+1. **Envelope inconsistency**: `/sites/*` successes return raw JSON; error paths and `/api/*`
+   return `{success, message, data}`. Frontend unwraps both, but API consumers see two shapes.
+   Standardize (register ResponseWrapMiddleware, or drop it) — touching many clients, do deliberately.
+2. **lal_kitab.py sync-endpoint translate bug pattern**: other modules may also call
+   `translate_paragraphs` without await inside sync endpoints — grep `= translate_paragraphs(`
+   (without await) across routers; only chart-analysis was fixed.
+3. `update_social_post` posted_at logic is convoluted (double-assignment); simplify.
+4. `_rate_bucket` in location.py is per-process only — with multiple workers/gunicorn it's
+   per-worker; fine today (single uvicorn), revisit if scaling.
+5. `/sites/site/tools/kundli-full` calls `tenant_kundli_tool` directly → `_resolve_site` runs
+   twice (harmless, minor).
+6. No request size/rate limits on public tool endpoints (`/sites/site/tools/*`) beyond
+   location — candidate for the same per-IP limiter (kundli is CPU-heavy).
+
+### Missing endpoints worth adding
+- `POST /payments/razorpay/webhook` — server-side payment verification (needs
+  `RAZORPAY_KEY_SECRET`); currently payments are honor-system.
+- `GET /sites/my/{id}/leads/export` — CSV export of leads/bookings/orders.
+- `POST /sites/my/{id}/social/{post_id}/render-auto` — pre-render media at schedule time
+  (phase-3 poster will need stored media files, not on-demand base64).
+- `GET /sites/my/{id}/bookings.ics` — calendar feed for bookings.
+- Tenant-site SEO: `GET /sitemap.xml` per custom domain (tenant blogs exist under /api/blogs).
+- Notifications digest: daily email/WhatsApp summary of bookings+leads to the astrologer.
+
+### Ops
+- Prod DDL drift risk: SQLite and `_PG_DDL` blocks in database.py must stay in sync
+  (bit us once — AUTOINCREMENT in PG). Consider a single schema source transpiled.
