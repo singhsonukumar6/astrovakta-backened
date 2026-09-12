@@ -5,7 +5,7 @@ resolved by subdomain slug or custom domain; only published sites are visible.
 """
 import json
 from datetime import date, timedelta
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
@@ -364,6 +364,27 @@ class DoshaToolBody(_BirthCoords):
     pass
 
 
+
+# CPU-heavy public tools get a modest per-IP cap (shared limiter with location).
+_tool_bucket = {}
+
+
+def _tool_limit(request: Request, max_calls: int = 12, window: float = 60.0):
+    from .location import _rate_limit as _loc_limit
+    client_ip = request.client.host if request.client else "unknown"
+    import time as _t
+    now = _t.time()
+    hits = [t for t in _tool_bucket.get(client_ip, []) if now - t < window]
+    if len(hits) >= max_calls:
+        from fastapi import HTTPException as _HE
+        raise _HE(status_code=429, detail="Too many requests — please wait a minute.")
+    hits.append(now)
+    _tool_bucket[client_ip] = hits
+    if len(_tool_bucket) > 10000:
+        _tool_bucket.clear()
+    del _loc_limit
+
+
 def _stub_request():
     """dosha/compat internals only read accept-language off the request."""
     from types import SimpleNamespace
@@ -371,9 +392,10 @@ def _stub_request():
 
 
 @router.post("/site/tools/matching")
-async def tenant_matching_tool(body: MatchingToolBody, slug: str = None, domain: str = None):
+async def tenant_matching_tool(body: MatchingToolBody, request: Request, slug: str = None, domain: str = None):
     """Ashtakoota gun milan + manglik check for both partners, computed on the
     same Swiss-ephemeris engine the platform uses."""
+    _tool_limit(request)
     site = _resolve_site(slug, domain)
     from . import compat_standalone as _compat_mod
     from .compat_standalone import CompatRequest, _full_guna_milan
@@ -431,8 +453,9 @@ async def tenant_matching_tool(body: MatchingToolBody, slug: str = None, domain:
 
 
 @router.post("/site/tools/dosha")
-async def tenant_dosha_tool(body: DoshaToolBody, slug: str = None, domain: str = None):
+async def tenant_dosha_tool(body: DoshaToolBody, request: Request, slug: str = None, domain: str = None):
     """Dosha report (manglik analysis + grahan/shrapit checks) for a birth chart."""
+    _tool_limit(request)
     site = _resolve_site(slug, domain)
     from .dosha_standalone import DoshaStandaloneRequest, manglik_detailed, grahan_dosha, shrapit_dosha
 
@@ -562,11 +585,12 @@ def _call_internal(path: str, payload: dict):
 
 
 @router.post("/site/tools/kundli-full")
-def tenant_kundli_full(body: KundliToolBody, slug: str = None, domain: str = None):
+def tenant_kundli_full(body: KundliToolBody, request: Request, slug: str = None, domain: str = None):
     """Complete kundli analysis for a tenant site: everything the platform can
     compute for a birth chart — vimshottari (full), yogini, ashtottari,
     kalachakra & chara dashas, current dasha, doshas (manglik/grahan/shrapit/
     general/dhaiya), lal kitab, KP ruling planets and divisional charts."""
+    _tool_limit(request)
     site = _resolve_site(slug, domain)
     birth = {
         "dateOfBirth": body.date, "timeOfBirth": body.time,

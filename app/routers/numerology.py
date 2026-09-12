@@ -248,7 +248,7 @@ class VehicleRequest(BaseModel):
 
 
 @router.post('/numerology/life-path')
-def life_path_number(body: LifePathRequest, request: Request):
+async def life_path_number(body: LifePathRequest, request: Request):
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     parts = body.dateOfBirth.replace('-', '').replace('/', '').replace('.', '')
     digits = [int(d) for d in parts if d.isdigit()]
@@ -277,12 +277,12 @@ def life_path_number(body: LifePathRequest, request: Request):
     )
 
     result = translate_response(format_interpretation_response(life_path, description), lang, _NUMEROLOGY_FIELDS)
-    result = translate_paragraphs(result, lang, request)
+    result = await translate_paragraphs(result, lang, request)
     return result
 
 
 @router.post('/numerology/destiny')
-def destiny_number(body: DestinyRequest, request: Request):
+async def destiny_number(body: DestinyRequest, request: Request):
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     name = body.fullName.upper().strip()
     total = sum(letter_to_number(ch) for ch in name if ch.isalpha())
@@ -297,12 +297,12 @@ def destiny_number(body: DestinyRequest, request: Request):
     )
 
     result = translate_response(format_interpretation_response(destiny, description), lang, _NUMEROLOGY_FIELDS)
-    result = translate_paragraphs(result, lang, request)
+    result = await translate_paragraphs(result, lang, request)
     return result
 
 
 @router.post('/numerology/soul')
-def soul_number(body: SoulRequest, request: Request):
+async def soul_number(body: SoulRequest, request: Request):
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     name = body.fullName.upper().strip()
     vowel_total = sum(letter_to_number(ch) for ch in name if ch in VOWELS)
@@ -317,12 +317,12 @@ def soul_number(body: SoulRequest, request: Request):
     )
 
     result = translate_response(format_interpretation_response(soul, description), lang, _NUMEROLOGY_FIELDS)
-    result = translate_paragraphs(result, lang, request)
+    result = await translate_paragraphs(result, lang, request)
     return result
 
 
 @router.post('/numerology/expression')
-def expression_number(body: ExpressionRequest, request: Request):
+async def expression_number(body: ExpressionRequest, request: Request):
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     name = body.fullName.upper().strip()
     total = sum(letter_to_number(ch) for ch in name if ch.isalpha())
@@ -337,12 +337,12 @@ def expression_number(body: ExpressionRequest, request: Request):
     )
 
     result = translate_response(format_interpretation_response(expression, description), lang, _NUMEROLOGY_FIELDS)
-    result = translate_paragraphs(result, lang, request)
+    result = await translate_paragraphs(result, lang, request)
     return result
 
 
 @router.post('/numerology/mobile')
-def mobile_number(body: MobileRequest, request: Request):
+async def mobile_number(body: MobileRequest, request: Request):
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     digits = [int(d) for d in body.mobileNumber if d.isdigit()]
     total = sum(digits)
@@ -363,12 +363,12 @@ def mobile_number(body: MobileRequest, request: Request):
         "interpretation": interp,
         "description": description
     }, lang, _NUMEROLOGY_FIELDS)
-    result = translate_paragraphs(result, lang, request)
+    result = await translate_paragraphs(result, lang, request)
     return result
 
 
 @router.post('/numerology/vehicle')
-def vehicle_number(body: VehicleRequest, request: Request):
+async def vehicle_number(body: VehicleRequest, request: Request):
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     digits = [int(d) for d in body.vehicleNumber if d.isdigit()]
     total = sum(digits)
@@ -390,7 +390,7 @@ def vehicle_number(body: VehicleRequest, request: Request):
         "interpretation": interp,
         "description": description
     }, lang, _NUMEROLOGY_FIELDS)
-    result = translate_paragraphs(result, lang, request)
+    result = await translate_paragraphs(result, lang, request)
     return result
 
 

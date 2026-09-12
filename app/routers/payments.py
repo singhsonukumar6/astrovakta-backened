@@ -269,3 +269,48 @@ def admin_list_payments(
 @router.get("/admin/payments/totals")
 def admin_payments_totals(admin: dict = Depends(require_admin)):
     return payments_totals()
+
+
+# ─────────────── Razorpay webhook (server-side payment verification) ───────────────
+
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
+
+
+@router.post("/razorpay/webhook")
+async def razorpay_webhook(request: Request):
+    """Verifies X-Razorpay-Signature (HMAC-SHA256 of the raw body with the
+    webhook secret) and marks the linked booking paid. Configure the same
+    secret in the Razorpay dashboard; events for payment.captured /
+    order.paid are accepted. Booking linkage: the checkout `receipt` is set
+    to `booking:<id>` by the frontend."""
+    import logging
+    if not RAZORPAY_KEY_SECRET:
+        raise HTTPException(status_code=503, detail="Razorpay webhook not configured (RAZORPAY_KEY_SECRET missing)")
+    raw = await request.body()
+    sig = request.headers.get("X-Razorpay-Signature", "")
+    expected = hmac.new(RAZORPAY_KEY_SECRET.encode(), raw, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(sig, expected):
+        raise HTTPException(status_code=400, detail="Invalid signature")
+    event = json.loads(raw or b"{}")
+    entity = ((event.get("payload") or {}).get("payment") or {}).get("entity") or {}
+    receipt = str(entity.get("notes", {}).get("receipt") or entity.get("receipt") or "")
+    booking_id = None
+    if receipt.startswith("booking:"):
+        try:
+            booking_id = int(receipt.split(":", 1)[1])
+        except ValueError:
+            booking_id = None
+    marked = 0
+    if booking_id:
+        from ..database import get_db
+        from ..tenants import get_booking, update_booking, _convert
+        # receipt has no site_id — look the booking up by id across sites
+        row = get_db().execute(
+            _convert("SELECT id, site_id FROM site_bookings WHERE id = ?"), (booking_id,)
+        ).fetchone()
+        if row:
+            site_id = row["site_id"] if isinstance(row, dict) else row[1]
+            update_booking(site_id, booking_id, {"payment_status": "paid", "notes": f"Razorpay payment {entity.get('id', '')} captured".strip()})
+            marked = 1
+    logging.info(f"Razorpay webhook: event={event.get('event')} booking_marked={marked}")
+    return {"ok": True, "marked": marked}

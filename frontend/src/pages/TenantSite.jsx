@@ -114,6 +114,7 @@ function PaymentBox({ site, confirmed, service, inputStyle }) {
         currency: 'INR',
         name: site.name,
         description: `Consultation — ${confirmed.date} ${confirmed.start_time}`,
+        receipt: `booking:${confirmed.id}`,
         theme: { color: site.theme?.primaryColor || '#7c3aed' },
         modal: { ondismiss: () => setPayState('idle') },
         handler: () => setPayState('done'),

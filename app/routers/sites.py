@@ -769,3 +769,67 @@ def update_my_order(site_id: int, order_id: int, body: UpdateOrderBody, user: di
                 elif existing.get("status") == "cancelled" and body.status in ("new", "confirmed"):
                     adjust_product_stock(site_id, it["product_id"], -qty)
     return updated
+
+
+# ─────────────── exports (CSV / calendar) ───────────────
+
+def _csv_response(filename, rows, headers):
+    import csv
+    import io
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(headers)
+    w.writerows(rows)
+    from fastapi import Response as _Resp
+    return _Resp(buf.getvalue(), media_type="text/csv",
+                 headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@router.get("/my/{site_id}/leads/export.csv")
+def export_leads(site_id: int, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    leads = list_leads(site_id)
+    rows = [(l.get("created_at"), l.get("name"), l.get("phone"), l.get("email"), l.get("tool"), (l.get("details") or "")) for l in leads]
+    return _csv_response("leads.csv", rows, ["created_at", "name", "phone", "email", "tool", "details"])
+
+
+@router.get("/my/{site_id}/bookings/export.csv")
+def export_bookings(site_id: int, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    bookings = list_bookings(site_id)
+    rows = [(b.get("created_at"), b.get("client_name"), b.get("client_phone"), b.get("date"),
+             b.get("start_time"), b.get("service_name"), b.get("amount"), b.get("status"), b.get("payment_status")) for b in bookings]
+    return _csv_response("bookings.csv", rows,
+                         ["created_at", "name", "phone", "date", "time", "service", "amount", "status", "payment"])
+
+
+@router.get("/my/{site_id}/orders/export.csv")
+def export_orders(site_id: int, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    orders = list_orders(site_id)
+    rows = [(o.get("created_at"), o.get("client_name"), o.get("client_phone"), o.get("items"), o.get("amount"), o.get("status")) for o in orders]
+    return _csv_response("orders.csv", rows, ["created_at", "name", "phone", "items", "amount", "status"])
+
+
+@router.get("/my/{site_id}/bookings.ics")
+def bookings_ics(site_id: int, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    bookings = list_bookings(site_id)
+    def _fmt(d, t):
+        import re as _re
+        t = _re.sub(r"[^\d:]", "", str(t or "00:00"))[:5]
+        return f"{(d or '').replace('-', '')}T{t.replace(':', '')}00"
+    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//AstroVakta//Bookings//EN"]
+    for b in bookings:
+        if (b.get("status") or "new") == "cancelled":
+            continue
+        lines += ["BEGIN:VEVENT",
+                  f"UID:booking-{b.get('id')}@astrovakta",
+                  f"DTSTART:{_fmt(b.get('date'), b.get('start_time'))}",
+                  f"SUMMARY:{(b.get('service_name') or 'Consultation')} — {b.get('client_name')}",
+                  f"DESCRIPTION:{b.get('client_phone') or ''} payment:{b.get('payment_status', 'none')}",
+                  "END:VEVENT"]
+    lines.append("END:VCALENDAR")
+    from fastapi import Response as _Resp
+    return _Resp("\r\n".join(lines), media_type="text/calendar",
+                 headers={"Content-Disposition": 'attachment; filename="bookings.ics"'})

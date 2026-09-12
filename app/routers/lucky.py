@@ -55,7 +55,7 @@ _LUCKY_DATA = {
 
 
 @router.post("/lucky/color")
-def lucky_color(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
+async def lucky_color(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     parts = body.dateOfBirth.split('-')
     day = int(parts[2])
@@ -68,7 +68,7 @@ def lucky_color(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
         "description": f"Colors aligned with your life path number {life_path} resonate with {root['element']} energy and enhance your natural strengths.",
         "avoidColors": "Black and dark grey can dampen your energy" if life_path in [1, 3, 9] else "Bright reds and oranges may overstimulate" if life_path in [2, 7] else "Neutral palette works best",
     }, lang, _LUCKY_FIELDS)
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
     return {
         "success": True,
         "data": data
@@ -76,7 +76,7 @@ def lucky_color(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
 
 
 @router.post("/lucky/number")
-def lucky_number(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
+async def lucky_number(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     parts = body.dateOfBirth.split('-')
     day = int(parts[2])
@@ -89,7 +89,7 @@ def lucky_number(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
         "description": f"Numbers {root['number']} carry vibrations aligned with your life path {life_path}. Use them for important decisions, addresses, and dates.",
         "tip": "Single-digit root number is most powerful. Compound numbers add secondary influences.",
     }, lang, _LUCKY_FIELDS)
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
     return {
         "success": True,
         "data": data
@@ -97,7 +97,7 @@ def lucky_number(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
 
 
 @router.post("/lucky/day")
-def lucky_day(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
+async def lucky_day(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     parts = body.dateOfBirth.split('-')
     day = int(parts[2])
@@ -113,7 +113,7 @@ def lucky_day(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
             "Thursday": "Jupiter", "Friday": "Venus", "Saturday": "Saturn"
         }.get(root["day"], "Unknown"),
     }, lang, _LUCKY_FIELDS)
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
     return {
         "success": True,
         "data": data
@@ -121,7 +121,7 @@ def lucky_day(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
 
 
 @router.post("/lucky/metal")
-def lucky_metal(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
+async def lucky_metal(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     parts = body.dateOfBirth.split('-')
     day = int(parts[2])
@@ -136,7 +136,7 @@ def lucky_metal(body: BirthDateRequest, request: Request) -> Dict[str, Any]:
         "description": f"Wearing {root['metal']} jewelry or carrying {root['metal']} items strengthens your planetary alignment. {root['gem']} is your birth-chart-aligned gemstone.",
         "wearAdvice": f"Wear {root['gem']} on the appropriate finger during {root['day']} {root['metal']} hora for maximum benefit.",
     }, lang, _LUCKY_FIELDS)
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
     return {
         "success": True,
         "data": data

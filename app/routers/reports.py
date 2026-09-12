@@ -51,7 +51,7 @@ class BirthChartReportRequest(BaseModel):
 
 
 @router.post('/reports/birth-chart')
-def birth_chart_report(body: BirthChartReportRequest, request: Request) -> Dict[str, Any]:
+async def birth_chart_report(body: BirthChartReportRequest, request: Request) -> Dict[str, Any]:
     """Generate comprehensive birth chart report with all planetary positions, houses, and analysis."""
     from ..main import (
         to_julian, calc_planets, calc_houses, detect_yogas, detect_doshas,
@@ -103,7 +103,7 @@ def birth_chart_report(body: BirthChartReportRequest, request: Request) -> Dict[
             'activeDoshas': len([d for d in doshas if d.get('present')]),
         }
     }, lang, _REPORT_FIELDS)
-    result = translate_paragraphs(result, lang, request)
+    result = await translate_paragraphs(result, lang, request)
     return result
 
 
@@ -125,7 +125,7 @@ class PredictionsReportRequest(BaseModel):
 
 
 @router.post('/reports/predictions')
-def predictions_report(body: PredictionsReportRequest, request: Request) -> Dict[str, Any]:
+async def predictions_report(body: PredictionsReportRequest, request: Request) -> Dict[str, Any]:
     """Generate detailed life predictions across all areas from birth chart data."""
     from ..main import (
         to_julian, calc_planets, calc_houses, detect_yogas, detect_doshas,
@@ -187,7 +187,7 @@ def predictions_report(body: PredictionsReportRequest, request: Request) -> Dict
             'sunSign': pmap.get('Sun', {}).get('sign', ''),
         }
     }, lang, _REPORT_FIELDS)
-    result = translate_paragraphs(result, lang, request)
+    result = await translate_paragraphs(result, lang, request)
     return result
 
 
@@ -204,7 +204,7 @@ class CareerReportRequest(BaseModel):
 
 
 @router.post('/reports/career')
-def career_report(body: CareerReportRequest, request: Request) -> Dict[str, Any]:
+async def career_report(body: CareerReportRequest, request: Request) -> Dict[str, Any]:
     """Detailed career analysis report with profession suggestions, timing, and growth periods."""
     from ..main import (
         to_julian, calc_planets, calc_houses, detect_yogas, detect_doshas,
@@ -241,7 +241,7 @@ def career_report(body: CareerReportRequest, request: Request) -> Dict[str, Any]
             'sunSign': pmap.get('Sun', {}).get('sign', ''),
         }
     }, lang, _REPORT_FIELDS)
-    result = translate_paragraphs(result, lang, request)
+    result = await translate_paragraphs(result, lang, request)
     return result
 
 
@@ -258,7 +258,7 @@ class ComprehensiveReportRequest(BaseModel):
 
 
 @router.post('/reports/comprehensive')
-def comprehensive_report(body: ComprehensiveReportRequest, request: Request) -> Dict[str, Any]:
+async def comprehensive_report(body: ComprehensiveReportRequest, request: Request) -> Dict[str, Any]:
     """Generate a complete life report combining birth chart, predictions, dasha, yogas, doshas, and remedies."""
     from ..main import (
         to_julian, calc_planets, calc_houses, detect_yogas, detect_doshas,
@@ -337,7 +337,7 @@ def comprehensive_report(body: ComprehensiveReportRequest, request: Request) -> 
             'doshasFound': len(active_doshas),
         }
     }, lang, _REPORT_FIELDS)
-    result = translate_paragraphs(result, lang, request)
+    result = await translate_paragraphs(result, lang, request)
     return result
 
 

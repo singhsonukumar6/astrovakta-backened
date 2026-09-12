@@ -373,7 +373,7 @@ def get_mukhi_from_description(description: str) -> Dict[str, Any]:
 
 
 @router.post("/rudraksha/recommendation")
-def recommend_rudraksha(req: RudrakshaRecommendRequest, request: Request):
+async def recommend_rudraksha(req: RudrakshaRecommendRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     jd = to_julian(req.dateOfBirth, req.timeOfBirth, req.timezone)
     swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
@@ -396,7 +396,7 @@ def recommend_rudraksha(req: RudrakshaRecommendRequest, request: Request):
         "allRecommended": all_recommended,
         "note": "Rudraksha recommendation based on Moon sign (Rashi) position. Consult a pandit for personalized guidance."
     }, lang, _RUDRAKSHA_FIELDS)
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
 
     return {
         "status": 200,
@@ -405,7 +405,7 @@ def recommend_rudraksha(req: RudrakshaRecommendRequest, request: Request):
 
 
 @router.post("/rudraksha/mukhi-identification")
-def identify_mukhi(req: MukhiIdentificationRequest, request: Request):
+async def identify_mukhi(req: MukhiIdentificationRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     full_desc = req.description
     if req.visualFeatures:
@@ -419,7 +419,7 @@ def identify_mukhi(req: MukhiIdentificationRequest, request: Request):
         "availableMukhis": list(RUDRAKSHA_DATA.keys()),
         "note": "This is an automated identification. For accurate identification, please consult an expert or count the natural lines manually."
     }, lang, _RUDRAKSHA_FIELDS)
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
 
     return {
         "status": 200,
@@ -428,7 +428,7 @@ def identify_mukhi(req: MukhiIdentificationRequest, request: Request):
 
 
 @router.post("/rudraksha/wearing-method")
-def wearing_method(req: WearingMethodRequest, request: Request):
+async def wearing_method(req: WearingMethodRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     mukhi = req.mukhiCount
     data = RUDRAKSHA_DATA.get(mukhi, RUDRAKSHA_DATA[5])
@@ -474,12 +474,12 @@ def wearing_method(req: WearingMethodRequest, request: Request):
     }
 
     data = translate_response(wearing_guide, lang, _RUDRAKSHA_FIELDS)
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
     return {"status": 200, "data": data}
 
 
 @router.post("/rudraksha/mantra")
-def rudraksha_mantra(req: MantraRequest, request: Request):
+async def rudraksha_mantra(req: MantraRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     mukhi = req.mukhiCount
     data = RUDRAKSHA_DATA.get(mukhi, RUDRAKSHA_DATA[5])
@@ -522,7 +522,7 @@ def rudraksha_mantra(req: MantraRequest, request: Request):
             "Meditate silently for a few minutes after completion"
         ]
     }, lang, _RUDRAKSHA_FIELDS)
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
 
     return {
         "status": 200,
@@ -531,7 +531,7 @@ def rudraksha_mantra(req: MantraRequest, request: Request):
 
 
 @router.post("/rudraksha/benefits")
-def rudraksha_benefits(req: BenefitsRequest, request: Request):
+async def rudraksha_benefits(req: BenefitsRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     mukhi = req.mukhiCount
     data = RUDRAKSHA_DATA.get(mukhi, RUDRAKSHA_DATA[5])
@@ -572,7 +572,7 @@ def rudraksha_benefits(req: BenefitsRequest, request: Request):
             "healing": min(10, 2 + mukhi) if mukhi <= 7 else min(10, 14 - mukhi + 4)
         }
     }, lang, _RUDRAKSHA_FIELDS)
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
 
     return {
         "status": 200,

@@ -124,7 +124,7 @@ def calculate_ayanamsa(req: AyanamsaRequest):
 
 
 @router.post("/utility/ephemeris")
-def ephemeris_positions(req: EphemerisRequest, request: Request):
+async def ephemeris_positions(req: EphemerisRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     try:
         jd = to_julian(req.date, req.time or "12:00", req.timezone or "Asia/Kolkata")
@@ -176,14 +176,14 @@ def ephemeris_positions(req: EphemerisRequest, request: Request):
                 "totalPlanets": len([p for p in planets if 'error' not in p])
             }
         }, lang, _UTILITY_FIELDS)
-        data = translate_paragraphs(data, lang, request)
+        data = await translate_paragraphs(data, lang, request)
         return data
     except Exception as e:
         return {"status": 500, "error": str(e), "message": "Error calculating ephemeris"}
 
 
 @router.post("/utility/planet-speed")
-def planet_speed(req: PlanetSpeedRequest, request: Request):
+async def planet_speed(req: PlanetSpeedRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     try:
         jd = to_julian(req.date, req.time or "12:00", req.timezone or "Asia/Kolkata")
@@ -220,14 +220,14 @@ def planet_speed(req: PlanetSpeedRequest, request: Request):
                 "unit": "degrees per day"
             }
         }, lang, _UTILITY_FIELDS)
-        data = translate_paragraphs(data, lang, request)
+        data = await translate_paragraphs(data, lang, request)
         return data
     except Exception as e:
         return {"status": 500, "error": str(e), "message": "Error calculating planet speeds"}
 
 
 @router.post("/utility/lunar-phase")
-def lunar_phase(req: LunarPhaseRequest, request: Request):
+async def lunar_phase(req: LunarPhaseRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     try:
         jd = to_julian(req.date, req.time or "12:00", req.timezone or "Asia/Kolkata")
@@ -265,14 +265,14 @@ def lunar_phase(req: LunarPhaseRequest, request: Request):
                 "nextNewMoon": "Approximately when moon reaches 0°/360° from Sun"
             }
         }, lang, _UTILITY_FIELDS)
-        data = translate_paragraphs(data, lang, request)
+        data = await translate_paragraphs(data, lang, request)
         return data
     except Exception as e:
         return {"status": 500, "error": str(e), "message": "Error calculating lunar phase"}
 
 
 @router.post("/utility/eclipse")
-def check_eclipse(req: EclipseRequest, request: Request):
+async def check_eclipse(req: EclipseRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     try:
         jd = to_julian(req.date, req.time or "12:00", req.timezone or "Asia/Kolkata")
@@ -328,7 +328,7 @@ def check_eclipse(req: EclipseRequest, request: Request):
             "checkRange": f"{range_days} days",
             "note": "This is a simplified check based on angular alignment. Precise eclipse predictions require Besselian elements and topocentric calculations."
         }, lang, _UTILITY_FIELDS)
-        data = translate_paragraphs(data, lang, request)
+        data = await translate_paragraphs(data, lang, request)
         return {
             "status": 200,
             "data": data

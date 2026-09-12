@@ -375,7 +375,7 @@ def _get_dasha_lord(nakshatra_index: int) -> str:
 
 
 @router.post("/horoscope/panchang/panchaka")
-def panchaka_analysis(body: PanchakaRequest, request: Request):
+async def panchaka_analysis(body: PanchakaRequest, request: Request):
     """
     Panchaka analysis for a given date/time/place.
     Determines the panchaka type from the Moon's nakshatra at birth
@@ -465,7 +465,7 @@ def panchaka_analysis(body: PanchakaRequest, request: Request):
         },
         "panchang": panchang,
     }, lang, _PANCHAKA_FIELDS)
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
     return data
 
 
@@ -473,7 +473,7 @@ def panchaka_analysis(body: PanchakaRequest, request: Request):
 
 
 @router.post("/horoscope/panchang/gulika-position")
-def gulika_position(body: PanchakaRequest, request: Request):
+async def gulika_position(body: PanchakaRequest, request: Request):
     """
     Calculate Gulika (Mandi) position in the natal chart and its effects.
     """
@@ -565,7 +565,7 @@ def gulika_position(body: PanchakaRequest, request: Request):
             "ascendant_longitude": round(asc_long, 4),
         },
     }, lang, _PANCHAKA_FIELDS)
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
     return data
 
 
@@ -573,7 +573,7 @@ def gulika_position(body: PanchakaRequest, request: Request):
 
 
 @router.post("/horoscope/panchang/roga-nidana")
-def roga_nidana(body: PanchakaRequest, request: Request):
+async def roga_nidana(body: PanchakaRequest, request: Request):
     """
     Disease prediction (Roga Nidana) based on:
     - 6th house and 6th lord
@@ -808,5 +808,5 @@ def roga_nidana(body: PanchakaRequest, request: Request):
         "planet_positions": planet_positions,
         "remedies": remedies,
     }, lang, _PANCHAKA_FIELDS)
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
     return data

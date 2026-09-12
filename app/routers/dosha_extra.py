@@ -37,7 +37,7 @@ _SADE_SATI_PHASES = {
 
 
 @router.post("/horoscope/dosha/dhaiya")
-def dhaiya_dosha(body: DhaiyaRequest, request: Request) -> Dict[str, Any]:
+async def dhaiya_dosha(body: DhaiyaRequest, request: Request) -> Dict[str, Any]:
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     jd = to_julian(body.dateOfBirth, body.timeOfBirth, body.timezone)
     planets = calc_planets(jd, None, "mean")
@@ -163,7 +163,7 @@ def dhaiya_dosha(body: DhaiyaRequest, request: Request) -> Dict[str, Any]:
         "generalAdvice": "Challenging Saturn transits bring growth through hardship. Focus on discipline, service, and spiritual practice during these periods."
     }
     data = translate_response(data, lang, _DHAIYA_FIELDS)
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
     return {
         "success": True,
         "data": data

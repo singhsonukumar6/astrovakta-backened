@@ -415,7 +415,7 @@ def _score_event_transits(
 
 
 @router.post("/utility/rectify")
-def rectify_birth_time(req: RectifyRequest, request: Request):
+async def rectify_birth_time(req: RectifyRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     try:
         swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
@@ -551,7 +551,7 @@ def rectify_birth_time(req: RectifyRequest, request: Request):
                 "consult an experienced astrologer."
             ),
         }, lang, _RECTIFY_FIELDS)
-        data = translate_paragraphs(data, lang, request)
+        data = await translate_paragraphs(data, lang, request)
         return {
             "status": 200,
             "data": data
@@ -562,7 +562,7 @@ def rectify_birth_time(req: RectifyRequest, request: Request):
 
 
 @router.post("/utility/ascendant-scan")
-def ascendant_scan(req: AscendantScanRequest, request: Request):
+async def ascendant_scan(req: AscendantScanRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     try:
         swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
@@ -634,7 +634,7 @@ def ascendant_scan(req: AscendantScanRequest, request: Request):
                 "Exact durations vary with latitude and time of year."
             ),
         }, lang, _RECTIFY_FIELDS)
-        data = translate_paragraphs(data, lang, request)
+        data = await translate_paragraphs(data, lang, request)
         return {
             "status": 200,
             "data": data
@@ -645,7 +645,7 @@ def ascendant_scan(req: AscendantScanRequest, request: Request):
 
 
 @router.post("/utility/transit-verify")
-def transit_verify(req: TransitVerifyRequest, request: Request):
+async def transit_verify(req: TransitVerifyRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     try:
         swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
@@ -737,7 +737,7 @@ def transit_verify(req: TransitVerifyRequest, request: Request):
                 "higher confidence."
             ),
         }, lang, _RECTIFY_FIELDS)
-        data = translate_paragraphs(data, lang, request)
+        data = await translate_paragraphs(data, lang, request)
         return {
             "status": 200,
             "data": data

@@ -347,6 +347,7 @@ CREATE TABLE IF NOT EXISTS site_orders (
     amount INTEGER NOT NULL DEFAULT 0,
     currency TEXT DEFAULT 'INR',
     status TEXT DEFAULT 'new',
+    payment_status TEXT DEFAULT 'none',
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (site_id) REFERENCES sites(id)
@@ -574,6 +575,7 @@ CREATE TABLE IF NOT EXISTS site_orders (
     amount INTEGER NOT NULL DEFAULT 0,
     currency TEXT DEFAULT 'INR',
     status TEXT DEFAULT 'new',
+    payment_status TEXT DEFAULT 'none',
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -638,6 +640,7 @@ def init_db() -> None:
                 ("sites", "logo_url", "TEXT"),
                 ("sites", "hero_image", "TEXT"),
                 ("sites", "settings", "TEXT"),
+                ("site_bookings", "payment_status", "TEXT DEFAULT 'none'"),
             ]:
                 try:
                     row = conn.execute(
@@ -668,6 +671,7 @@ def init_db() -> None:
         _migrate_sqlite(cursor, "users", "clerk_id", "TEXT")
         _migrate_sqlite(cursor, "usage_logs", "response_time_ms", "INTEGER")
         _migrate_sqlite(cursor, "usage_logs", "endpoint_group", "TEXT")
+        _migrate_sqlite(cursor, "site_bookings", "payment_status", "TEXT DEFAULT 'none'")
         _migrate_sqlite(cursor, "usage_logs", "credits_used", "INTEGER DEFAULT 0")
         _migrate_sqlite(cursor, "sites", "logo_url", "TEXT")
         _migrate_sqlite(cursor, "sites", "hero_image", "TEXT")

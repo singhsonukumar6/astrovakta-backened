@@ -604,7 +604,7 @@ def create_booking(site_id: int, data: dict) -> dict:
 def update_booking(site_id: int, booking_id: int, data: dict) -> dict:
     db = get_db()
     fields, params = [], []
-    for col in ["status", "notes"]:
+    for col in ["status", "notes", "payment_status"]:
         if col in data and data[col] is not None:
             fields.append(f"{col} = ?")
             params.append(data[col])

@@ -137,7 +137,7 @@ def generate_muhurat_windows(date_str: str, sunrise_time: str, sunset_time: str,
 
 
 @router.post("/calendar/hindu")
-def hindu_calendar(req: HinduCalendarRequest, request: Request):
+async def hindu_calendar(req: HinduCalendarRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     year = req.year
     month = req.month
@@ -168,7 +168,7 @@ def hindu_calendar(req: HinduCalendarRequest, request: Request):
 
     # Translate all daily entries
     daily_data = translate_response(daily_data, lang, _PANCHANG_FIELDS)
-    daily_data = translate_paragraphs(daily_data, lang, request)
+    daily_data = await translate_paragraphs(daily_data, lang, request)
 
     month_names = ["", "Chaitra", "Vaishakha", "Jyeshtha", "Ashadha", "Shravana", "Bhadrapada",
                    "Ashwin", "Kartik", "Margashirsha", "Pausha", "Magha", "Phalguna"]
@@ -187,7 +187,7 @@ def hindu_calendar(req: HinduCalendarRequest, request: Request):
 
 
 @router.post("/calendar/panchang")
-def panchang_calendar(req: PanchangRequest, request: Request):
+async def panchang_calendar(req: PanchangRequest, request: Request):
     lang = detect_language(query_lang=req.lang, header_lang=request.headers.get("accept-language"))
     year = req.year
     month = req.month
@@ -227,7 +227,7 @@ def panchang_calendar(req: PanchangRequest, request: Request):
 
     # Translate all entries
     panchang_data = translate_response(panchang_data, lang, _PANCHANG_FIELDS)
-    panchang_data = translate_paragraphs(panchang_data, lang, request)
+    panchang_data = await translate_paragraphs(panchang_data, lang, request)
 
     return {
         "status": 200,

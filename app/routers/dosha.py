@@ -27,7 +27,7 @@ class DoshaRequest(BaseModel):
 
 
 @router.post('/dosha/compute')
-def compute_dosha(body: DoshaRequest, request: Request):
+async def compute_dosha(body: DoshaRequest, request: Request):
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     # Import locally to avoid circular imports
     from ..main import to_julian, calc_planets, calc_houses, detect_doshas
@@ -37,7 +37,7 @@ def compute_dosha(body: DoshaRequest, request: Request):
     calc_houses(jd, body.latitude, body.longitude, planets, body.houseSystem or 'W')
     doshas = detect_doshas(planets)
     data = translate_response(doshas, lang, _DOSHA_FIELDS)
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
     return {
         'status': 200,
         'data': data

@@ -656,7 +656,7 @@ def _enrich_yoga(yoga_name: str, yoga_info: dict, detected_yoga: dict, planets: 
 
 
 @router.post('/horoscope/yoga/predictions')
-def yoga_predictions(body: YogaPredRequest, request: Request):
+async def yoga_predictions(body: YogaPredRequest, request: Request):
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     planets, houses_data, asc_sign, detected = _compute_chart(body)
 
@@ -671,7 +671,7 @@ def yoga_predictions(body: YogaPredRequest, request: Request):
         'totalYogasDetected': len(enriched),
         'yogas': enriched,
     }, lang, _YOGA_FIELDS)
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
 
     return {
         'status': 200,
@@ -680,7 +680,7 @@ def yoga_predictions(body: YogaPredRequest, request: Request):
 
 
 @router.post('/horoscope/yoga/detailed')
-def yoga_detailed(body: YogaDetailedRequest, request: Request):
+async def yoga_detailed(body: YogaDetailedRequest, request: Request):
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     planets, houses_data, asc_sign, detected = _compute_chart(body)
 
@@ -710,7 +710,7 @@ def yoga_detailed(body: YogaDetailedRequest, request: Request):
     enriched['detailedAnalysis'] = True
 
     data = translate_response(enriched, lang, _YOGA_FIELDS)
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
 
     return {
         'status': 200,
@@ -804,7 +804,7 @@ def _compute_score(planets: list, detected: list) -> dict:
 
 
 @router.post('/horoscope/yoga/score')
-def yoga_score(body: YogaPredRequest, request: Request):
+async def yoga_score(body: YogaPredRequest, request: Request):
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     planets, houses_data, asc_sign, detected = _compute_chart(body)
     score_data = _compute_score(planets, detected)
@@ -813,7 +813,7 @@ def yoga_score(body: YogaPredRequest, request: Request):
         'ascendant': houses_data.get('ascendant', {}),
         **score_data,
     }, lang, _YOGA_FIELDS)
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
 
     return {
         'status': 200,

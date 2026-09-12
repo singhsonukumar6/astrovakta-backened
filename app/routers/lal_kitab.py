@@ -199,7 +199,7 @@ def _get_lal_kitab_planet_analysis(planet_name, house, sign, is_retrograde, is_c
 
 
 @router.post('/lal-kitab/house-significations')
-def lal_kitab_houses(request: Request):
+async def lal_kitab_houses(request: Request):
     lang = detect_language(header_lang=request.headers.get("accept-language"))
     data = translate_response({
         'houses': [
@@ -213,12 +213,12 @@ def lal_kitab_houses(request: Request):
             for num, info in LAL_KITAB_HOUSE_SIGNIFICATIONS.items()
         ]
     }, lang, _LAL_KITAB_HOUSE_FIELDS)
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
     return success(data)
 
 
 @router.post('/lal-kitab/planet-interpretations')
-def lal_kitab_planet_interpretations(request: Request):
+async def lal_kitab_planet_interpretations(request: Request):
     lang = detect_language(header_lang=request.headers.get("accept-language"))
     data = translate_response({
             'planets': [
@@ -232,7 +232,7 @@ def lal_kitab_planet_interpretations(request: Request):
                 for name, info in LAL_KITAB_PLANET_INTERPRETATIONS.items()
             ]
         }, lang, {"name": "planet"})
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
     return success(data)
 
 
