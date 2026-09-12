@@ -100,3 +100,15 @@ Goal: astrologer OAuth-connects Instagram/Facebook, YouTube, LinkedIn, X.
 ### Ops
 - Prod DDL drift risk: SQLite and `_PG_DDL` blocks in database.py must stay in sync
   (bit us once — AUTOINCREMENT in PG). Consider a single schema source transpiled.
+
+## Audit implementation (commit 4b52f5e, 2026-09-11)
+
+DONE: Razorpay webhook (set RAZORPAY_KEY_SECRET env on droplet + same secret as webhook
+secret in Razorpay dashboard; checkout sends receipt `booking:<id>`; `site_bookings.payment_status`
+column added via DDL + migrations) · CSV exports (`/sites/my/{id}/leads|bookings|orders/export.csv`)
+· ICS feed (`/sites/my/{id}/bookings.ics`) · per-IP 12/min limits on kundli-full/matching/dosha
+· swept 34 un-awaited `translate_paragraphs` calls across 13 routers (systemic 500-bug).
+
+STILL OPEN: envelope standardization (deliberate, breaks clients) · daily digest (needs
+email/WA infra) · phase-2 OAuth + phase-3 auto-poster (see phases above) · stored media for
+scheduled posts · single-schema-source for DDL · rate limiting is per-process.
