@@ -322,6 +322,11 @@ export const publicDoshaTool = (resolve, data) => {
   return api.post(`/sites/site/tools/dosha?${qs}`, data).then((r) => r.data)
 }
 
+export const publicKundliFull = (resolve, data) => {
+  const qs = new URLSearchParams(resolveParams(resolve)).toString()
+  return api.post(`/sites/site/tools/kundli-full?${qs}`, data, { timeout: 120000 }).then((r) => r.data)
+}
+
 export const publicPanchangTool = (resolve) =>
   api.get('/sites/site/tools/panchang', { params: resolveParams(resolve) }).then((r) => r.data?.data ?? r.data)
 

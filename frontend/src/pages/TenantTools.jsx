@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Heart, ScrollText, Sparkles, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
 import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
-import { publicKundliTool, publicMatchingTool, publicDoshaTool } from '../lib/api.js'
+import { publicKundliTool, publicKundliFull, publicMatchingTool, publicDoshaTool } from '../lib/api.js'
 
 // ─────────── shared bits for tenant tool pages ───────────
 const errText = (e) => {
@@ -67,6 +67,7 @@ export function KundliPage({ site, resolve, theme, COLORS }) {
   const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
   const [form, setForm] = useState({ name: '', phone: '', date: '', time: '', place: '', lat: null, lon: null, tz: null })
   const [result, setResult] = useState(null)
+  const [full, setFull] = useState(null)
   const [dosha, setDosha] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -85,7 +86,7 @@ export function KundliPage({ site, resolve, theme, COLORS }) {
     if (!form.date || !form.time) { setError('Please enter your birth date and time'); return }
     setBusy(true); setError(null)
     try {
-      const res = await publicKundliTool(resolve, {
+      const payload = {
         name: form.name.trim() || undefined,
         phone: form.phone.trim() || undefined,
         date: form.date, time: form.time,
@@ -93,8 +94,10 @@ export function KundliPage({ site, resolve, theme, COLORS }) {
         lat: form.lat ?? undefined, lon: form.lon ?? undefined, tz: form.tz || undefined,
         detail: true,
         chart_theme: theme.bgStyle === 'dark' ? 'dark' : 'light',
-      })
-      setResult(res)
+      }
+      const res = await publicKundliFull(resolve, payload)
+      setResult(res.core)
+      setFull(res)
       if (form.date && form.time) {
         publicDoshaTool(resolve, {
           date: form.date, time: form.time,
@@ -123,7 +126,7 @@ export function KundliPage({ site, resolve, theme, COLORS }) {
           </button>
         </motion.form>
       ) : (
-        <KundliResult result={result} dosha={dosha} theme={theme} COLORS={COLORS} onBack={() => { setResult(null); setDosha(null) }} site={site} />
+        <KundliResult result={result} dosha={dosha} full={full} theme={theme} COLORS={COLORS} onBack={() => { setResult(null); setFull(null); setDosha(null) }} site={site} />
       )}
     </ToolShell>
   )
@@ -138,7 +141,7 @@ function Section({ title, COLORS, children }) {
   )
 }
 
-function KundliResult({ result, dosha, theme, COLORS, onBack, site }) {
+function KundliResult({ result, dosha, full, theme, COLORS, onBack, site }) {
   const [view, setView] = useState('summary')
   const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
   const tabBtn = (id, label) => (
@@ -201,6 +204,8 @@ function KundliResult({ result, dosha, theme, COLORS, onBack, site }) {
         {tabBtn('planets', 'Planets & Houses')}
         {result.dasha && tabBtn('dasha', 'Dasha')}
         {dosha && tabBtn('dosha', 'Dosha Report')}
+        {full && tabBtn('dasha-systems', 'All Dasha Systems')}
+        {full && tabBtn('kp', 'KP & Extras')}
       </div>
 
       {view === 'summary' && (
@@ -316,6 +321,18 @@ function KundliResult({ result, dosha, theme, COLORS, onBack, site }) {
         </Section>
       )}
 
+      {view === 'dasha-systems' && full && (
+        <Section title="Complete Dasha Analysis — all systems" COLORS={COLORS}>
+          <JsonReport data={full} skip={['core', 'divisional', 'doshaCompute']} COLORS={COLORS} />
+        </Section>
+      )}
+
+      {view === 'kp' && full && (
+        <Section title="KP Astrology & Additional Analysis" COLORS={COLORS}>
+          <JsonReport data={full} only={['kpRulingPlanets', 'doshaCompute', 'dhaiya']} COLORS={COLORS} />
+        </Section>
+      )}
+
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
         <button onClick={onBack} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 700, maxWidth: 260 }}>Generate another kundli</button>
         <a href="#/" style={{ textDecoration: 'none', flex: 1, minWidth: 200 }}>
@@ -329,6 +346,29 @@ function KundliResult({ result, dosha, theme, COLORS, onBack, site }) {
 }
 const grahan_present = (g) => g?.grahanPresent ?? g?.present ?? false
 const shrapit_present = (s) => s?.shrapitPresent ?? s?.present ?? false
+
+function JsonReport({ data, skip = [], only = null, COLORS, depth = 0 }) {
+  const entries = Array.isArray(data)
+    ? data.map((v, i) => [String(i + 1), v])
+    : Object.entries(data || {}).filter(([k]) => !skip.includes(k) && (!only || only.includes(k)))
+  if (!entries.length) return null
+  return (
+    <div style={{ marginLeft: depth ? 14 : 0 }}>
+      {entries.map(([k, v]) => {
+        if (v == null || v === '') return null
+        const isObj = typeof v === 'object'
+        return (
+          <div key={k} style={{ marginBottom: depth ? 6 : 14 }}>
+            <div style={{ fontSize: depth ? 12.5 : 13.5, fontWeight: 800, color: COLORS.textDim }}>{k.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase())}</div>
+            {isObj
+              ? <JsonReport data={v} skip={skip} COLORS={COLORS} depth={depth + 1} />
+              : <div style={{ fontSize: 13.5, lineHeight: 1.6 }}>{String(v).slice(0, 400)}</div>}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 // ─────────── MATCH MAKING PAGE (#/matching) ───────────
 export function MatchingPage({ site, resolve, theme, COLORS }) {

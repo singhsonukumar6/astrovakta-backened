@@ -506,3 +506,110 @@ def tenant_daily_horoscope(slug: str = None, domain: str = None, sign: str = Que
         raise HTTPException(status_code=400, detail="Could not generate the horoscope")
     data = result.get("data", result) if isinstance(result, dict) else {}
     return {"sign": s, "horoscope": data, "astrologer": site["name"]}
+
+
+# ─────────────── comprehensive kundli (full analysis bundle) ───────────────
+
+def _sanitize(obj, depth=0):
+    """Make a route result JSON-safe: drop un-awaited coroutines (a few
+    analysis endpoints return them when lang='en'), decode JSONResponse."""
+    if depth > 12:
+        return None
+    if isinstance(obj, coroutine_type()):
+        return None
+    if hasattr(obj, "body"):  # starlette JSONResponse
+        import json as _json
+        return _json.loads(obj.body)
+    if isinstance(obj, dict):
+        return {k: _sanitize(v, depth + 1) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize(v, depth + 1) for v in obj]
+    try:
+        import json as _json
+        _json.dumps(obj)
+        return obj
+    except (TypeError, ValueError):
+        return str(obj)
+
+
+def coroutine_type():
+    import types
+    return types.CoroutineType
+
+
+def _call_internal(path: str, payload: dict):
+    """Invoke one of the platform's own POST endpoints in-process (no HTTP),
+    supplying a stub Request for language detection (lang='en')."""
+    import asyncio
+    import inspect
+    from types import SimpleNamespace
+    from ..main import app as _app
+
+    stub = SimpleNamespace(headers={"accept-language": "en"})
+    for route in _app.routes:
+        if getattr(route, "path", None) == path and hasattr(route, "endpoint"):
+            kwargs = {}
+            for pname, param in inspect.signature(route.endpoint).parameters.items():
+                if pname == "request":
+                    kwargs[pname] = stub
+                elif hasattr(param.annotation, "model_validate"):
+                    kwargs[pname] = param.annotation.model_validate(payload)
+            result = route.endpoint(**kwargs)
+            if inspect.iscoroutine(result):
+                result = asyncio.run(result)
+            return _sanitize(result)
+    return None
+
+
+@router.post("/site/tools/kundli-full")
+def tenant_kundli_full(body: KundliToolBody, slug: str = None, domain: str = None):
+    """Complete kundli analysis for a tenant site: everything the platform can
+    compute for a birth chart — vimshottari (full), yogini, ashtottari,
+    kalachakra & chara dashas, current dasha, doshas (manglik/grahan/shrapit/
+    general/dhaiya), lal kitab, KP ruling planets and divisional charts."""
+    site = _resolve_site(slug, domain)
+    birth = {
+        "dateOfBirth": body.date, "timeOfBirth": body.time,
+        "latitude": body.lat if body.lat is not None else _DEFAULT_PLACE["lat"],
+        "longitude": body.lon if body.lon is not None else _DEFAULT_PLACE["lon"],
+        "timezone": body.tz or _DEFAULT_PLACE["tz"],
+    }
+    sections = {}
+    targets = {
+        "yogini": "/dasha/yogini",
+        "ashtottari": "/dasha/ashtottari",
+        "kalachakra": "/dasha/kalachakra",
+        "chara": "/horoscope/dasha/chara",
+        "dashaCurrent": "/horoscope/dasha/current",
+        "doshaCompute": "/horoscope/dosha/compute",
+        "dhaiya": "/horoscope/dosha/dhaiya",
+        "kpRulingPlanets": "/kp/ruling-planets",
+        "divisional": "/chart/divisional-svg",
+    }
+    for key, path in targets.items():
+        try:
+            sections[key] = _call_internal(path, {**birth, "name": body.name or "Visitor"})
+        except Exception as e:
+            sections[key] = {"error": str(e)[:200]}
+
+    dosha = {}
+    try:
+        import asyncio as _asyncio
+        stub = _stub_request()
+        from .dosha_standalone import DoshaStandaloneRequest, manglik_detailed, grahan_dosha, shrapit_dosha
+        dsb = DoshaStandaloneRequest(
+            dateOfBirth=body.date, timeOfBirth=body.time,
+            latitude=body.lat if body.lat is not None else _DEFAULT_PLACE["lat"],
+            longitude=body.lon if body.lon is not None else _DEFAULT_PLACE["lon"],
+            timezone=body.tz or _DEFAULT_PLACE["tz"],
+        )
+        dosha = {
+            "manglik": _asyncio.run(manglik_detailed(dsb, stub)),
+            "grahan": _asyncio.run(grahan_dosha(dsb, stub)),
+            "shrapit": _asyncio.run(shrapit_dosha(dsb, stub)),
+        }
+    except Exception as e:
+        dosha = {"error": str(e)[:200]}
+
+    core = tenant_kundli_tool(body, slug=slug, domain=domain)
+    return {"core": core, "doshas": dosha, **sections}
