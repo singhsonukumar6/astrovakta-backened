@@ -584,11 +584,13 @@ def tenant_kundli_full(body: KundliToolBody, slug: str = None, domain: str = Non
         "doshaCompute": "/horoscope/dosha/compute",
         "dhaiya": "/horoscope/dosha/dhaiya",
         "kpRulingPlanets": "/kp/ruling-planets",
-        "divisional": "/chart/divisional-svg",
+        "lalKitab": "/lal-kitab/chart-analysis",
+        "divisionalD9": "/chart/divisional-svg",
+        "divisionalD10": "/chart/divisional-svg",
     }
     for key, path in targets.items():
         try:
-            sections[key] = _call_internal(path, {**birth, "name": body.name or "Visitor"})
+            sections[key] = _call_internal(path, {**birth, "name": "D9" if key == "divisionalD9" else "D10", "width": 520, "height": 520, "theme": "light"})
         except Exception as e:
             sections[key] = {"error": str(e)[:200]}
 

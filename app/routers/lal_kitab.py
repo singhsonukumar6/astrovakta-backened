@@ -237,7 +237,7 @@ def lal_kitab_planet_interpretations(request: Request):
 
 
 @router.post('/lal-kitab/chart-analysis')
-def lal_kitab_chart_analysis(body: BirthRequest, request: Request):
+async def lal_kitab_chart_analysis(body: BirthRequest, request: Request):
     lang = detect_language(query_lang=body.lang, header_lang=request.headers.get("accept-language"))
     from ..main import to_julian, calc_planets, calc_houses, ZODIAC_SIGNS, SIGN_LORDS
     from datetime import datetime
@@ -299,5 +299,5 @@ def lal_kitab_chart_analysis(body: BirthRequest, request: Request):
         'houses': house_analyses,
         'note': 'Lal Kitab analysis based on house placement, retrograde/combust status, and classical Lal Kitab significations'
     }, lang, _LAL_KITAB_CHART_FIELDS)
-    data = translate_paragraphs(data, lang, request)
+    data = await translate_paragraphs(data, lang, request)
     return success(data)

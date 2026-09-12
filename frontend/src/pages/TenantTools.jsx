@@ -206,6 +206,8 @@ function KundliResult({ result, dosha, full, theme, COLORS, onBack, site }) {
         {dosha && tabBtn('dosha', 'Dosha Report')}
         {full && tabBtn('dasha-systems', 'All Dasha Systems')}
         {full && tabBtn('kp', 'KP & Extras')}
+        {(full?.divisionalD9?.svg || full?.divisionalD10?.svg) && tabBtn('varga', 'Divisional Charts')}
+        {full?.lalKitab && tabBtn('lal', 'Lal Kitab')}
       </div>
 
       {view === 'summary' && (
@@ -330,6 +332,23 @@ function KundliResult({ result, dosha, full, theme, COLORS, onBack, site }) {
       {view === 'kp' && full && (
         <Section title="KP Astrology & Additional Analysis" COLORS={COLORS}>
           <JsonReport data={full} only={['kpRulingPlanets', 'doshaCompute', 'dhaiya']} COLORS={COLORS} />
+        </Section>
+      )}
+
+      {view === 'varga' && full && (
+        <Section title="Divisional Charts (Varga)" COLORS={COLORS}>
+          {['divisionalD9', 'divisionalD10'].map((k) => full[k]?.svg ? (
+            <div key={k} style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 6 }}>{k === 'divisionalD9' ? 'D9 — Navamsa (marriage & fortune)' : 'D10 — Dashamsa (career & profession)'}</div>
+              <div style={{ maxWidth: 560 }} dangerouslySetInnerHTML={{ __html: full[k].svg }} />
+            </div>
+          ) : null)}
+        </Section>
+      )}
+
+      {view === 'lal' && full?.lalKitab && (
+        <Section title="Lal Kitab Analysis" COLORS={COLORS}>
+          <JsonReport data={full.lalKitab} COLORS={COLORS} />
         </Section>
       )}
 
