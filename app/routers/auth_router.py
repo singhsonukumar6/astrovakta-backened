@@ -331,3 +331,57 @@ def credit_costs():
     for path, cost in sorted(CREDIT_COSTS.items()):
         cost_summary[path] = cost
     return {"credit_costs": cost_summary, "note": "Credits are deducted per API call. Different endpoints consume different amounts of credits."}
+
+
+class GoogleLoginBody(BaseModel):
+    credential: str = Field(..., min_length=50)
+
+
+@router.post("/google")
+def google_login(body: GoogleLoginBody):
+    """Google Sign-In: the frontend sends the GIS ID token; we validate it
+    against Google's tokeninfo endpoint, then find or create the user
+    (Google emails arrive pre-verified)."""
+    import httpx
+    try:
+        r = httpx.get("https://oauth2.googleapis.com/tokeninfo",
+                      params={"id_token": body.credential}, timeout=10)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not verify Google token")
+    if r.status_code != 200:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google token")
+    info = r.json()
+    email = (info.get("email") or "").lower().strip()
+    if not email or str(info.get("email_verified", "")).lower() != "true":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Google account email is not verified")
+    audience = os.getenv("GOOGLE_CLIENT_ID", "")
+    if audience and info.get("aud") != audience:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Google token audience mismatch")
+    if info.get("exp") and int(info["exp"]) < int(datetime.now(timezone.utc).timestamp()):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Google token expired")
+
+    from ..database import get_db
+    user = get_user_by_email(email)
+    if not user:
+        from ..auth import create_user
+        user = create_user(email, info.get("name") or email.split("@")[0], secrets.token_urlsafe(32))
+        from ..auth import mark_email_verified
+        mark_email_verified(user["id"])
+    from ..auth import mark_email_verified
+    if not user.get("email_verified"):
+        mark_email_verified(user["id"])
+    picture = info.get("picture")
+    if picture:
+        db = get_db()
+        db.execute(_convert_update(), (picture, user["id"]))
+        db.commit()
+        user = {**user, "avatar_url": picture}
+    token = create_access_token(user["id"])
+    resp = _user_response(user, token)
+    resp["email_sent"] = False
+    return resp
+
+
+def _convert_update():
+    from ..database import USE_POSTGRES
+    return "UPDATE users SET avatar_url = %s WHERE id = %s" if USE_POSTGRES else "UPDATE users SET avatar_url = ? WHERE id = ?"

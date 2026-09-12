@@ -5,6 +5,7 @@ import { Mail, Lock, ArrowRight, Eye, EyeOff, Sparkles, CalendarCheck, Star } fr
 import toast from 'react-hot-toast'
 import { login as apiLogin } from '../lib/api.js'
 import { useAuth } from '../lib/auth.jsx'
+import GoogleSignIn from '../components/GoogleSignIn.jsx'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -143,6 +144,7 @@ export default function Login() {
               {!loading && <ArrowRight size={17} />}
             </button>
           </form>
+          <GoogleSignIn />
 
           <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12, marginTop: 24, lineHeight: 1.6 }}>
             By continuing you agree to our{' '}

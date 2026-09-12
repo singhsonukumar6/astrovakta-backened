@@ -5,6 +5,7 @@ import { Mail, Lock, User, ArrowRight, Eye, EyeOff, Check, Globe, CalendarCheck 
 import toast from 'react-hot-toast'
 import { register as apiRegister } from '../lib/api.js'
 import { useAuth } from '../lib/auth.jsx'
+import GoogleSignIn from '../components/GoogleSignIn.jsx'
 
 export default function Register() {
   const [name, setName] = useState('')
@@ -200,6 +201,7 @@ export default function Register() {
                   {!loading && <ArrowRight size={17} />}
                 </button>
               </form>
+              <GoogleSignIn />
 
               <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12, marginTop: 24, lineHeight: 1.6 }}>
                 Free forever plan · No credit card required ·{' '}
