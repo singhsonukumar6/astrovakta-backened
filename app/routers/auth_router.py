@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+import logging
 import os
 import secrets
 
@@ -129,20 +130,21 @@ def create_tenant_token(tenant_user_id: int, site_id: int) -> str:
 def _maybe_grant_superadmin(user: dict) -> dict:
     """If SUPERADMIN_EMAIL is configured and matches, keep this account as an
     admin — so re-creating the account (new login method, re-register) never
-    loses the admin panel."""
-    target = (os.getenv("SUPERADMIN_EMAIL") or "").lower().strip()
-    if target and user.get("email", "").lower().strip() == target and not user.get("is_admin"):
-        from ..database import get_db
-        db = get_db()
-        db.execute(_convert_update_placeholder("users", "is_admin"), (1, user["id"]))
-        db.commit()
-        user = {**user, "is_admin": 1}
+    loses the admin panel. Never let this break login itself."""
+    try:
+        target = (os.getenv("SUPERADMIN_EMAIL") or "").lower().strip()
+        if target and user.get("email", "").lower().strip() == target and not user.get("is_admin"):
+            from ..database import get_db, USE_POSTGRES
+            db = get_db()
+            if USE_POSTGRES:
+                db.execute("UPDATE users SET is_admin = TRUE WHERE id = %s", (user["id"],))
+            else:
+                db.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (user["id"],))
+            db.commit()
+            user = {**user, "is_admin": 1}
+    except Exception:
+        logging.getLogger(__name__).exception("superadmin bootstrap failed (login continues)")
     return user
-
-
-def _convert_update_placeholder(table, col):
-    from ..database import USE_POSTGRES
-    return f"UPDATE {table} SET {col} = %s WHERE id = %s" if USE_POSTGRES else f"UPDATE {table} SET {col} = ? WHERE id = ?"
 
 
 @router.post("/register")
