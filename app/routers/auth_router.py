@@ -125,6 +125,26 @@ def create_tenant_token(tenant_user_id: int, site_id: int) -> str:
         SECRET_KEY, algorithm=ALGORITHM,
     )
 
+
+def _maybe_grant_superadmin(user: dict) -> dict:
+    """If SUPERADMIN_EMAIL is configured and matches, keep this account as an
+    admin — so re-creating the account (new login method, re-register) never
+    loses the admin panel."""
+    target = (os.getenv("SUPERADMIN_EMAIL") or "").lower().strip()
+    if target and user.get("email", "").lower().strip() == target and not user.get("is_admin"):
+        from ..database import get_db
+        db = get_db()
+        db.execute(_convert_update_placeholder("users", "is_admin"), (1, user["id"]))
+        db.commit()
+        user = {**user, "is_admin": 1}
+    return user
+
+
+def _convert_update_placeholder(table, col):
+    from ..database import USE_POSTGRES
+    return f"UPDATE {table} SET {col} = %s WHERE id = %s" if USE_POSTGRES else f"UPDATE {table} SET {col} = ? WHERE id = ?"
+
+
 @router.post("/register")
 def register(body: RegisterBody):
     from ..database import get_db
@@ -152,6 +172,7 @@ def register(body: RegisterBody):
         mark_email_verified(user["id"])
         user = {**user, "email_verified": 1}
 
+    user = _maybe_grant_superadmin(user)
     resp = _user_response(user, token)
     resp["email_sent"] = email_sent
     return resp
@@ -162,6 +183,7 @@ def login(body: LoginBody):
     user = authenticate_user(body.email, body.password)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+    user = _maybe_grant_superadmin(user)
     token = create_access_token(user["id"])
     return _user_response(user, token)
 
@@ -386,6 +408,7 @@ def google_login(body: GoogleLoginBody):
         db.execute(_convert_update(), (picture, user["id"]))
         db.commit()
         user = {**user, "avatar_url": picture}
+    user = _maybe_grant_superadmin(user)
     token = create_access_token(user["id"])
     resp = _user_response(user, token)
     resp["email_sent"] = False
