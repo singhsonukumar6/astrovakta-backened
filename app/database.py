@@ -282,6 +282,8 @@ CREATE TABLE IF NOT EXISTS site_services (
     currency TEXT DEFAULT 'INR',
     is_active BOOLEAN DEFAULT 1,
     sort_order INTEGER DEFAULT 0,
+    master_product_id INTEGER,
+    cost_price INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (site_id) REFERENCES sites(id)
 );
@@ -333,6 +335,8 @@ CREATE TABLE IF NOT EXISTS site_products (
     stock INTEGER DEFAULT -1,
     is_active BOOLEAN DEFAULT 1,
     sort_order INTEGER DEFAULT 0,
+    master_product_id INTEGER,
+    cost_price INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (site_id) REFERENCES sites(id)
 );
@@ -376,6 +380,25 @@ CREATE TABLE IF NOT EXISTS tenant_users (
     password_hash TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (site_id, email)
+);
+CREATE TABLE IF NOT EXISTS master_categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    slug TEXT NOT NULL UNIQUE,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS master_products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category_id INTEGER,
+    name TEXT NOT NULL,
+    description TEXT,
+    image TEXT,
+    mrp INTEGER NOT NULL DEFAULT 0,
+    margin INTEGER NOT NULL DEFAULT 0,
+    active INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (category_id) REFERENCES master_categories(id)
 );
 """
 
@@ -617,6 +640,25 @@ CREATE TABLE IF NOT EXISTS tenant_users (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (site_id, email)
 );
+CREATE TABLE IF NOT EXISTS master_categories (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    slug TEXT NOT NULL UNIQUE,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS master_products (
+    id SERIAL PRIMARY KEY,
+    category_id INTEGER,
+    name TEXT NOT NULL,
+    description TEXT,
+    image TEXT,
+    mrp INTEGER NOT NULL DEFAULT 0,
+    margin INTEGER NOT NULL DEFAULT 0,
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    FOREIGN KEY (category_id) REFERENCES master_categories(id)
+);
 """
 
 
@@ -667,6 +709,8 @@ def init_db() -> None:
                 ("sites", "hero_image", "TEXT"),
                 ("sites", "settings", "TEXT"),
                 ("site_bookings", "payment_status", "TEXT DEFAULT 'none'"),
+                ("site_products", "master_product_id", "INTEGER"),
+                ("site_products", "cost_price", "INTEGER DEFAULT 0"),
             ]:
                 try:
                     row = conn.execute(
@@ -698,6 +742,8 @@ def init_db() -> None:
         _migrate_sqlite(cursor, "usage_logs", "response_time_ms", "INTEGER")
         _migrate_sqlite(cursor, "usage_logs", "endpoint_group", "TEXT")
         _migrate_sqlite(cursor, "site_bookings", "payment_status", "TEXT DEFAULT 'none'")
+        _migrate_sqlite(cursor, "site_products", "master_product_id", "INTEGER")
+        _migrate_sqlite(cursor, "site_products", "cost_price", "INTEGER DEFAULT 0")
         _migrate_sqlite(cursor, "usage_logs", "credits_used", "INTEGER DEFAULT 0")
         _migrate_sqlite(cursor, "sites", "logo_url", "TEXT")
         _migrate_sqlite(cursor, "sites", "hero_image", "TEXT")

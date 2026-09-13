@@ -22,6 +22,9 @@ from ..tenants import (
     list_leads,
     list_products, get_product, create_product, update_product, delete_product,
     list_social_posts, create_social_post, update_social_post, delete_social_post,
+    list_master_categories, create_master_category, update_master_category, delete_master_category,
+    list_master_products, get_master_product, create_master_product, update_master_product, delete_master_product,
+    import_master_product,
     list_orders, get_order, create_order, update_order, ORDER_STATUSES,
     site_stats, adjust_product_stock,
 )
@@ -856,3 +859,126 @@ def set_visitor_google_auth(body: dict, user: dict = Depends(require_admin)):
     from ..tenants import update_site
     update_site(site_id, {"settings": settings})
     return {"ok": True, "site": site["slug"], "visitorGoogleAuth": settings["visitorGoogleAuth"]}
+
+
+# ─────────────── dropshipping master catalog (superadmin) ───────────────
+
+class MasterCategoryBody(BaseModel):
+    name: str = Field(..., min_length=1, max_length=80)
+    slug: Optional[str] = Field(None, max_length=80)
+    sort_order: Optional[int] = 0
+
+
+class MasterProductBody(BaseModel):
+    category_id: Optional[int] = None
+    name: str = Field(..., min_length=1, max_length=160)
+    description: Optional[str] = Field(None, max_length=2000)
+    image: Optional[str] = None
+    mrp: int = Field(0, ge=0)
+    margin: int = Field(0, ge=0)
+    active: Optional[bool] = None
+
+
+def _admin(user):
+    if not user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+
+@router.get("/admin/master/categories")
+def admin_master_categories(user: dict = Depends(get_current_user)):
+    _admin(user)
+    return {"categories": list_master_categories()}
+
+
+@router.post("/admin/master/categories")
+def admin_create_master_category(body: MasterCategoryBody, user: dict = Depends(get_current_user)):
+    _admin(user)
+    slug = (body.slug or body.name).lower().strip().replace(" ", "-")
+    import re as _re
+    slug = _re.sub(r"[^a-z0-9-]", "", slug)
+    return create_master_category(body.name, slug, body.sort_order or 0)
+
+
+@router.put("/admin/master/categories/{cid}")
+def admin_update_master_category(cid: int, body: MasterCategoryBody, user: dict = Depends(get_current_user)):
+    _admin(user)
+    update_master_category(cid, {"name": body.name, "sort_order": body.sort_order})
+    return {"ok": True}
+
+
+@router.delete("/admin/master/categories/{cid}")
+def admin_delete_master_category(cid: int, user: dict = Depends(get_current_user)):
+    _admin(user)
+    delete_master_category(cid)
+    return {"ok": True}
+
+
+@router.get("/admin/master/products")
+def admin_master_products(user: dict = Depends(get_current_user)):
+    _admin(user)
+    return {"products": list_master_products()}
+
+
+@router.post("/admin/master/products")
+def admin_create_master_product(body: MasterProductBody, user: dict = Depends(get_current_user)):
+    _admin(user)
+    if body.margin > body.mrp:
+        raise HTTPException(status_code=400, detail="Margin cannot exceed MRP")
+    return create_master_product(body.model_dump())
+
+
+@router.put("/admin/master/products/{mid}")
+def admin_update_master_product(mid: int, body: MasterProductBody, user: dict = Depends(get_current_user)):
+    _admin(user)
+    if body.margin > body.mrp:
+        raise HTTPException(status_code=400, detail="Margin cannot exceed MRP")
+    update_master_product(mid, body.model_dump())
+    return get_master_product(mid)
+
+
+@router.delete("/admin/master/products/{mid}")
+def admin_delete_master_product(mid: int, user: dict = Depends(get_current_user)):
+    _admin(user)
+    delete_master_product(mid)
+    return {"ok": True}
+
+
+# ─────────────── tenant catalog import ───────────────
+
+class ImportBody(BaseModel):
+    price: Optional[int] = Field(None, ge=0)
+
+
+@router.get("/my/{site_id}/catalog")
+def my_catalog(site_id: int, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    mine = {p.get("master_product_id"): p for p in list_products(site_id) if p.get("master_product_id")}
+    products = []
+    for mp in list_master_products(active_only=True):
+        mine_p = mine.get(mp["id"])
+        products.append({
+            "id": mp["id"], "name": mp["name"], "description": mp["description"], "image": mp["image"],
+            "category": mp.get("category_name"), "mrp": mp["mrp"], "margin": mp["margin"],
+            "cost": max(0, mp["mrp"] - mp["margin"]),
+            "imported": bool(mine_p), "site_product_id": mine_p["id"] if mine_p else None,
+            "current_price": mine_p["price"] if mine_p else None,
+        })
+    return {"categories": list_master_categories(), "products": products}
+
+
+@router.post("/my/{site_id}/catalog/{master_id}/import")
+def import_catalog_product(site_id: int, master_id: int, body: ImportBody, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    mp = get_master_product(master_id)
+    if not mp or not mp.get("active", True):
+        raise HTTPException(status_code=404, detail="Master product not found")
+    cost = max(0, mp.get("mrp", 0) - mp.get("margin", 0))
+    price = body.price if body.price is not None else mp.get("mrp", 0)
+    if price < cost:
+        raise HTTPException(status_code=400,
+                            detail=f"Price must be at least your cost ₹{cost} (MRP ₹{mp['mrp']} − margin ₹{mp['margin']})")
+    already = [p for p in list_products(site_id) if p.get("master_product_id") == master_id]
+    if already:
+        raise HTTPException(status_code=409, detail="Already imported — edit its price in Products")
+    prod = import_master_product(site_id, mp, price)
+    return {"product": prod, "cost": cost}

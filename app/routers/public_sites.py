@@ -599,6 +599,9 @@ def tenant_kundli_full(body: KundliToolBody, request: Request, slug: str = None,
         "timezone": body.tz or _DEFAULT_PLACE["tz"],
     }
     sections = {}
+    # Classical Shodashavarga set (D1 is the birth chart already shown in the chart tab).
+    classical_vargas = ["D2", "D3", "D4", "D7", "D9", "D10", "D12", "D16", "D20",
+                        "D24", "D27", "D30", "D40", "D45", "D60"]
     targets = {
         "yogini": "/dasha/yogini",
         "ashtottari": "/dasha/ashtottari",
@@ -609,14 +612,53 @@ def tenant_kundli_full(body: KundliToolBody, request: Request, slug: str = None,
         "dhaiya": "/horoscope/dosha/dhaiya",
         "kpRulingPlanets": "/kp/ruling-planets",
         "lalKitab": "/lal-kitab/chart-analysis",
-        "divisionalD9": "/chart/divisional-svg",
-        "divisionalD10": "/chart/divisional-svg",
     }
+    for v in classical_vargas:
+        targets[f"divisional{v}"] = "/chart/divisional-svg"
     for key, path in targets.items():
         try:
-            sections[key] = _call_internal(path, {**birth, "name": "D9" if key == "divisionalD9" else "D10", "width": 520, "height": 520, "theme": "light"})
+            payload = {**birth}
+            if key.startswith("divisional"):
+                payload.update({
+                    "name": key[len("divisional"):],
+                    "width": 460, "height": 460,
+                    "theme": body.chart_theme or "light",
+                })
+            sections[key] = _call_internal(path, payload)
         except Exception as e:
             sections[key] = {"error": str(e)[:200]}
+
+    # Full Vimshottari tree (mahadasha → antardasha → pratyantardasha) for the
+    # dasha explorer. Sookshma level is dropped to keep the payload light.
+    try:
+        from ..main import parse_local_datetime, vimshottari_full
+        from ..utils import to_julian as _to_jd
+        jd_v = _to_jd(body.date, body.time, birth["timezone"])
+        sched = vimshottari_full(jd_v, parse_local_datetime(body.date, body.time, birth["timezone"]))
+        sections["vimshottari"] = {
+            "system": "Vimshottari",
+            "mahadashas": [
+                {
+                    "planet": md.get("planet"),
+                    "startDate": md.get("startDate"), "endDate": md.get("endDate"),
+                    "antardasha": [
+                        {
+                            "planet": ad.get("planet"),
+                            "startDate": ad.get("startDate"), "endDate": ad.get("endDate"),
+                            "pratyantardasha": [
+                                {"planet": pd.get("planet"), "startDate": pd.get("startDate"),
+                                 "endDate": pd.get("endDate")}
+                                for pd in (ad.get("pratyantar") or [])
+                            ],
+                        }
+                        for ad in (md.get("antardasha") or [])
+                    ],
+                }
+                for md in (sched.get("mahadashas") or [])
+            ],
+        }
+    except Exception as e:
+        sections["vimshottari"] = {"error": str(e)[:200]}
 
     dosha = {}
     try:

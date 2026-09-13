@@ -958,6 +958,17 @@ def site_stats(site_id: int) -> dict:
 #  Public site bundle (everything the renderer needs, in one call)
 # ═══════════════════════════════════════════════
 
+def products_with_category(site_id: int) -> list:
+    """Active shop products with their master category name (for the shop page)."""
+    rows = get_db().execute(_convert(
+        "SELECT sp.*, mc.name AS category FROM site_products sp "
+        "LEFT JOIN master_products mp ON mp.id = sp.master_product_id "
+        "LEFT JOIN master_categories mc ON mc.id = mp.category_id "
+        "WHERE sp.site_id = ? AND sp.is_active = 1 ORDER BY mc.sort_order, sp.sort_order, sp.id"
+    ), (site_id,)).fetchall()
+    return [_to_dict(r) for r in rows]
+
+
 def public_site_bundle(site: dict) -> dict:
     site_id = site["id"]
     pages = {p["page_key"]: p for p in list_pages(site_id) if p.get("is_published")}
@@ -976,5 +987,102 @@ def public_site_bundle(site: dict) -> dict:
         },
         "pages": pages,
         "services": list_services(site_id, active_only=True),
-        "products": list_products(site_id, active_only=True),
+        "products": products_with_category(site_id),
     }
+
+
+# ═══════════════════════════════════════════════
+#  Dropshipping master catalog
+# ═══════════════════════════════════════════════
+
+def list_master_categories() -> list:
+    rows = get_db().execute(_convert("SELECT * FROM master_categories ORDER BY sort_order, name")).fetchall()
+    return [_to_dict(r) for r in rows]
+
+
+def create_master_category(name: str, slug: str, sort_order: int = 0) -> dict:
+    db = get_db()
+    cur = db.execute(_convert("INSERT INTO master_categories (name, slug, sort_order) VALUES (?, ?, ?) RETURNING id"),
+                     (name, slug, sort_order))
+    cid = cur.fetchone()[0]
+    db.commit()
+    row = db.execute(_convert("SELECT * FROM master_categories WHERE id = ?"), (cid,)).fetchone()
+    return _to_dict(row)
+
+
+def update_master_category(cid: int, data: dict):
+    db = get_db()
+    db.execute(_convert("UPDATE master_categories SET name = COALESCE(?, name), sort_order = COALESCE(?, sort_order) WHERE id = ?"),
+               (data.get("name"), data.get("sort_order"), cid))
+    db.commit()
+
+
+def delete_master_category(cid: int):
+    db = get_db()
+    db.execute(_convert("DELETE FROM master_categories WHERE id = ?"), (cid,))
+    db.commit()
+
+
+def list_master_products(category_id=None, active_only=False) -> list:
+    sql = ("SELECT mp.*, mc.name AS category_name FROM master_products mp "
+           "LEFT JOIN master_categories mc ON mc.id = mp.category_id")
+    conds, params = [], []
+    if category_id:
+        conds.append("mp.category_id = ?"); params.append(category_id)
+    if active_only:
+        conds.append("mp.active = 1")
+    if conds:
+        sql += " WHERE " + " AND ".join(conds)
+    sql += " ORDER BY mc.sort_order, mp.name"
+    rows = get_db().execute(_convert(sql), params).fetchall()
+    return [_to_dict(r) for r in rows]
+
+
+def get_master_product(mid: int):
+    row = get_db().execute(_convert("SELECT * FROM master_products WHERE id = ?"), (mid,)).fetchone()
+    return _to_dict(row)
+
+
+def create_master_product(data: dict) -> dict:
+    db = get_db()
+    cur = db.execute(_convert(
+        "INSERT INTO master_products (category_id, name, description, image, mrp, margin, active) "
+        "VALUES (?, ?, ?, ?, ?, ?, 1) RETURNING id"),
+        (data.get("category_id"), data.get("name"), data.get("description"),
+         data.get("image"), data.get("mrp", 0), data.get("margin", 0)))
+    mid = cur.fetchone()[0]
+    db.commit()
+    return get_master_product(mid)
+
+
+def update_master_product(mid: int, data: dict):
+    db = get_db()
+    db.execute(_convert(
+        "UPDATE master_products SET category_id = COALESCE(?, category_id), name = COALESCE(?, name), "
+        "description = COALESCE(?, description), image = COALESCE(?, image), mrp = COALESCE(?, mrp), "
+        "margin = COALESCE(?, margin), active = COALESCE(?, active) WHERE id = ?"),
+        (data.get("category_id"), data.get("name"), data.get("description"), data.get("image"),
+         data.get("mrp"), data.get("margin"), data.get("active"), mid))
+    db.commit()
+
+
+def delete_master_product(mid: int):
+    db = get_db()
+    db.execute(_convert("DELETE FROM master_products WHERE id = ?"), (mid,))
+    db.commit()
+
+
+def import_master_product(site_id: int, master_product: dict, price: int):
+    """Copy a master product into the tenant's shop. Tenant cost = MRP - margin;
+    they sell at `price` (must be >= their cost)."""
+    cost = max(0, int(master_product.get("mrp", 0)) - int(master_product.get("margin", 0)))
+    db = get_db()
+    cur = db.execute(_convert(
+        "INSERT INTO site_products (site_id, name, description, price, currency, image, stock, is_active, sort_order, "
+        "master_product_id, cost_price) VALUES (?, ?, ?, ?, 'INR', ?, -1, 1, 0, ?, ?) RETURNING id"),
+        (site_id, master_product["name"], master_product.get("description"),
+         int(price), master_product.get("image"), master_product["id"], cost))
+    pid = cur.fetchone()[0]
+    db.commit()
+    row = db.execute(_convert("SELECT * FROM site_products WHERE id = ?"), (pid,)).fetchone()
+    return _to_dict(row)

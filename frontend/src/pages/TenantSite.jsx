@@ -795,6 +795,26 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
   if (route.startsWith('#/kundli')) return <KundliPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
   if (route.startsWith('#/matching')) return <MatchingPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
   if (route.startsWith('#/signin')) return <TenantSignIn site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
+  const shopHome = (bundle?.pages?.home?.content) || {}
+  const shopProducts = (bundle?.products) || []
+  if (route.startsWith('#/shop')) {
+    if (!bundle) return null
+    return (
+      <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text }}>
+        <header style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <a href="#/" style={{ textDecoration: 'none', color: COLORS.text, fontWeight: 800, fontSize: 15 }}>← {site.name}</a>
+          <span style={{ fontWeight: 800, fontSize: 16 }}>Shop</span>
+        </header>
+        <main style={{ maxWidth: 1000, margin: '0 auto', padding: '40px 18px 90px' }}>
+          <h1 style={{ fontSize: 32, fontWeight: 900, textAlign: 'center', margin: '0 0 8px' }}>{shopHome.storeTitle || 'Shop — Remedies & Products'}</h1>
+          <p style={{ textAlign: 'center', color: COLORS.textDim, fontSize: 15, lineHeight: 1.7, maxWidth: 620, margin: '0 auto 36px' }}>
+            Gemstones, rudraksha, bracelets and healing puja items recommended by {site.name}. Order now — pay on delivery or via UPI after confirmation.
+          </p>
+          <StoreSection site={{ ...bundle.site, _products: shopProducts }} resolve={resolve} theme={theme} COLORS={COLORS} />
+        </main>
+      </div>
+    )
+  }
 
   const sectionStyle = { maxWidth: 1000, margin: '0 auto', padding: '72px 20px' }
   const h2Style = { fontSize: 32, fontWeight: 800, marginBottom: 12, color: COLORS.text, textAlign: 'center' }
@@ -846,7 +866,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
           <nav style={{ display: 'flex', gap: 18, alignItems: 'center', fontSize: 14, fontWeight: 600, flexWrap: 'wrap' }}>
             <a href="#about" style={{ color: COLORS.textDim, textDecoration: 'none' }}>About</a>
             <a href="#services" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Services</a>
-            {showStore && <a href="#shop" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Shop</a>}
+            {showStore && <a href="#/shop" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Shop</a>}
             <a href="#/kundli" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Free Kundli</a>
             <a href="#/matching" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Match Making</a>
             <VisitorBadge slug={slug} COLORS={COLORS} theme={theme} />
@@ -901,7 +921,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
                   fontWeight: 700, fontSize: 16, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8,
                 }}><Sparkles size={18} color={theme.accentColor} /> Free Kundli</a>
                 {showStore && (
-                  <a href="#shop" style={{
+                  <a href="#/shop" style={{
                     padding: '14px 32px', borderRadius: 12, border: `1.5px solid ${COLORS.border}`, color: COLORS.text,
                     fontWeight: 700, fontSize: 16, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8,
                   }}><ShoppingBag size={18} /> Shop Remedies</a>
@@ -1030,15 +1050,17 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
         </section>
       )}
 
-      {/* ─── shop (products) ─── */}
+      {/* ─── shop CTA (full shop lives at #/shop) ─── */}
       {showStore && (
-        <section id="shop">
-          <div style={sectionStyle}>
-            <h2 style={h2Style}>{home.storeTitle || `Shop — Remedies & Products`}</h2>
-            <p style={subStyle}>
-              Gemstones, rudraksha and puja items recommended by {site.name}. Order now — pay on delivery or via UPI after confirmation.
+        <section style={{ background: light ? '#f3f1ec' : 'rgba(255,255,255,0.02)' }}>
+          <div style={{ ...sectionStyle, textAlign: 'center', padding: '52px 20px' }}>
+            <h2 style={{ ...h2Style, marginBottom: 10 }}>Remedies & Products</h2>
+            <p style={{ ...subStyle, marginBottom: 24 }}>
+              Gemstones, rudraksha, bracelets and healing puja items — recommended personally by {site.name}.
             </p>
-            <StoreSection site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
+            <a href="#/shop" style={{ textDecoration: 'none' }}>
+              <button style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: gradient, color: '#fff', border: 'none', borderRadius: 12, fontWeight: 800, fontSize: 16, padding: '14px 34px', cursor: 'pointer' }}>Visit the Shop →</button>
+            </a>
           </div>
         </section>
       )}

@@ -390,3 +390,9 @@ export const getMyJobs = (status = '') =>
   api.get('/jobs/my-jobs', { params: { status } }).then((r) => r.data)
 
 export default api
+
+// ──── DROPSHIPPING CATALOG ────
+export const getMyCatalog = (siteId) =>
+  api.get(`/sites/my/${siteId}/catalog`).then((r) => r.data?.data ?? r.data)
+export const importCatalogProduct = (siteId, masterId, price) =>
+  api.post(`/sites/my/${siteId}/catalog/${masterId}/import`, { price: price ?? undefined }).then((r) => r.data?.data ?? r.data)

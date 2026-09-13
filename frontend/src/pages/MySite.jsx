@@ -28,6 +28,7 @@ import {
   getMySiteStats, getMyProducts, createMyProduct, updateMyProduct, deleteMyProduct,
   getMyOrders, updateMyOrder, getKeys,
   getMySocial, generateSocialPost, createSocialPost, updateSocialPost, deleteSocialPost, socialPostMedia,
+  getMyCatalog, importCatalogProduct,
 } from '../lib/api.js'
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -506,6 +507,8 @@ function ServicesTab({ site, reload }) {
 // ═══════════════ STORE TAB (products + orders) ═══════════════
 function StoreTab({ site, reload }) {
   const [sub, setSub] = useState('products')
+  const [catalog, setCatalog] = useState(null)
+  const [importPrice, setImportPrice] = useState({})
   const [products, setProducts] = useState(null)
   const [orders, setOrders] = useState(null)
   const [form, setForm] = useState({ name: '', description: '', price: 500, stock: -1 })
@@ -517,6 +520,20 @@ function StoreTab({ site, reload }) {
     if (sub === 'products') loadProducts()
     else loadOrders()
   }, [sub, site.id, site.updated_at]) // eslint-disable-line
+
+  const loadCatalog = () => getMyCatalog(site.id).then(setCatalog).catch(() => setCatalog({ categories: [], products: [] }))
+  useEffect(() => { if (sub === 'catalog') loadCatalog() }, [sub, site.id]) // eslint-disable-line
+
+  const doImport = async (mp) => {
+    const price = importPrice[mp.id] ?? mp.mrp
+    setBusy(true)
+    try {
+      await importCatalogProduct(site.id, mp.id, price)
+      toast.success(`Imported — listed at ₹${price} (your cost ₹${mp.cost})`)
+      loadCatalog(); loadProducts()
+    } catch (e) { toast.error(errDetail(e, 'Import failed')) }
+    finally { setBusy(false) }
+  }
 
   const addProduct = async (e) => {
     e.preventDefault()
@@ -594,7 +611,7 @@ function StoreTab({ site, reload }) {
       </div>
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-        {[['products', 'Products', Package], ['orders', 'Orders', ShoppingBag]].map(([id, label, Icon]) => (
+        {[['products', 'Products', Package], ['catalog', 'Import catalog', ShoppingBag], ['orders', 'Orders', ShoppingBag]].map(([id, label, Icon]) => (
           <button key={id} onClick={() => setSub(id)} style={{
             ...ghostBtn, padding: '8px 18px', fontSize: 13,
             background: sub === id ? 'rgba(79,70,229,0.1)' : 'transparent',
@@ -606,7 +623,38 @@ function StoreTab({ site, reload }) {
         ))}
       </div>
 
-      {sub === 'products' && (
+              {sub === 'catalog' && (
+          <div style={{ ...cardStyle, marginBottom: 20 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Import from master catalog</h3>
+            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 14, lineHeight: 1.6 }}>
+              Products curated by AstroVakta. Your cost = MRP − margin. List at MRP or set your own price — you keep the difference.
+            </p>
+            {!catalog ? <div style={{ color: '#64748b' }}>Loading…</div> : (
+              (catalog.products || []).map((mp) => (
+                <div key={mp.id} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f1f5f9', flexWrap: 'wrap' }}>
+                  {mp.image ? <img src={mp.image} alt="" style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover' }} /> : <div style={{ width: 52, height: 52, borderRadius: 10, background: '#f1f5f9' }} />}
+                  <div style={{ flex: 1, minWidth: 180 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{mp.name} <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{mp.category}</span></div>
+                    <div style={{ fontSize: 12.5, color: '#64748b' }}>MRP ₹{mp.mrp} · your cost ₹{mp.cost} · min price ₹{mp.cost}</div>
+                  </div>
+                  {mp.imported ? (
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: '#16a34a' }}>Imported ✓ (₹{mp.current_price})</span>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <input type="number" value={importPrice[mp.id] ?? mp.mrp} min={mp.cost}
+                        onChange={(e) => setImportPrice((p) => ({ ...p, [mp.id]: Number(e.target.value) }))}
+                        placeholder={`₹${mp.mrp}`} style={{ ...inputStyle, width: 100 }} />
+                      <button onClick={() => doImport(mp)} disabled={busy} className="btn-primary" style={{ ...primaryBtn, padding: '8px 14px', fontSize: 13 }}>
+                        Import
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+{sub === 'products' && (
         <>
           {products === null ? (
             <div style={{ color: '#64748b', padding: 40, textAlign: 'center' }}>Loading products…</div>
