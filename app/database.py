@@ -381,6 +381,26 @@ CREATE TABLE IF NOT EXISTS tenant_users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (site_id, email)
 );
+CREATE TABLE IF NOT EXISTS store_connections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER NOT NULL,
+    provider TEXT NOT NULL,
+    shop_domain TEXT NOT NULL,
+    api_key TEXT,
+    api_secret TEXT,
+    access_token TEXT,
+    status TEXT DEFAULT 'connected',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS integration_products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    connection_id INTEGER NOT NULL,
+    site_product_id INTEGER NOT NULL,
+    external_id TEXT,
+    pushed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (connection_id) REFERENCES store_connections(id),
+    FOREIGN KEY (site_product_id) REFERENCES site_products(id)
+);
 CREATE TABLE IF NOT EXISTS master_categories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -639,6 +659,26 @@ CREATE TABLE IF NOT EXISTS tenant_users (
     password_hash TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (site_id, email)
+);
+CREATE TABLE IF NOT EXISTS store_connections (
+    id SERIAL PRIMARY KEY,
+    site_id INTEGER NOT NULL,
+    provider TEXT NOT NULL,
+    shop_domain TEXT NOT NULL,
+    api_key TEXT,
+    api_secret TEXT,
+    access_token TEXT,
+    status TEXT DEFAULT 'connected',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS integration_products (
+    id SERIAL PRIMARY KEY,
+    connection_id INTEGER NOT NULL,
+    site_product_id INTEGER NOT NULL,
+    external_id TEXT,
+    pushed_at TIMESTAMPTZ DEFAULT NOW(),
+    FOREIGN KEY (connection_id) REFERENCES store_connections(id),
+    FOREIGN KEY (site_product_id) REFERENCES site_products(id)
 );
 CREATE TABLE IF NOT EXISTS master_categories (
     id SERIAL PRIMARY KEY,

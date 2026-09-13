@@ -29,6 +29,7 @@ import {
   getMyOrders, updateMyOrder, getKeys,
   getMySocial, generateSocialPost, createSocialPost, updateSocialPost, deleteSocialPost, socialPostMedia,
   getMyCatalog, importCatalogProduct,
+  getMyIntegrations, connectStore, disconnectStore, pushToStore, pullStoreOrders,
 } from '../lib/api.js'
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -509,6 +510,9 @@ function StoreTab({ site, reload }) {
   const [sub, setSub] = useState('products')
   const [catalog, setCatalog] = useState(null)
   const [importPrice, setImportPrice] = useState({})
+  const [integrations, setIntegrations] = useState([])
+  const [connForm, setConnForm] = useState({ provider: 'woocommerce', shop_domain: '', api_key: '', api_secret: '', access_token: '' })
+  const [pushSel, setPushSel] = useState([])
   const [products, setProducts] = useState(null)
   const [orders, setOrders] = useState(null)
   const [form, setForm] = useState({ name: '', description: '', price: 500, stock: -1 })
@@ -523,6 +527,41 @@ function StoreTab({ site, reload }) {
 
   const loadCatalog = () => getMyCatalog(site.id).then(setCatalog).catch(() => setCatalog({ categories: [], products: [] }))
   useEffect(() => { if (sub === 'catalog') loadCatalog() }, [sub, site.id]) // eslint-disable-line
+
+  const loadIntegrations = () => getMyIntegrations(site.id).then((d) => setIntegrations(d.integrations || [])).catch(() => setIntegrations([]))
+  useEffect(() => { if (sub === 'integrations') { loadIntegrations(); loadProducts() } }, [sub, site.id]) // eslint-disable-line
+
+  const doConnect = async (e) => {
+    e.preventDefault(); setBusy(true)
+    try {
+      await connectStore(site.id, connForm)
+      toast.success('Store connected')
+      setConnForm({ provider: connForm.provider, shop_domain: '', api_key: '', api_secret: '', access_token: '' })
+      loadIntegrations()
+    } catch (e2) { toast.error(errDetail(e2, 'Could not connect the store')) }
+    finally { setBusy(false) }
+  }
+
+  const doPush = async (cid) => {
+    if (!pushSel.length) return toast.error('Select products first')
+    setBusy(true)
+    try {
+      const res = await pushToStore(site.id, cid, pushSel)
+      const ok = (res.results || []).filter((r) => r.ok).length
+      toast.success(`Pushed ${ok}/${res.results.length} products`)
+      setPushSel([])
+    } catch (e2) { toast.error(errDetail(e2, 'Push failed')) }
+    finally { setBusy(false) }
+  }
+
+  const doPull = async (cid) => {
+    setBusy(true)
+    try {
+      const res = await pullStoreOrders(site.id, cid)
+      toast.success(`${res.imported || 0} new orders imported (${res.skipped || 0} already known)`)
+    } catch (e2) { toast.error(errDetail(e2, 'Pull failed')) }
+    finally { setBusy(false) }
+  }
 
   const doImport = async (mp) => {
     const price = importPrice[mp.id] ?? mp.mrp
@@ -611,7 +650,7 @@ function StoreTab({ site, reload }) {
       </div>
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-        {[['products', 'Products', Package], ['catalog', 'Import catalog', ShoppingBag], ['orders', 'Orders', ShoppingBag]].map(([id, label, Icon]) => (
+        {[['products', 'Products', Package], ['catalog', 'Import catalog', ShoppingBag], ['integrations', 'Integrations', Link2], ['orders', 'Orders', ShoppingBag]].map(([id, label, Icon]) => (
           <button key={id} onClick={() => setSub(id)} style={{
             ...ghostBtn, padding: '8px 18px', fontSize: 13,
             background: sub === id ? 'rgba(79,70,229,0.1)' : 'transparent',
@@ -623,7 +662,63 @@ function StoreTab({ site, reload }) {
         ))}
       </div>
 
-              {sub === 'catalog' && (
+                      {sub === 'integrations' && (
+          <div style={{ ...cardStyle, marginBottom: 20 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Connect Shopify or WooCommerce</h3>
+            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 14, lineHeight: 1.6 }}>
+              Push your products to your own store and pull its orders here. WooCommerce: paste the Consumer Key/Secret (WooCommerce → Settings → Advanced → REST API). Shopify: create a custom app with write_products/read_orders scopes and paste the Admin API access token.
+            </p>
+            {(integrations || []).length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                {integrations.map((c) => (
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid #f1f5f9', flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 700, fontSize: 14 }}>{c.provider === 'shopify' ? 'Shopify' : 'WooCommerce'}: {c.shop_domain}</span>
+                    {c.provider === 'shopify' && (
+                      <button onClick={() => doPull(c.id)} disabled={busy} style={{ ...ghostBtn, padding: '6px 12px', fontSize: 12.5 }}>Pull orders</button>
+                    )}
+                    <button onClick={() => doPush(c.id)} disabled={busy || !pushSel.length} style={{ ...primaryBtn, padding: '6px 12px', fontSize: 12.5, opacity: pushSel.length ? 1 : 0.5 }}>
+                      Push selected ({pushSel.length})
+                    </button>
+                    <button onClick={async () => { await disconnectStore(site.id, c.id); loadIntegrations() }}
+                      style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 12.5, textDecoration: 'underline' }}>
+                      Disconnect
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginBottom: 10 }}>
+              <select value={connForm.provider} onChange={(e) => setConnForm({ ...connForm, provider: e.target.value })} style={inputStyle}>
+                <option value="woocommerce">WooCommerce</option>
+                <option value="shopify">Shopify</option>
+              </select>
+              <input value={connForm.shop_domain} onChange={(e) => setConnForm({ ...connForm, shop_domain: e.target.value })} placeholder="mystore.com" style={inputStyle} />
+              {connForm.provider === 'woocommerce' ? (
+                <>
+                  <input value={connForm.api_key} onChange={(e) => setConnForm({ ...connForm, api_key: e.target.value })} placeholder="Consumer key (ck_…)" style={inputStyle} />
+                  <input value={connForm.api_secret} onChange={(e) => setConnForm({ ...connForm, api_secret: e.target.value })} placeholder="Consumer secret (cs_…)" style={inputStyle} />
+                </>
+              ) : (
+                <input value={connForm.access_token} onChange={(e) => setConnForm({ ...connForm, access_token: e.target.value })} placeholder="Admin API access token (shpat_…)" style={inputStyle} />
+              )}
+            </div>
+            <button onClick={doConnect} disabled={busy} className="btn-primary" style={{ ...primaryBtn, opacity: busy ? 0.6 : 1 }}>Connect store</button>
+            {(products || []).length > 0 && (
+              <div style={{ marginTop: 18 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', marginBottom: 8 }}>Your products — tick to push:</div>
+                {products.map((p) => (
+                  <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', fontSize: 13.5, cursor: 'pointer', color: '#334155' }}>
+                    <input type="checkbox" checked={pushSel.includes(p.id)}
+                      onChange={(e) => setPushSel((s2) => e.target.checked ? [...s2, p.id] : s2.filter((x) => x !== p.id))}
+                      style={{ accentColor: '#4f46e5' }} />
+                    {p.name} — ₹{p.price}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+{sub === 'catalog' && (
           <div style={{ ...cardStyle, marginBottom: 20 }}>
             <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Import from master catalog</h3>
             <p style={{ fontSize: 13, color: '#64748b', marginBottom: 14, lineHeight: 1.6 }}>

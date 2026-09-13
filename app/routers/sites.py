@@ -25,6 +25,8 @@ from ..tenants import (
     list_master_categories, create_master_category, update_master_category, delete_master_category,
     list_master_products, get_master_product, create_master_product, update_master_product, delete_master_product,
     import_master_product,
+    list_store_connections, get_store_connection, create_store_connection, delete_store_connection,
+    record_integration_product, get_integration_product_map, get_order, create_order,
     list_orders, get_order, create_order, update_order, ORDER_STATUSES,
     site_stats, adjust_product_stock,
 )
@@ -982,3 +984,100 @@ def import_catalog_product(site_id: int, master_id: int, body: ImportBody, user:
         raise HTTPException(status_code=409, detail="Already imported — edit its price in Products")
     prod = import_master_product(site_id, mp, price)
     return {"product": prod, "cost": cost}
+
+
+# ─────────────── external store integrations (Shopify / WooCommerce) ───────────────
+
+class ConnectStoreBody(BaseModel):
+    provider: str = Field(..., pattern="^(shopify|woocommerce)$")
+    shop_domain: str = Field(..., max_length=200)
+    api_key: Optional[str] = Field(None, max_length=200)
+    api_secret: Optional[str] = Field(None, max_length=200)
+    access_token: Optional[str] = Field(None, max_length=300)
+
+
+@router.get("/my/{site_id}/integrations")
+def my_integrations(site_id: int, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    conns = list_store_connections(site_id)
+    from ..store_integrations import test_connection
+    for c in conns:
+        c["has_credentials"] = bool(c.get("access_token") or (c.get("api_key") and c.get("api_secret")))
+        c.pop("api_key", None); c.pop("api_secret", None); c.pop("access_token", None)
+    return {"integrations": conns}
+
+
+@router.post("/my/{site_id}/integrations")
+def connect_store(site_id: int, body: ConnectStoreBody, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    if body.provider == "woocommerce" and not (body.api_key and body.api_secret):
+        raise HTTPException(status_code=400, detail="WooCommerce needs the consumer key and consumer secret")
+    if body.provider == "shopify" and not body.access_token:
+        raise HTTPException(status_code=400, detail="Shopify needs the Admin API access token from your custom app")
+    conn = create_store_connection(site_id, {"provider": body.provider, "shop_domain": body.shop_domain,
+                                             "api_key": body.api_key, "api_secret": body.api_secret,
+                                             "access_token": body.access_token})
+    from ..store_integrations import test_connection
+    result = test_connection(conn)
+    if not result.get("ok"):
+        delete_store_connection(site_id, conn["id"])
+        raise HTTPException(status_code=400, detail=f"Could not reach the store: {result.get('error', '')[:150]}")
+    return {"ok": True, "integration": {"id": conn["id"], "provider": conn["provider"], "shop_domain": conn["shop_domain"]}}
+
+
+@router.delete("/my/{site_id}/integrations/{cid}")
+def disconnect_store(site_id: int, cid: int, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    delete_store_connection(site_id, cid)
+    return {"ok": True}
+
+
+class PushBody(BaseModel):
+    product_ids: list[int] = Field(..., min_length=1)
+
+
+@router.post("/my/{site_id}/integrations/{cid}/push")
+def push_to_store(site_id: int, cid: int, body: PushBody, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    conn = get_store_connection(site_id, cid)
+    if not conn:
+        raise HTTPException(status_code=404, detail="Integration not found")
+    from ..store_integrations import push_product, test_connection
+    check = test_connection(conn)
+    if not check.get("ok"):
+        raise HTTPException(status_code=400, detail="Store unreachable — check the credentials")
+    pmap = get_integration_product_map(cid)
+    results = []
+    for pid in body.product_ids:
+        prod = next((p for p in list_products(site_id) if p["id"] == pid), None)
+        if not prod:
+            results.append({"product_id": pid, "ok": False, "error": "product not found"}); continue
+        r = push_product(conn, prod)
+        if r.get("ok"):
+            record_integration_product(cid, pid, r["external_id"])
+        results.append({"product_id": pid, "name": prod["name"], **r})
+    return {"results": results}
+
+
+@router.post("/my/{site_id}/integrations/{cid}/pull-orders")
+def pull_store_orders(site_id: int, cid: int, user: dict = Depends(get_current_user)):
+    """Shopify orders are pulled (no webhook secret needed). New orders are
+    imported into the normal Orders tab."""
+    _require_owned_site(site_id, user)
+    conn = get_store_connection(site_id, cid)
+    if not conn or conn["provider"] != "shopify":
+        raise HTTPException(status_code=404, detail="Shopify integration not found")
+    from ..store_integrations import pull_shopify_orders
+    pulled = pull_shopify_orders(conn)
+    imported, skipped = 0, 0
+    for o in pulled:
+        if o.get("error"):
+            continue
+        existing = [x for x in [get_order(site_id, i["id"]) for i in []] if x]
+        from ..tenants import list_orders
+        ref_note = o.get("external_ref")
+        if any(ref_note in (x.get("notes") or "") for x in list_orders(site_id, limit=100)):
+            skipped += 1; continue
+        create_order(site_id, o)
+        imported += 1
+    return {"imported": imported, "skipped": skipped}

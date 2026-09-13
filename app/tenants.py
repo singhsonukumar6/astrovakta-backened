@@ -1086,3 +1086,57 @@ def import_master_product(site_id: int, master_product: dict, price: int):
     db.commit()
     row = db.execute(_convert("SELECT * FROM site_products WHERE id = ?"), (pid,)).fetchone()
     return _to_dict(row)
+
+
+# ═══════════════════════════════════════════════
+#  External store integrations (Shopify / WooCommerce)
+# ═══════════════════════════════════════════════
+
+def list_store_connections(site_id: int) -> list:
+    rows = get_db().execute(_convert("SELECT * FROM store_connections WHERE site_id = ? ORDER BY id DESC"), (site_id,)).fetchall()
+    return [_to_dict(r) for r in rows]
+
+
+def get_store_connection(site_id: int, cid: int):
+    row = get_db().execute(_convert("SELECT * FROM store_connections WHERE site_id = ? AND id = ?"), (site_id, cid)).fetchone()
+    return _to_dict(row)
+
+
+def create_store_connection(site_id: int, data: dict) -> dict:
+    db = get_db()
+    cur = db.execute(_convert(
+        "INSERT INTO store_connections (site_id, provider, shop_domain, api_key, api_secret, access_token) "
+        "VALUES (?, ?, ?, ?, ?, ?) RETURNING id"),
+        (site_id, data["provider"], data["shop_domain"], data.get("api_key"), data.get("api_secret"), data.get("access_token")))
+    cid = cur.fetchone()[0]
+    db.commit()
+    return get_store_connection(site_id, cid)
+
+
+def delete_store_connection(site_id: int, cid: int):
+    db = get_db()
+    db.execute(_convert("DELETE FROM integration_products WHERE connection_id = ?"), (cid,))
+    db.execute(_convert("DELETE FROM store_connections WHERE site_id = ? AND id = ?"), (site_id, cid))
+    db.commit()
+
+
+def record_integration_product(connection_id: int, site_product_id: int, external_id: str):
+    db = get_db()
+    existing = db.execute(_convert(
+        "SELECT id FROM integration_products WHERE connection_id = ? AND site_product_id = ?"),
+        (connection_id, site_product_id)).fetchone()
+    if existing:
+        rid = existing[0] if not isinstance(existing, dict) else existing["id"]
+        db.execute(_convert("UPDATE integration_products SET external_id = ?, pushed_at = CURRENT_TIMESTAMP WHERE id = ?"),
+                   (external_id, rid))
+    else:
+        db.execute(_convert("INSERT INTO integration_products (connection_id, site_product_id, external_id) VALUES (?, ?, ?)"),
+                   (connection_id, site_product_id, external_id))
+    db.commit()
+
+
+def get_integration_product_map(connection_id: int) -> dict:
+    rows = get_db().execute(_convert(
+        "SELECT site_product_id, external_id FROM integration_products WHERE connection_id = ?"), (connection_id,)).fetchall()
+    return {(r[1] if not isinstance(r, dict) else r["site_product_id"]):
+            (r[1] if not isinstance(r, dict) else r["external_id"]) for r in rows}

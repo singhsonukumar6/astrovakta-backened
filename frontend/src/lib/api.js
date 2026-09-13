@@ -396,3 +396,15 @@ export const getMyCatalog = (siteId) =>
   api.get(`/sites/my/${siteId}/catalog`).then((r) => r.data?.data ?? r.data)
 export const importCatalogProduct = (siteId, masterId, price) =>
   api.post(`/sites/my/${siteId}/catalog/${masterId}/import`, { price: price ?? undefined }).then((r) => r.data?.data ?? r.data)
+
+// ──── EXTERNAL STORE INTEGRATIONS ────
+export const getMyIntegrations = (siteId) =>
+  api.get(`/sites/my/${siteId}/integrations`).then((r) => r.data?.data ?? r.data)
+export const connectStore = (siteId, data) =>
+  api.post(`/sites/my/${siteId}/integrations`, data).then((r) => r.data?.data ?? r.data)
+export const disconnectStore = (siteId, id) =>
+  api.delete(`/sites/my/${siteId}/integrations/${id}`).then((r) => r.data)
+export const pushToStore = (siteId, id, productIds) =>
+  api.post(`/sites/my/${siteId}/integrations/${id}/push`, { product_ids: productIds }).then((r) => r.data?.data ?? r.data)
+export const pullStoreOrders = (siteId, id) =>
+  api.post(`/sites/my/${siteId}/integrations/${id}/pull-orders`).then((r) => r.data?.data ?? r.data)

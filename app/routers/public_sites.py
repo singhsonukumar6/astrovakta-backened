@@ -856,3 +856,35 @@ def tenant_set_password(body: SetPasswordBody, request: Request, slug: str = Non
                (hash_password(body.password), site["id"], user_id))
     db.commit()
     return {"ok": True, "alreadySet": False}
+
+
+@router.post("/integrations/woocommerce/{connection_id}")
+async def woocommerce_webhook(connection_id: int, request: Request):
+    """Public WooCommerce order.created webhook. Signature verified with the
+    connection's consumer secret; new orders land in the tenant's Orders tab."""
+    import json as _json
+    from ..database import get_db
+    from ..tenants import get_store_connection, create_order, list_orders
+    from ..store_integrations import verify_woo_webhook, woo_order_to_site_order
+
+    raw = await request.body()
+    db = get_db()
+    from ..tenants import _convert
+    row = db.execute(_convert("SELECT site_id, api_secret FROM store_connections WHERE id = ?"), (connection_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Unknown connection")
+    site_id = row["site_id"] if isinstance(row, dict) else row[0]
+    secret = row["api_secret"] if isinstance(row, dict) else row[1]
+    sig = request.headers.get("X-WC-Webhook-Signature", "")
+    if not verify_woo_webhook(raw, sig, secret or ""):
+        raise HTTPException(status_code=401, detail="Invalid webhook signature")
+    try:
+        woo_order = _json.loads(raw)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    order_data = woo_order_to_site_order(woo_order)
+    ref = order_data.get("external_ref")
+    if any(ref in (x.get("notes") or "") for x in list_orders(site_id, limit=200)):
+        return {"ok": True, "duplicate": True}
+    created = create_order(site_id, order_data)
+    return {"ok": True, "order_id": created.get("id")}

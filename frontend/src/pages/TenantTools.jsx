@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Heart, ScrollText, Sparkles, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Heart, ScrollText, Sparkles, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
 import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
 import { signUpWithEmailAndVerify } from '../lib/firebase.js'
 import { publicKundliTool, publicKundliFull, publicMatchingTool, publicDoshaTool } from '../lib/api.js'
@@ -42,20 +42,89 @@ const inputStyle = {
 }
 const labelStyle = { display: 'block', fontSize: 12, fontWeight: 700, color: 'inherit', opacity: 0.65, marginBottom: 5 }
 
-function BirthFields({ id, value, onChange, COLORS }) {
+// ─────────── birth date / time selectors ───────────
+// Dropdown-based pickers (Day–Month–Year and Hour–Minute–AM/PM) so every
+// visitor gets the same, familiar selector on phone and desktop. The form
+// keeps storing machine formats: date 'YYYY-MM-DD', time 'HH:MM' (24h).
+
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const MONTHS_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+const fmtDate = (iso) => {
+  if (!iso) return '—'
+  const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number)
+  if (!y || !m || !d) return iso
+  return `${d} ${MONTHS_SHORT[m - 1]} ${y}`
+}
+
+const fmtTime = (iso) => {
+  if (!iso) return '—'
+  const [h, m] = String(iso).slice(0, 5).split(':').map(Number)
+  if (Number.isNaN(h)) return iso
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
+}
+
+function Sel({ value, onChange, placeholder, options, style }) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} style={{ ...inputStyle, padding: '11px 8px', cursor: 'pointer', ...style }}>
+      <option value="">{placeholder}</option>
+      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+    </select>
+  )
+}
+
+function DateSelector({ value, onChange }) {
+  const [y, m, d] = value ? value.split('-').map(Number) : [null, null, null]
+  const thisYear = new Date().getFullYear()
+  const years = []
+  for (let v = thisYear; v >= 1900; v--) years.push(v)
+  const maxDay = y && m ? new Date(y, m, 0).getDate() : 31
+  const set = (ny, nm, nd) => {
+    if (!ny || !nm || !nd) return onChange('')
+    const day = Math.min(nd, new Date(ny, nm, 0).getDate())
+    onChange(`${ny}-${String(nm).padStart(2, '0')}-${String(day).padStart(2, '0')}`)
+  }
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr 1.1fr', gap: 8 }}>
+      <Sel placeholder="Day" value={d || ''} options={Array.from({ length: maxDay }, (_, i) => ({ value: i + 1, label: i + 1 }))} onChange={(v) => set(y, m, Number(v))} />
+      <Sel placeholder="Month" value={m || ''} options={MONTHS_FULL.map((nm, i) => ({ value: i + 1, label: nm }))} onChange={(v) => set(y, Number(v), d)} />
+      <Sel placeholder="Year" value={y || ''} options={years.map((v) => ({ value: v, label: v }))} onChange={(v) => set(Number(v), m, d)} />
+    </div>
+  )
+}
+
+function TimeSelector({ value, onChange }) {
+  const [h24, mn] = value ? value.split(':').map(Number) : [null, null]
+  const h12 = h24 == null ? null : (h24 % 12 || 12)
+  const ap = h24 == null ? '' : (h24 < 12 ? 'AM' : 'PM')
+  const set = (nh, nm, nap) => {
+    if (nh == null || nm == null || !nap) return onChange('')
+    const h = nap === 'PM' ? (nh % 12) + 12 : nh % 12
+    onChange(`${String(h).padStart(2, '0')}:${String(nm).padStart(2, '0')}`)
+  }
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.1fr', gap: 8 }}>
+      <Sel placeholder="Hour" value={h12 || ''} options={Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: String(i + 1).padStart(2, '0') }))} onChange={(v) => set(Number(v), mn, ap || 'AM')} />
+      <Sel placeholder="Min" value={mn == null ? '' : mn} options={Array.from({ length: 60 }, (_, i) => ({ value: i, label: String(i).padStart(2, '0') }))} onChange={(v) => set(h12, Number(v), ap || 'AM')} />
+      <Sel placeholder="AM/PM" value={ap} options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]} onChange={(v) => set(h12, mn, v)} />
+    </div>
+  )
+}
+
+function BirthFields({ value, onChange }) {
   const set = (k, v) => onChange({ ...value, [k]: v })
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
       <div>
         <label style={labelStyle}>Birth date *</label>
-        <input type="date" value={value.date} onChange={(e) => set('date', e.target.value)} style={inputStyle} />
+        <DateSelector value={value.date} onChange={(v) => set('date', v)} />
       </div>
       <div>
         <label style={labelStyle}>Birth time *</label>
-        <input type="time" value={value.time} onChange={(e) => set('time', e.target.value)} style={inputStyle} />
+        <TimeSelector value={value.time} onChange={(v) => set('time', v)} />
       </div>
       <div style={{ gridColumn: '1 / -1' }}>
-        <label style={labelStyle}>Birth place</label>
+        <label style={labelStyle}>Birth place *</label>
         <PlaceAutocomplete inputStyle={inputStyle} placeholder="Start typing and pick your city"
           onSelect={(sel) => onChange({ ...value, place: sel?.label || '', lat: sel?.lat, lon: sel?.lon, tz: sel?.tz })} />
       </div>
@@ -82,14 +151,27 @@ export function KundliPage({ site, resolve, theme, COLORS }) {
     } catch { /* ignore */ }
   }, [])
 
+  // Every field matters — the chart can't be cast without it.
+  const validate = () => {
+    if (!form.name.trim()) return 'Please enter your name'
+    const digits = form.phone.replace(/\D/g, '')
+    const local = digits.replace(/^91(?=\d{10}$)/, '').replace(/^0(?=\d{10}$)/, '')
+    if (!/^[6-9]\d{9}$/.test(local)) return 'Please enter a valid 10-digit mobile number'
+    if (!form.date) return 'Please select your birth date'
+    if (!form.time) return 'Please select your birth time'
+    if (form.lat == null || form.lon == null) return 'Please select your birth place from the suggestions'
+    return null
+  }
+
   const submit = async (e) => {
     e.preventDefault()
-    if (!form.date || !form.time) { setError('Please enter your birth date and time'); return }
+    const problem = validate()
+    if (problem) { setError(problem); return }
     setBusy(true); setError(null)
     try {
       const payload = {
-        name: form.name.trim() || undefined,
-        phone: form.phone.trim() || undefined,
+        name: form.name.trim(),
+        phone: form.phone.trim(),
         date: form.date, time: form.time,
         place: (form.place || undefined),
         lat: form.lat ?? undefined, lon: form.lon ?? undefined, tz: form.tz || undefined,
@@ -99,12 +181,10 @@ export function KundliPage({ site, resolve, theme, COLORS }) {
       const res = await publicKundliFull(resolve, payload)
       setResult(res.core)
       setFull(res)
-      if (form.date && form.time) {
-        publicDoshaTool(resolve, {
-          date: form.date, time: form.time,
-          lat: form.lat ?? undefined, lon: form.lon ?? undefined, tz: form.tz || undefined,
-        }).then(setDosha).catch(() => setDosha(null))
-      }
+      publicDoshaTool(resolve, {
+        date: form.date, time: form.time,
+        lat: form.lat ?? undefined, lon: form.lon ?? undefined, tz: form.tz || undefined,
+      }).then(setDosha).catch(() => setDosha(null))
     } catch (err) { setError(errText(err)) } finally { setBusy(false) }
   }
 
@@ -113,21 +193,26 @@ export function KundliPage({ site, resolve, theme, COLORS }) {
       title="Free Kundli" subtitle={`Complete Vedic birth chart with lagna, planets, dasha and dosha analysis — computed on a professional Swiss-ephemeris engine, presented by ${site?.name || 'our astrologer'}.`}>
       {!result ? (
         <motion.form onSubmit={submit} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-          style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 28, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div><label style={labelStyle}>Your name</label>
+          style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 28, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+            <div><label style={labelStyle}>Your name *</label>
               <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Full name" style={inputStyle} /></div>
-            <div><label style={labelStyle}>Phone (WhatsApp)</label>
-              <input value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="For a personal follow-up" style={inputStyle} /></div>
+            <div><label style={labelStyle}>Mobile number *</label>
+              <input type="tel" inputMode="numeric" maxLength={15} value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="10-digit mobile (WhatsApp)" style={inputStyle} /></div>
           </div>
-          <BirthFields value={form} onChange={setForm} COLORS={COLORS} />
+          <BirthFields value={form} onChange={setForm} />
           {error && <div style={{ color: '#dc2626', fontSize: 13.5 }}>{error}</div>}
           <button type="submit" disabled={busy} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none', background: gradient, color: '#fff', opacity: busy ? 0.7 : 1, padding: '14px' }}>
             {busy ? 'Calculating…' : 'Generate Detailed Kundli'}
           </button>
+          {busy && <div style={{ fontSize: 12.5, color: COLORS.textDim, textAlign: 'center' }}>
+            Casting the chart and analysing dashas, divisional charts & Lal Kitab — this can take a few seconds.
+          </div>}
         </motion.form>
       ) : (
-        <KundliResult result={result} dosha={dosha} full={full} theme={theme} COLORS={COLORS} onBack={() => { setResult(null); setFull(null); setDosha(null) }} site={site} />
+        <KundliResult result={result} dosha={dosha} full={full} theme={theme} COLORS={COLORS}
+          onBack={() => { setResult(null); setFull(null); setDosha(null) }} site={site}
+          birth={{ name: form.name, phone: form.phone, date: form.date, time: form.time, place: form.place }} />
       )}
     </ToolShell>
   )
@@ -142,9 +227,442 @@ function Section({ title, COLORS, children }) {
   )
 }
 
-function KundliResult({ result, dosha, full, theme, COLORS, onBack, site }) {
+// ─────────── kundli result presentation ───────────
+
+const LORD_COLORS = { Sun: '#f59e0b', Moon: '#94a3b8', Mars: '#ef4444', Mercury: '#10b981', Jupiter: '#eab308', Venus: '#f472b6', Saturn: '#64748b', Rahu: '#3b82f6', Ketu: '#8b5cf6' }
+const TODAY = new Date().toISOString().slice(0, 10)
+const inRange = (from, to) => !!from && !!to && String(from).slice(0, 10) <= TODAY && TODAY < String(to).slice(0, 10)
+
+const VARGAS = {
+  D2: ['Hora', 'Wealth & finances'], D3: ['Drekkana', 'Siblings & courage'],
+  D4: ['Chaturthamsa', 'Property, home & fortune'], D7: ['Saptamsa', 'Children & progeny'],
+  D9: ['Navamsa', 'Marriage, spouse & dharma'], D10: ['Dashamsa', 'Career & profession'],
+  D12: ['Dwadasamsa', 'Parents & ancestry'], D16: ['Shodasamsa', 'Vehicles & comforts'],
+  D20: ['Vimsamsa', 'Spirituality & devotion'], D24: ['Siddhamsa', 'Education & learning'],
+  D27: ['Nakshatramsa', 'Strengths & weaknesses'], D30: ['Trimshamsa', 'Challenges & mishaps'],
+  D40: ['Khavedamsa', 'Maternal legacy & merit'], D45: ['Akshavedamsa', 'Paternal legacy & character'],
+  D60: ['Shashtiamsa', 'Past-life karma — the finest division'],
+}
+
+const grahan_present = (g) => g?.grahanPresent ?? g?.present ?? false
+const shrapit_present = (s) => s?.shrapitPresent ?? s?.present ?? false
+
+const chipsWrap = { display: 'flex', flexWrap: 'wrap', gap: 6 }
+const chipStyle = (COLORS) => ({
+  fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 999,
+  border: `1px solid ${COLORS.border}`, background: 'rgba(127,127,127,0.07)', color: COLORS.textDim,
+})
+const Remedies = ({ v, COLORS }) => {
+  if (!v) return null
+  const items = (Array.isArray(v) ? v : [String(v)]).filter(Boolean)
+  if (!items.length) return null
+  return <div style={chipsWrap}>{items.map((r, i) => <span key={i} style={chipStyle(COLORS)}>{r}</span>)}</div>
+}
+
+const Stat = ({ k, v, sub, COLORS }) => (
+  <div style={{ padding: 12, background: 'rgba(127,127,127,0.06)', borderRadius: 10 }}>
+    <div style={{ fontSize: 11, color: COLORS.textDim, fontWeight: 600 }}>{k}</div>
+    <div style={{ fontWeight: 800, fontSize: 15 }}>{v || '—'}</div>
+    {sub && <div style={{ fontSize: 11.5, color: COLORS.textDim, marginTop: 2 }}>{sub}</div>}
+  </div>
+)
+
+// ── collapsible dasha tree ──
+function DashaTree({ nodes, COLORS }) {
+  const [open, setOpen] = useState(() => {
+    const o = {}
+    const walk = (list) => list.forEach((n) => { o[n.id] = (n.depth < 2 || n.childActive); if (n.children?.length) walk(n.children) })
+    walk(nodes); return o
+  })
+  const toggle = (id) => setOpen((s) => ({ ...s, [id]: !s[id] }))
+  const setAll = (v) => {
+    const o = {}
+    const walk = (list) => list.forEach((n) => { o[n.id] = v; if (n.children?.length) walk(n.children) })
+    walk(nodes); setOpen(o)
+  }
+  const anyClosed = nodes.some((n) => !open[n.id])
+
+  const Row = ({ n }) => (
+    <div>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '7px 10px', borderRadius: 10, marginBottom: 4,
+        background: n.active ? `color-mix(in srgb, ${n.color} 13%, transparent)` : 'transparent',
+        border: `1px solid ${n.active ? `${n.color}55` : 'transparent'}`,
+      }}>
+        {n.children?.length
+          ? <button onClick={() => toggle(n.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: COLORS.textDim, padding: 2, display: 'flex' }}>
+              {open[n.id] ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+            </button>
+          : <span style={{ width: 19, textAlign: 'center', color: n.color, fontSize: 14 }}>•</span>}
+        <span style={{ width: 9, height: 9, borderRadius: '50%', background: n.color, flexShrink: 0 }} />
+        <span style={{ fontWeight: 700, fontSize: 13.5 }}>{n.name}</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.textDim, background: 'rgba(127,127,127,0.1)', padding: '2px 7px', borderRadius: 6 }}>{n.tag}</span>
+        {n.active && <span style={{ fontSize: 10.5, fontWeight: 800, color: '#fff', background: n.color, padding: '2px 8px', borderRadius: 999 }}>RUNNING NOW</span>}
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: COLORS.textDim, whiteSpace: 'nowrap' }}>{fmtDate(n.from)} – {fmtDate(n.to)}</span>
+      </div>
+      {n.note && <div style={{ fontSize: 12, color: COLORS.textDim, lineHeight: 1.5, margin: '-2px 0 6px 36px' }}>{n.note}</div>}
+      {open[n.id] && n.children?.length > 0 && (
+        <div style={{ marginLeft: 18, borderLeft: `1.5px dashed ${COLORS.border}`, paddingLeft: 10 }}>
+          {n.children.map((c) => <Row key={c.id} n={c} />)}
+        </div>
+      )}
+    </div>
+  )
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 10 }}>
+        <button onClick={() => setAll(true)} style={{ ...inputStyle, width: 'auto', padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Expand all</button>
+        <button onClick={() => setAll(false)} disabled={!anyClosed} style={{ ...inputStyle, width: 'auto', padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: anyClosed ? 1 : 0.4 }}>Collapse all</button>
+      </div>
+      {nodes.map((n) => <Row key={n.id} n={n} />)}
+      <div style={{ fontSize: 11.5, color: COLORS.textDim, marginTop: 10, lineHeight: 1.6 }}>
+        MD = Mahadasha (major period) · AD = Antardasha (sub-period) · PD = Pratyantardasha (sub-sub-period). Tap a row to open or close its sub-periods.
+      </div>
+    </div>
+  )
+}
+
+// ── per-system tree builders ──
+const systemBuilders = [
+  (full, lc) => {
+    const md = full?.vimshottari?.mahadashas
+    if (!Array.isArray(md) || !md.length) return null
+    const walk = (list, level, prefix) => (list || []).map((n, i) => ({
+      id: `${prefix}${i}`, name: n.planet,
+      tag: level === 0 ? 'MD' : level === 1 ? 'AD' : 'PD',
+      from: n.startDate, to: n.endDate, color: lc(n.planet), depth: level,
+      children: level < 2 ? walk(level === 0 ? n.antardasha : n.pratyantardasha, level + 1, `${prefix}${i}-`) : [],
+    }))
+    return { key: 'vimshottari', label: 'Vimshottari', desc: 'The classical 120-year cycle — the most widely used dasha system, counted from the Moon nakshatra at birth.', nodes: walk(md, 0, 'v') }
+  },
+  (full, lc) => {
+    const y = full?.yogini?.data
+    if (!y?.mahadashas?.length) return null
+    return {
+      key: 'yogini', label: 'Yogini',
+      desc: `36-year Yogini cycle — begins with ${y.startYogini} Yogini (Moon in ${y.moonNakshatra} nakshatra).`,
+      nodes: y.mahadashas.map((m, i) => ({
+        id: `y${i}`, name: m.yogini, tag: `Yogini · lord ${m.rulingPlanet}`,
+        from: m.startDate, to: m.endDate, color: lc(m.rulingPlanet), depth: 0,
+        note: [m.nature, m.description].filter(Boolean).join(' — '), children: [],
+      })),
+    }
+  },
+  (full, lc) => {
+    const a = full?.ashtottari?.data
+    if (!a?.mahadashas?.length) return null
+    return {
+      key: 'ashtottari', label: 'Ashtottari',
+      desc: `108-year Ashtottari cycle — begins with ${a.startLord} (Moon in ${a.moonNakshatra} nakshatra).`,
+      nodes: a.mahadashas.map((m, i) => ({
+        id: `a${i}`, name: m.lord, tag: `MD · cycle ${m.cycle} · ${m.years} yr`,
+        from: m.startDate, to: m.endDate, color: lc(m.lord), depth: 0, children: [],
+      })),
+    }
+  },
+  (full, lc) => {
+    const k = full?.kalachakra?.data
+    if (!k?.mahadashas?.length) return null
+    return {
+      key: 'kalachakra', label: 'Kalachakra',
+      desc: `Kalachakra dasha — counted from the Moon's nakshatra pada (${k.moonPada}) in ${k.moonSign}.`,
+      nodes: k.mahadashas.map((m, i) => ({
+        id: `k${i}`, name: m.lord, tag: `MD · ${m.years} yr`,
+        from: m.startDate, to: m.endDate, color: lc(m.lord), depth: 0, children: [],
+      })),
+    }
+  },
+  (full, lc) => {
+    const c = full?.chara?.data
+    if (!c?.mahadashas?.length) return null
+    const walk = (list, level, prefix) => (list || []).map((n, i) => ({
+      id: `${prefix}${i}`, name: n.sign,
+      tag: level === 0 ? `MD · lord ${n.lord}` : level === 1 ? 'AD' : 'PD',
+      from: n.startDate, to: n.endDate, color: lc(n.lord), depth: level,
+      children: level < 2 ? walk(level === 0 ? n.antardasha : n.pratyantar, level + 1, `${prefix}${i}-`) : [],
+    }))
+    return {
+      key: 'chara', label: 'Chara (Jaimini)',
+      desc: 'Jaimini Chara dasha — sign-based periods starting from the ascendant sign.',
+      nodes: walk(c.mahadashas, 0, 'c'),
+    }
+  },
+]
+
+function DashaSystems({ full, theme, COLORS }) {
+  const lordColor = (lord) => LORD_COLORS[lord] || theme.primaryColor
+  const systems = systemBuilders.map((f) => f(full, lordColor)).filter(Boolean)
+  const [sel, setSel] = useState(systems[0]?.key)
+  const sys = systems.find((s) => s.key === sel) || systems[0]
+  if (!sys) return null
+  // Flag the running period (and its ancestors) so the tree auto-expands to it.
+  const markActive = (n) => {
+    n.active = inRange(n.from, n.to)
+    n.childActive = (n.children || []).some(markActive)
+    return n.active || n.childActive
+  }
+  sys.nodes.forEach(markActive)
+  return (
+    <Section title="All Dasha Systems" COLORS={COLORS}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+        {systems.map((s) => (
+          <button key={s.key} onClick={() => setSel(s.key)} style={{
+            padding: '7px 14px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+            border: `1.5px solid ${sys.key === s.key ? theme.primaryColor : COLORS.border}`,
+            background: sys.key === s.key ? theme.primaryColor : 'transparent',
+            color: sys.key === s.key ? '#fff' : COLORS.text,
+          }}>{s.label}</button>
+        ))}
+      </div>
+      {sys.desc && <p style={{ fontSize: 13, color: COLORS.textDim, lineHeight: 1.6, margin: '0 0 14px' }}>{sys.desc}</p>}
+      <DashaTree key={sys.key} nodes={sys.nodes} COLORS={COLORS} />
+    </Section>
+  )
+}
+
+// ── divisional charts ──
+function VargaView({ entries, theme, COLORS }) {
+  const [open, setOpen] = useState(() => Object.fromEntries(entries.map((e) => [e.d, e.d === '9'])))
+  const allOpen = entries.every((e) => open[e.d])
+  const toggleAll = () => setOpen(Object.fromEntries(entries.map((e) => [e.d, !allOpen])))
+  return (
+    <Section title="Divisional Charts (Varga Kundli)" COLORS={COLORS}>
+      <p style={{ fontSize: 13, color: COLORS.textDim, lineHeight: 1.6, margin: '0 0 14px' }}>
+        Each varga chart divides the zodiac finely to zoom into one area of life — marriage, career, education and more.
+        The D1 birth chart is shown under the “Kundli Chart” tab.
+      </p>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 12 }}>
+        <button onClick={toggleAll} style={{ ...inputStyle, width: 'auto', padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+          {allOpen ? 'Collapse all' : 'Expand all'}
+        </button>
+      </div>
+      {entries.map((e) => {
+        const [name, focus] = VARGAS[`D${e.d}`] || [`D${e.d}`, '']
+        const isOpen = open[e.d]
+        return (
+          <div key={e.d} style={{ border: `1px solid ${COLORS.border}`, borderRadius: 12, marginBottom: 10, overflow: 'hidden' }}>
+            <button onClick={() => setOpen((s) => ({ ...s, [e.d]: !s[e.d] }))}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', textAlign: 'left' }}>
+              {isOpen ? <ChevronDown size={16} color={COLORS.textDim} /> : <ChevronRight size={16} color={COLORS.textDim} />}
+              <span style={{ fontWeight: 800, fontSize: 14 }}>D{e.d} — {e.chart?.name || name}</span>
+              <span style={{ fontSize: 12, color: COLORS.textDim }}>· {e.chart?.focus || focus}</span>
+              {e.chart?.ascendant?.sign && <span style={{ marginLeft: 'auto', fontSize: 12, color: COLORS.textDim, whiteSpace: 'nowrap' }}>Asc: {e.chart.ascendant.sign}</span>}
+            </button>
+            {isOpen && (
+              <div style={{ padding: '0 14px 16px' }}>
+                <div style={{ maxWidth: 460, color: COLORS.text }} dangerouslySetInnerHTML={{ __html: e.svg }} />
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </Section>
+  )
+}
+
+// ── KP & extras ──
+const SEVERITY_COLOR = { High: '#dc2626', Medium: '#d97706', Low: '#16a34a', None: '#16a34a' }
+
+function KpExtras({ full, theme, COLORS, site }) {
+  const kp = full?.kpRulingPlanets && !full.kpRulingPlanets.error ? (full.kpRulingPlanets.data || full.kpRulingPlanets) : null
+  const dh = full?.dhaiya && !full.dhaiya.error ? (full.dhaiya.data || full.dhaiya) : null
+  const extraDoshas = full?.doshaCompute && !full.doshaCompute.error
+    ? (Array.isArray(full.doshaCompute.data) ? full.doshaCompute.data : []) : []
+  if (!kp && !dh && !extraDoshas.length) return null
+  return (
+    <>
+      {kp && (
+        <Section title="KP Astrology — Ruling Planets" COLORS={COLORS}>
+          <p style={{ fontSize: 13, color: COLORS.textDim, lineHeight: 1.6, margin: '0 0 14px' }}>
+            In KP (Krishnamurti Paddhati), a small set of “ruling planets” taken from the ascendant, the Moon and the weekday
+            is used for precise predictions, muhurat (electional) and prashna (horary) charts.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10, marginBottom: 16 }}>
+            <Stat k="Ascendant (Lagna)" v={kp.ascendant?.sign} sub={kp.ascendant ? `Lord ${kp.ascendant.lord} · Star ${kp.ascendant.starLord} · Sub ${kp.ascendant.subLord}` : ''} COLORS={COLORS} />
+            <Stat k="Moon" v={kp.moon?.sign} sub={kp.moon ? `Lord ${kp.moon.signLord} · Star ${kp.moon.starLord} · Sub ${kp.moon.subLord}` : ''} COLORS={COLORS} />
+            <Stat k="Day at birth" v={kp.day?.weekday} sub={kp.day ? `Day lord: ${kp.day.lord}` : ''} COLORS={COLORS} />
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+              <thead><tr>{['Planet', 'Role', 'Sign', 'House', 'Star Lord', 'Sub Lord', 'Notes'].map((h) => (
+                <th key={h} style={{ textAlign: 'left', padding: '8px 10px', borderBottom: `1px solid ${COLORS.border}`, fontSize: 11, color: COLORS.textDim, whiteSpace: 'nowrap' }}>{h}</th>
+              ))}</tr></thead>
+              <tbody>
+                {(kp.rulingPlanets || []).map((r, i) => (
+                  <tr key={i}>
+                    <td style={{ padding: '8px 10px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: LORD_COLORS[r.planet] || theme.primaryColor, marginRight: 7 }} />
+                      {r.planet}
+                    </td>
+                    <td style={{ padding: '8px 10px', color: COLORS.textDim }}>{r.role}</td>
+                    <td style={{ padding: '8px 10px' }}>{r.sign || '—'}</td>
+                    <td style={{ padding: '8px 10px' }}>{r.house || '—'}</td>
+                    <td style={{ padding: '8px 10px' }}>{r.starLord || '—'}</td>
+                    <td style={{ padding: '8px 10px' }}>{r.subLord || '—'}</td>
+                    <td style={{ padding: '8px 10px', color: COLORS.textDim, fontSize: 11.5 }}>
+                      {[r.isRetrograde && 'retrograde', r.isCombust && 'combust', r.houseStatus].filter(Boolean).join(' · ') || '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+      )}
+
+      {dh && (
+        <Section title="Sade Sati & Dhaiya — Saturn Transit" COLORS={COLORS}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+            <span style={{ fontWeight: 800, fontSize: 16 }}>{dh.currentStatus?.phase || 'Status unavailable'}</span>
+            {dh.currentStatus?.severity && (
+              <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: SEVERITY_COLOR[dh.currentStatus.severity] || theme.primaryColor, padding: '3px 10px', borderRadius: 999 }}>
+                {dh.currentStatus.severity}
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 14 }}>
+            <Stat k="Your Moon sign" v={dh.moonSign} COLORS={COLORS} />
+            <Stat k="Saturn transiting" v={dh.saturnSign} COLORS={COLORS} />
+            <Stat k="Distance from Moon" v={dh.signsFromMoon != null ? `${dh.signsFromMoon} sign${dh.signsFromMoon === 1 ? '' : 's'}` : '—'} COLORS={COLORS} />
+          </div>
+          {dh.currentStatus?.description && <p style={{ fontSize: 13.5, lineHeight: 1.7, margin: '0 0 12px' }}>{dh.currentStatus.description}</p>}
+          {dh.currentStatus?.remedies?.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.5, color: COLORS.textDim, marginBottom: 6 }}>SUGGESTED REMEDIES</div>
+              <Remedies v={dh.currentStatus.remedies} COLORS={COLORS} />
+            </div>
+          )}
+          {dh.generalAdvice && <p style={{ fontSize: 12.5, color: COLORS.textDim, lineHeight: 1.6, margin: 0 }}>{dh.generalAdvice}</p>}
+        </Section>
+      )}
+
+      {extraDoshas.length > 0 && (
+        <Section title="Dosha Scan — Yogas to Know" COLORS={COLORS}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {extraDoshas.map((d, i) => (
+              <div key={i} style={{ padding: 13, borderRadius: 12, border: `1px solid ${COLORS.border}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                  {d.present ? <AlertTriangle size={16} color="#dc2626" /> : <CheckCircle2 size={16} color="#16a34a" />}
+                  <span style={{ fontWeight: 800, fontSize: 14 }}>{d.name}</span>
+                  {d.present
+                    ? <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: SEVERITY_COLOR[d.severity] || '#dc2626', padding: '2px 9px', borderRadius: 999 }}>{d.severity || 'Present'}</span>
+                    : <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a' }}>Not present</span>}
+                </div>
+                {d.description && <div style={{ fontSize: 13, color: COLORS.textDim, lineHeight: 1.6, marginBottom: d.present && d.remedies?.length ? 8 : 0 }}>{d.description}</div>}
+                {d.present && d.remedies?.length > 0 && <Remedies v={d.remedies} COLORS={COLORS} />}
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 12.5, color: COLORS.textDim, marginTop: 10 }}>
+            Manglik, Grahan and Shrapit doshas are covered in the “Dosha Report” tab. For a detailed personal reading, book a consultation with {site?.name || 'the astrologer'}.
+          </div>
+        </Section>
+      )}
+    </>
+  )
+}
+
+// ── Lal Kitab ──
+function LalKitabView({ lk, COLORS }) {
+  if (!lk) return null
+  return (
+    <>
+      <Section title="Lal Kitab Reading" COLORS={COLORS}>
+        <p style={{ fontSize: 13, color: COLORS.textDim, lineHeight: 1.6, margin: '0 0 12px' }}>
+          Lal Kitab (the Red Book) reads planets through their house placement and prescribes simple, practical remedies (upay).
+        </p>
+        {lk.ascendant && (
+          <div style={{ display: 'inline-flex', gap: 14, alignItems: 'center', padding: '10px 16px', borderRadius: 10, background: 'rgba(127,127,127,0.07)', fontSize: 13.5 }}>
+            <strong>Lal Kitab Lagna:</strong> {lk.ascendant.sign}{lk.ascendant.degree != null ? ` · ${lk.ascendant.degree}°` : ''}
+          </div>
+        )}
+      </Section>
+
+      <Section title="Planets — Nature, Effects & Upay" COLORS={COLORS}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {(lk.planets || []).map((p, i) => (
+            <div key={i} style={{ padding: 15, borderRadius: 12, border: `1px solid ${COLORS.border}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', marginBottom: 8 }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: LORD_COLORS[p.planet] || 'var(--border-color)', flexShrink: 0 }} />
+                <span style={{ fontWeight: 800, fontSize: 15 }}>{p.planet}</span>
+                <span style={chipStyle(COLORS)}>House {p.house}{p.houseSignification ? ` — ${p.houseSignification}` : ''}</span>
+                {p.sign && <span style={chipStyle(COLORS)}>{p.sign}</span>}
+                {p.degree != null && <span style={chipStyle(COLORS)}>{p.degree}°</span>}
+              </div>
+              {p.nature && <div style={{ fontSize: 12.5, color: COLORS.textDim, marginBottom: 8 }}><strong style={{ color: COLORS.text }}>Nature:</strong> {p.nature}</div>}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, marginBottom: p.effects?.length ? 10 : 0 }}>
+                {p.positiveTraits && (
+                  <div style={{ fontSize: 12.5, lineHeight: 1.6, padding: '8px 11px', borderRadius: 9, background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.25)' }}>
+                    <strong style={{ color: '#16a34a' }}>Favourable:</strong> {p.positiveTraits}
+                  </div>
+                )}
+                {p.negativeTraits && (
+                  <div style={{ fontSize: 12.5, lineHeight: 1.6, padding: '8px 11px', borderRadius: 9, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.22)' }}>
+                    <strong style={{ color: '#dc2626' }}>Challenging:</strong> {p.negativeTraits}
+                  </div>
+                )}
+              </div>
+              {p.effects?.length > 0 && (
+                <ul style={{ margin: '0 0 10px', paddingLeft: 18, fontSize: 12.5, color: COLORS.textDim, lineHeight: 1.7 }}>
+                  {p.effects.filter(Boolean).map((e, j) => <li key={j}>{e}</li>)}
+                </ul>
+              )}
+              {p.remedies && (
+                <div style={{ padding: '10px 12px', borderRadius: 9, background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)', fontSize: 12.5, lineHeight: 1.6 }}>
+                  <strong>Upay (remedies):</strong> {p.remedies}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Houses — What They Govern" COLORS={COLORS}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
+          {(lk.houses || []).map((h, i) => (
+            <div key={i} style={{ padding: 13, borderRadius: 12, border: `1px solid ${COLORS.border}`, fontSize: 12.5 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 800, fontSize: 13.5 }}>House {h.house}</span>
+                {h.name && <span style={{ color: COLORS.textDim }}>{h.name}</span>}
+              </div>
+              <div style={{ color: COLORS.textDim, marginBottom: 6 }}>
+                {h.sign && <>Sign: <strong style={{ color: COLORS.text }}>{h.sign}</strong>{h.signLord ? ` (lord ${h.signLord})` : ''}</>}
+              </div>
+              {h.planets?.length > 0 && (
+                <div style={{ marginBottom: 6 }}>
+                  {h.planets.map((pl, j) => (
+                    <span key={j} style={{ ...chipStyle(COLORS), marginRight: 5, marginBottom: 5, display: 'inline-block' }}>
+                      {pl.planet} ({pl.status}{pl.degree != null ? `, ${pl.degree}°` : ''})
+                    </span>
+                  ))}
+                </div>
+              )}
+              {h.elements?.length > 0 && <div style={{ color: COLORS.textDim, marginBottom: 4 }}>Governs: {h.elements.join(', ')}</div>}
+              {h.generalRemedies?.length > 0 && <div style={{ color: COLORS.textDim }}>Upay: {h.generalRemedies.join(' · ')}</div>}
+            </div>
+          ))}
+        </div>
+      </Section>
+    </>
+  )
+}
+
+function KundliResult({ result, dosha, full, theme, COLORS, onBack, site, birth }) {
   const [view, setView] = useState('summary')
   const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+  const lordColor = (lord) => LORD_COLORS[lord] || theme.primaryColor
+  const wa = String(site?.settings?.whatsappNumber || '').replace(/[^\d]/g, '')
+
+  const vimsMd = Array.isArray(full?.vimshottari?.mahadashas) ? full.vimshottari.mahadashas : null
+  const lk = full?.lalKitab && !full.lalKitab.error ? (full.lalKitab.data || full.lalKitab) : null
+  const vargaEntries = Object.entries(full || {})
+    .filter(([k, v]) => k.startsWith('divisional') && v && !v.error && v.svg)
+    .map(([k, v]) => ({ d: k.replace('divisional', ''), chart: v.chart || {}, svg: v.svg }))
+    .sort((a, b) => Number(a.d) - Number(b.d))
+  const hasSystems = systemBuilders.some((f) => f(full, lordColor))
+  const hasKp = !!full && (full.kpRulingPlanets || full.dhaiya || full.doshaCompute)
+
   const tabBtn = (id, label) => (
     <button onClick={() => setView(id)} style={{
       padding: '8px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer',
@@ -153,8 +671,6 @@ function KundliResult({ result, dosha, full, theme, COLORS, onBack, site }) {
       color: view === id ? '#fff' : COLORS.text,
     }}>{label}</button>
   )
-  const dashaColor = (lord) => ({ Ketu: '#8b5cf6', Venus: '#f472b6', Sun: '#f59e0b', Moon: '#94a3b8', Mars: '#ef4444', Rahu: '#3b82f6', Jupiter: '#eab308', Saturn: '#64748b', Mercury: '#10b981' }[lord] || theme.primaryColor)
-  const wa = String(site?.settings?.whatsappNumber || '').replace(/[^\d]/g, '')
 
   const doshaItems = [
     dosha?.manglik && {
@@ -178,7 +694,11 @@ function KundliResult({ result, dosha, full, theme, COLORS, onBack, site }) {
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
       {/* birth details strip */}
       <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: '14px 18px', marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: '6px 24px', fontSize: 13.5 }}>
-        {[['Date', result.birthDate], ['Time', result.birthTime], ['Place', result.birthPlace]].filter(([, v]) => v).map(([k, v]) => (
+        {[
+          ['Name', birth?.name], ['Mobile', birth?.phone],
+          ['Date', fmtDate(birth?.date || result.birthDate)], ['Time', fmtTime(birth?.time || result.birthTime)],
+          ['Place', birth?.place || result.birthPlace],
+        ].filter(([, v]) => v).map(([k, v]) => (
           <span key={k}><strong style={{ opacity: 0.6, fontWeight: 600 }}>{k}:</strong> {v}</span>
         ))}
       </div>
@@ -203,42 +723,51 @@ function KundliResult({ result, dosha, full, theme, COLORS, onBack, site }) {
         {tabBtn('summary', 'Summary')}
         {result.chartSvg && tabBtn('chart', 'Kundli Chart')}
         {tabBtn('planets', 'Planets & Houses')}
-        {result.dasha && tabBtn('dasha', 'Dasha')}
+        {(vimsMd || result.dasha) && tabBtn('dasha', 'Dasha')}
+        {hasSystems && tabBtn('systems', 'All Dasha Systems')}
         {dosha && tabBtn('dosha', 'Dosha Report')}
-        {full && tabBtn('dasha-systems', 'All Dasha Systems')}
-        {full && tabBtn('kp', 'KP & Extras')}
-        {(full?.divisionalD9?.svg || full?.divisionalD10?.svg) && tabBtn('varga', 'Divisional Charts')}
-        {full?.lalKitab && tabBtn('lal', 'Lal Kitab')}
+        {hasKp && tabBtn('kp', 'KP & Extras')}
+        {vargaEntries.length > 0 && tabBtn('varga', 'Divisional Charts')}
+        {lk && tabBtn('lal', 'Lal Kitab')}
       </div>
 
       {view === 'summary' && (
-        <Section title="Chart Summary" COLORS={COLORS}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
-            {[
-              ['Ascendant (Lagna)', result.ascendant?.sign],
-              ['Lagna Lord', result.ascendant?.lord],
-              ['Moon Sign (Rashi)', result.moonSign],
-              ['Birth Nakshatra', result.moonNakshatra],
-              ['Sun Sign', result.sunSign],
-              ['Lucky Gemstone', result.gemstone?.stone],
-            ].map(([k, v]) => (
-              <div key={k} style={{ padding: 12, background: 'rgba(127,127,127,0.06)', borderRadius: 10 }}>
-                <div style={{ fontSize: 11, color: COLORS.textDim, fontWeight: 600 }}>{k}</div>
-                <div style={{ fontWeight: 800, fontSize: 15 }}>{v || '—'}</div>
-              </div>
-            ))}
-          </div>
-          {result.currentDasha?.mahadasha && (
-            <div style={{ marginTop: 14, padding: '13px 16px', borderRadius: 12, background: `color-mix(in srgb, ${dashaColor(result.currentDasha.mahadasha)} 12%, transparent)`, border: `1px solid ${dashaColor(result.currentDasha.mahadasha)}44` }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, opacity: 0.7, marginBottom: 3 }}>RUNNING MAHADASHA</div>
-              <div style={{ fontWeight: 800, fontSize: 16 }}>
-                {result.currentDasha.mahadasha}
-                {result.currentDasha.antardasha && <> → <span style={{ fontSize: 14 }}>{result.currentDasha.antardasha} antardasha</span></>}
-                <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.65 }}> · till {result.currentDasha.to}</span>
-              </div>
+        <>
+          <Section title="Birth Details" COLORS={COLORS}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+              <Stat k="Name" v={birth?.name} COLORS={COLORS} />
+              <Stat k="Mobile" v={birth?.phone} COLORS={COLORS} />
+              <Stat k="Birth date" v={fmtDate(birth?.date || result.birthDate)} COLORS={COLORS} />
+              <Stat k="Birth time" v={fmtTime(birth?.time || result.birthTime)} COLORS={COLORS} />
+              <Stat k="Birth place" v={birth?.place || result.birthPlace} COLORS={COLORS} />
             </div>
-          )}
-        </Section>
+          </Section>
+          <Section title="Chart Summary" COLORS={COLORS}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+              <Stat k="Ascendant (Lagna)" v={result.ascendant?.sign} COLORS={COLORS} />
+              <Stat k="Lagna Lord" v={result.ascendant?.lord} COLORS={COLORS} />
+              <Stat k="Lagna Nakshatra" v={result.ascendant?.nakshatra} COLORS={COLORS} />
+              <Stat k="Moon Sign (Rashi)" v={result.moonSign} COLORS={COLORS} />
+              <Stat k="Birth Nakshatra" v={result.moonNakshatra} COLORS={COLORS} />
+              <Stat k="Sun Sign" v={result.sunSign} COLORS={COLORS} />
+              <Stat k="Lucky Gemstone" v={result.gemstone?.stone} sub={result.gemstone?.forLord ? `For ${result.gemstone.forLord}` : ''} COLORS={COLORS} />
+            </div>
+            {result.currentDasha?.mahadasha && (
+              <div style={{ marginTop: 14, padding: '13px 16px', borderRadius: 12, background: `color-mix(in srgb, ${lordColor(result.currentDasha.mahadasha)} 12%, transparent)`, border: `1px solid ${lordColor(result.currentDasha.mahadasha)}44` }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, opacity: 0.7, marginBottom: 3 }}>RUNNING MAHADASHA</div>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>
+                  {result.currentDasha.mahadasha}
+                  {result.currentDasha.antardasha && <> → <span style={{ fontSize: 14 }}>{result.currentDasha.antardasha} antardasha</span></>}
+                  <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.65 }}>
+                    {' '}· till {fmtDate(result.currentDasha.to)}
+                    {result.currentDasha.antardashaFrom && result.currentDasha.antardashaTo
+                      ? ` (AD ${fmtDate(result.currentDasha.antardashaFrom)} – ${fmtDate(result.currentDasha.antardashaTo)})` : ''}
+                  </span>
+                </div>
+              </div>
+            )}
+          </Section>
+        </>
       )}
 
       {view === 'chart' && result.chartSvg && (
@@ -284,23 +813,32 @@ function KundliResult({ result, dosha, full, theme, COLORS, onBack, site }) {
         </Section>
       )}
 
-      {view === 'dasha' && result.dasha && (
+      {view === 'dasha' && (
         <Section title="Vimshottari Mahadasha Timeline" COLORS={COLORS}>
-          {result.dasha.map((d, i) => {
-            const today = new Date().toISOString().slice(0, 10)
-            const active = result.currentDasha?.mahadasha && result.currentDasha.mahadasha === d.lord && d.from <= today
+          {(vimsMd || result.dasha || []).map((d, i) => {
+            const lord = d.lord || d.planet
+            const from = d.from || d.startDate
+            const to = d.to || d.endDate
+            const active = inRange(from, to)
             return (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, marginBottom: 6, border: `1px solid ${active ? dashaColor(d.lord) : COLORS.border}`, background: active ? `color-mix(in srgb, ${dashaColor(d.lord)} 12%, transparent)` : 'transparent' }}>
-                <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: dashaColor(d.lord), color: '#fff', fontWeight: 800, fontSize: 11 }}>{d.lord?.slice(0, 2)}</div>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, marginBottom: 6, border: `1px solid ${active ? lordColor(lord) : COLORS.border}`, background: active ? `color-mix(in srgb, ${lordColor(lord)} 12%, transparent)` : 'transparent' }}>
+                <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: lordColor(lord), color: '#fff', fontWeight: 800, fontSize: 11 }}>{lord?.slice(0, 2)}</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{d.lord} Mahadasha {active && <span style={{ fontSize: 11, color: dashaColor(d.lord) }}>· running now</span>}</div>
-                  <div style={{ fontSize: 12, color: COLORS.textDim }}>{d.from} → {d.to}</div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{lord} Mahadasha {active && <span style={{ fontSize: 11, color: lordColor(lord) }}>· running now</span>}</div>
+                  <div style={{ fontSize: 12, color: COLORS.textDim }}>{fmtDate(from)} → {fmtDate(to)}</div>
                 </div>
               </div>
             )
           })}
+          {hasSystems && (
+            <button onClick={() => setView('systems')} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 700, marginTop: 8, background: 'transparent', color: theme.primaryColor, borderColor: theme.primaryColor }}>
+              Explore all dasha systems with sub-periods →
+            </button>
+          )}
         </Section>
       )}
+
+      {view === 'systems' && <DashaSystems full={full} theme={theme} COLORS={COLORS} />}
 
       {view === 'dosha' && dosha && (
         <Section title="Dosha Analysis & Remedies" COLORS={COLORS}>
@@ -316,7 +854,7 @@ function KundliResult({ result, dosha, full, theme, COLORS, onBack, site }) {
             {dosha.manglik?.remedies && (
               <div style={{ padding: 14, borderRadius: 12, border: `1px solid ${COLORS.border}` }}>
                 <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 6 }}>Suggested remedies</div>
-                <div style={{ fontSize: 13, color: COLORS.textDim, lineHeight: 1.65 }}>{Array.isArray(dosha.manglik.remedies) ? dosha.manglik.remedies.join(' · ') : String(dosha.manglik.remedies)}</div>
+                <Remedies v={dosha.manglik.remedies} COLORS={COLORS} />
               </div>
             )}
             <div style={{ fontSize: 12.5, color: COLORS.textDim }}>For a detailed personal reading of these yogas, book a consultation with {site?.name || 'the astrologer'}.</div>
@@ -324,69 +862,22 @@ function KundliResult({ result, dosha, full, theme, COLORS, onBack, site }) {
         </Section>
       )}
 
-      {view === 'dasha-systems' && full && (
-        <Section title="Complete Dasha Analysis — all systems" COLORS={COLORS}>
-          <JsonReport data={full} skip={['core', 'divisional', 'doshaCompute']} COLORS={COLORS} />
-        </Section>
-      )}
+      {view === 'kp' && <KpExtras full={full} theme={theme} COLORS={COLORS} site={site} />}
 
-      {view === 'kp' && full && (
-        <Section title="KP Astrology & Additional Analysis" COLORS={COLORS}>
-          <JsonReport data={full} only={['kpRulingPlanets', 'doshaCompute', 'dhaiya']} COLORS={COLORS} />
-        </Section>
-      )}
+      {view === 'varga' && vargaEntries.length > 0 && <VargaView entries={vargaEntries} theme={theme} COLORS={COLORS} />}
 
-      {view === 'varga' && full && (
-        <Section title="Divisional Charts (Varga)" COLORS={COLORS}>
-          {['divisionalD9', 'divisionalD10'].map((k) => full[k]?.svg ? (
-            <div key={k} style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 6 }}>{k === 'divisionalD9' ? 'D9 — Navamsa (marriage & fortune)' : 'D10 — Dashamsa (career & profession)'}</div>
-              <div style={{ maxWidth: 560 }} dangerouslySetInnerHTML={{ __html: full[k].svg }} />
-            </div>
-          ) : null)}
-        </Section>
-      )}
-
-      {view === 'lal' && full?.lalKitab && (
-        <Section title="Lal Kitab Analysis" COLORS={COLORS}>
-          <JsonReport data={full.lalKitab} COLORS={COLORS} />
-        </Section>
-      )}
+      {view === 'lal' && <LalKitabView lk={lk} COLORS={COLORS} />}
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
         <button onClick={onBack} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 700, maxWidth: 260 }}>Generate another kundli</button>
-        <a href="#/" style={{ textDecoration: 'none', flex: 1, minWidth: 200 }}>
+        <a href={wa ? `https://wa.me/${wa}?text=${encodeURIComponent(`Namaste, I generated my kundli on your site (${birth?.name || ''}, ${fmtDate(birth?.date)}). I'd like a detailed consultation.`)}` : '#/'}
+          target={wa ? '_blank' : undefined} rel="noopener noreferrer" style={{ textDecoration: 'none', flex: 1, minWidth: 200 }}>
           <button style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, background: gradient, color: '#fff', border: 'none' }}>
             <Sparkles size={14} style={{ verticalAlign: '-2px', marginRight: 6 }} />Book a detailed consultation
           </button>
         </a>
       </div>
     </motion.div>
-  )
-}
-const grahan_present = (g) => g?.grahanPresent ?? g?.present ?? false
-const shrapit_present = (s) => s?.shrapitPresent ?? s?.present ?? false
-
-function JsonReport({ data, skip = [], only = null, COLORS, depth = 0 }) {
-  const entries = Array.isArray(data)
-    ? data.map((v, i) => [String(i + 1), v])
-    : Object.entries(data || {}).filter(([k]) => !skip.includes(k) && (!only || only.includes(k)))
-  if (!entries.length) return null
-  return (
-    <div style={{ marginLeft: depth ? 14 : 0 }}>
-      {entries.map(([k, v]) => {
-        if (v == null || v === '') return null
-        const isObj = typeof v === 'object'
-        return (
-          <div key={k} style={{ marginBottom: depth ? 6 : 14 }}>
-            <div style={{ fontSize: depth ? 12.5 : 13.5, fontWeight: 800, color: COLORS.textDim }}>{k.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase())}</div>
-            {isObj
-              ? <JsonReport data={v} skip={skip} COLORS={COLORS} depth={depth + 1} />
-              : <div style={{ fontSize: 13.5, lineHeight: 1.6 }}>{String(v).slice(0, 400)}</div>}
-          </div>
-        )
-      })}
-    </div>
   )
 }
 
