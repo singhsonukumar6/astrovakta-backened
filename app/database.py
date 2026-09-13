@@ -373,6 +373,7 @@ CREATE TABLE IF NOT EXISTS tenant_users (
     name TEXT,
     phone TEXT,
     avatar_url TEXT,
+    password_hash TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (site_id, email)
 );
@@ -612,6 +613,7 @@ CREATE TABLE IF NOT EXISTS tenant_users (
     name TEXT,
     phone TEXT,
     avatar_url TEXT,
+    password_hash TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (site_id, email)
 );

@@ -652,7 +652,7 @@ def _upsert_tenant_user(site_id: int, claims: dict):
     email = (claims.get("email") or "").lower().strip()
     db = get_db()
     row = db.execute(
-        _convert("SELECT * FROM tenant_users WHERE site_id = ? AND email = ?"),
+        _tenant_convert("SELECT * FROM tenant_users WHERE site_id = ? AND email = ?"),
         (site_id, email),
     ).fetchone()
     user = row if isinstance(row, dict) else dict(zip(
@@ -667,7 +667,7 @@ def _upsert_tenant_user(site_id: int, claims: dict):
         user = {**user, "firebase_uid": claims.get("user_id")}
         return user, False
     cur = db.execute(
-        _convert("INSERT INTO tenant_users (site_id, firebase_uid, email, name, avatar_url) VALUES (?, ?, ?, ?, ?) RETURNING id"),
+        _tenant_convert("INSERT INTO tenant_users (site_id, firebase_uid, email, name, avatar_url) VALUES (?, ?, ?, ?, ?) RETURNING id"),
         (site_id, claims.get("user_id"), email, claims.get("name"), claims.get("picture")),
     )
     new_id = cur.fetchone()[0]
@@ -699,3 +699,64 @@ async def tenant_firebase_login(body: TenantFirebaseBody, slug: str = None, doma
     from jose import jwt as _jwt
     token = _jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
     return {"tenant_user": user, "tenant_token": token, "site": {"id": site["id"], "name": site["name"], "slug": site["slug"]}, "created": created, "new_user": created}
+
+
+# ─────────────── tenant visitor email+password auth ───────────────
+
+from ..tenants import _convert as _tenant_convert
+
+
+class TenantRegisterBody(BaseModel):
+    email: str = Field(..., max_length=200)
+    password: str = Field(..., min_length=8, max_length=100)
+    name: Optional[str] = Field(None, max_length=120)
+
+
+def _tenant_token(user: dict, site: dict):
+    from ..routers.auth_router import create_tenant_token
+    return create_tenant_token(user["id"], site["id"])
+
+
+@router.post("/site/auth/register")
+def tenant_register(body: TenantRegisterBody, slug: str = None, domain: str = None):
+    """Visitor signs up on an astrologer's site with email+password.
+    Stored per-tenant in tenant_users (bcrypt hash), never in platform users."""
+    from ..auth import hash_password
+    site = _resolve_site(slug, domain)
+    email = body.email.lower().strip()
+    from ..database import get_db
+    db = get_db()
+    row = db.execute(_tenant_convert("SELECT id FROM tenant_users WHERE site_id = ? AND email = ?"),
+                     (site["id"], email)).fetchone()
+    if row:
+        raise HTTPException(status_code=409, detail="An account with this email already exists on this site — please sign in")
+    cur = db.execute(
+        _tenant_convert("INSERT INTO tenant_users (site_id, email, name, password_hash) VALUES (?, ?, ?, ?) RETURNING id"),
+        (site["id"], email, body.name, hash_password(body.password)),
+    )
+    new_id = cur.fetchone()[0]
+    db.commit()
+    user = {"id": new_id, "site_id": site["id"], "email": email, "name": body.name,
+            "avatar_url": None, "firebase_uid": None, "created_at": None}
+    return {"tenant_user": user, "tenant_token": _tenant_token(user, site),
+            "site": {"id": site["id"], "name": site["name"], "slug": site["slug"]}, "new_user": True}
+
+
+@router.post("/site/auth/login")
+def tenant_login(body: TenantRegisterBody, slug: str = None, domain: str = None):
+    from ..auth import verify_password
+    site = _resolve_site(slug, domain)
+    email = body.email.lower().strip()
+    from ..database import get_db
+    db = get_db()
+    row = db.execute(_tenant_convert(
+        "SELECT id, site_id, firebase_uid, email, name, phone, avatar_url, password_hash, created_at "
+        "FROM tenant_users WHERE site_id = ? AND email = ?"), (site["id"], email)).fetchone()
+    user = row if isinstance(row, dict) else dict(zip(
+        ["id", "site_id", "firebase_uid", "email", "name", "phone", "avatar_url", "password_hash", "created_at"],
+        row)) if row else None
+    if not user or not user.get("password_hash") or not verify_password(body.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password for this site")
+    user = {k: v for k, v in user.items() if k != "password_hash"}
+    return {"tenant_user": user, "tenant_token": _tenant_token(user, site),
+            "site": {"id": site["id"], "name": site["name"], "slug": site["slug"]}, "new_user": False}

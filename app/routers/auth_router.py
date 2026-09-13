@@ -115,6 +115,16 @@ def _user_response(user: dict, token: str) -> dict:
     }
 
 
+
+
+def create_tenant_token(tenant_user_id: int, site_id: int) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(days=30)
+    return jwt.encode(
+        {"sub": f"tenant-user:{tenant_user_id}", "site_id": site_id,
+         "role": "tenant", "exp": expire},
+        SECRET_KEY, algorithm=ALGORITHM,
+    )
+
 @router.post("/register")
 def register(body: RegisterBody):
     from ..database import get_db
