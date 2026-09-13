@@ -698,7 +698,8 @@ async def tenant_firebase_login(body: TenantFirebaseBody, slug: str = None, doma
     }
     from jose import jwt as _jwt
     token = _jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-    return {"tenant_user": user, "tenant_token": token, "site": {"id": site["id"], "name": site["name"], "slug": site["slug"]}, "created": created, "new_user": created}
+    return {"tenant_user": user, "tenant_token": token, "hasPassword": bool(user.get("password_hash")),
+            "site": {"id": site["id"], "name": site["name"], "slug": site["slug"]}, "created": created, "new_user": created}
 
 
 # ─────────────── tenant visitor email+password auth ───────────────
@@ -772,3 +773,44 @@ def tenant_auth_config(slug: str = None, domain: str = None):
         "googleEnabled": settings.get("visitorGoogleAuth") is True,
         "siteName": site.get("name"),
     }
+
+
+class SetPasswordBody(BaseModel):
+    password: str = Field(..., min_length=8, max_length=100)
+
+
+def _require_tenant_token(request_token: str, site_id: int):
+    """Validate a tenant-scoped JWT and return the tenant user id."""
+    from ..routers.auth_router import verify_tenant_token
+    try:
+        claims = verify_tenant_token(request_token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Session expired — please sign in again")
+    if not str(claims.get("sub", "")).startswith("tenant-user:") or claims.get("site_id") != site_id:
+        raise HTTPException(status_code=403, detail="This session belongs to a different site")
+    return int(str(claims["sub"]).split(":", 1)[1])
+
+
+@router.post("/site/auth/set-password")
+def tenant_set_password(body: SetPasswordBody, request: Request, slug: str = None, domain: str = None):
+    """Let a Google/Firebase-signed-in visitor add a password so the email+
+    password form also works for them in the future."""
+    from ..auth import hash_password
+    from ..database import get_db
+    site = _resolve_site(slug, domain)
+    token = (request.headers.get("authorization") or "").replace("Bearer ", "").strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Sign in first")
+    user_id = _require_tenant_token(token, site["id"])
+    db = get_db()
+    row = db.execute(_tenant_convert("SELECT password_hash FROM tenant_users WHERE site_id = ? AND id = ?"),
+                     (site["id"], user_id)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Account not found")
+    current = row.get("password_hash") if isinstance(row, dict) else row[0]
+    if current:
+        return {"ok": True, "alreadySet": True}
+    db.execute(_tenant_convert("UPDATE tenant_users SET password_hash = ? WHERE site_id = ? AND id = ?"),
+               (hash_password(body.password), site["id"], user_id))
+    db.commit()
+    return {"ok": True, "alreadySet": False}

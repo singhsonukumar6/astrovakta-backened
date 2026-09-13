@@ -1,7 +1,7 @@
 // Firebase Auth for client sign-in. Renders/activates only when the
 // VITE_FIREBASE_* env vars are set (Vercel env or frontend/.env.local).
 import { initializeApp } from 'firebase/app'
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth'
+import { getAuth, GoogleAuthProvider, EmailAuthProvider, createUserWithEmailAndPassword, sendEmailVerification, signInWithPopup, signOut } from 'firebase/auth'
 
 const cfg = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -26,6 +26,14 @@ export async function signInWithFirebase(provider = 'google') {
     return (await signInWithPopup(a, new GoogleAuthProvider())).user
   }
   throw new Error(`Provider ${provider} not enabled yet`)
+}
+
+export async function signUpWithEmailAndVerify(email, password) {
+  const a = firebaseAuth()
+  if (!a) throw new Error('Firebase not configured')
+  const cred = await createUserWithEmailAndPassword(a, email, password)
+  await sendEmailVerification(cred.user)
+  return cred.user
 }
 
 export function signOutFirebase() {

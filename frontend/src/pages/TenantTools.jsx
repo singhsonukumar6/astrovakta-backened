@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Heart, ScrollText, Sparkles, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
 import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
+import { signUpWithEmailAndVerify } from '../lib/firebase.js'
 import { publicKundliTool, publicKundliFull, publicMatchingTool, publicDoshaTool } from '../lib/api.js'
 
 // ─────────── shared bits for tenant tool pages ───────────
@@ -497,6 +498,8 @@ export function TenantSignIn({ site, resolve, theme, COLORS }) {
   const [googleOn, setGoogleOn] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const [verifySent, setVerifySent] = useState(false)
+  const [passForm, setPassForm] = useState({ a: '', b: '' })
 
   useEffect(() => {
     fetch(`/sites/site/auth/config?${new URLSearchParams(resolve)}`)
@@ -515,9 +518,16 @@ export function TenantSignIn({ site, resolve, theme, COLORS }) {
     setBusy(true)
     try {
       const qs = new URLSearchParams(resolve).toString()
-      const path = mode === 'signin' ? '/sites/site/auth/login' : '/sites/site/auth/register'
-      const body = mode === 'signin' ? { email: form.email, password: form.password } : form
-      const res = await fetch(`${path}?${qs}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      if (mode === 'signup') {
+        const res = await fetch(`/sites/site/auth/register?${qs}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.detail || data.message || 'Sign-up failed')
+        // verification email through Firebase (best-effort — account works regardless)
+        try { await signUpWithEmailAndVerify(form.email, form.password); setVerifySent(true) } catch { /* provider exists or SDK off */ }
+        save(data)
+        return
+      }
+      const res = await fetch(`/sites/site/auth/login?${qs}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: form.email, password: form.password }) })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || data.message || 'Sign-in failed')
       save(data)
@@ -533,6 +543,11 @@ export function TenantSignIn({ site, resolve, theme, COLORS }) {
       const res = await fetch(`/sites/site/auth/firebase?${qs}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: await fu.getIdToken() }) })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || 'Google sign-in failed')
+      if (data.hasPassword === false) {
+        window.__pendingTenantAuth = data
+        setMode('setpass')
+        return
+      }
       save(data)
     } catch (err) { setError(err.message || 'Google sign-in failed') } finally { setBusy(false) }
   }
@@ -560,11 +575,46 @@ export function TenantSignIn({ site, resolve, theme, COLORS }) {
           <input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="you@example.com" style={inputStyle} /></div>
         <div><label style={labelStyle}>Password {mode === 'signup' && '(min 8 characters)'}</label>
           <input type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder="••••••••" style={inputStyle} /></div>
+        {verifySent && <div style={{ color: '#16a34a', fontSize: 13, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 10, padding: 10 }}>
+          Account created — we sent a verification link to your email.
+        </div>}
         {error && <div style={{ color: '#dc2626', fontSize: 13.5 }}>{error}</div>}
         <button type="submit" disabled={busy} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none', background: gradient, color: '#fff', padding: 13, opacity: busy ? 0.7 : 1 }}>
           {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}
         </button>
-        {googleOn && (
+        {mode === 'setpass' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ padding: 12, borderRadius: 10, background: 'rgba(79,70,229,0.06)', border: '1px solid rgba(79,70,229,0.25)', fontSize: 13, lineHeight: 1.6 }}>
+              You're signed in with Google. Create a password to also sign in with your email next time.
+            </div>
+            <div><label style={labelStyle}>New password (min 8 characters)</label>
+              <input type="password" value={passForm.a} onChange={(e) => setPassForm({ ...passForm, a: e.target.value })} placeholder="••••••••" style={inputStyle} /></div>
+            <div><label style={labelStyle}>Confirm password</label>
+              <input type="password" value={passForm.b} onChange={(e) => setPassForm({ ...passForm, b: e.target.value })} placeholder="••••••••" style={inputStyle} /></div>
+            <button type="button" disabled={busy}
+              onClick={async () => {
+                if (passForm.a.length < 8) { setError('Password must be at least 8 characters'); return }
+                if (passForm.a !== passForm.b) { setError('Passwords do not match'); return }
+                setBusy(true); setError(null)
+                try {
+                  const pending = window.__pendingTenantAuth
+                  const qs = new URLSearchParams(resolve).toString()
+                  const res = await fetch(`/sites/site/auth/set-password?${qs}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pending.tenant_token}` }, body: JSON.stringify({ password: passForm.a }) })
+                  if (!res.ok) throw new Error('Could not set password')
+                  delete window.__pendingTenantAuth
+                  save(pending)
+                } catch (err) { setError(err.message) } finally { setBusy(false) }
+              }}
+              style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none', background: gradient, color: '#fff', padding: 13 }}>
+              Save password & continue
+            </button>
+            <button type="button" onClick={() => { const p2 = window.__pendingTenantAuth; delete window.__pendingTenantAuth; if (p2) save(p2) }}
+              style={{ background: 'none', border: 'none', color: COLORS.textDim, fontSize: 12.5, cursor: 'pointer', textDecoration: 'underline' }}>
+              Skip for now
+            </button>
+          </div>
+        )}
+        {mode !== 'setpass' && googleOn && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: COLORS.textDim, fontSize: 12, fontWeight: 600 }}>
               <span style={{ flex: 1, height: 1, background: COLORS.border }} /> OR <span style={{ flex: 1, height: 1, background: COLORS.border }} />

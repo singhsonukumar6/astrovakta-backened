@@ -118,6 +118,12 @@ def _user_response(user: dict, token: str) -> dict:
 
 
 
+def verify_tenant_token(token: str):
+    """Decode a tenant-scoped JWT. Returns claims or raises JWTError."""
+    from jose import jwt as _jwt
+    return _jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+
 def create_tenant_token(tenant_user_id: int, site_id: int) -> str:
     expire = datetime.now(timezone.utc) + timedelta(days=30)
     return jwt.encode(
