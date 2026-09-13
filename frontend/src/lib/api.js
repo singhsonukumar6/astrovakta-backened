@@ -15,9 +15,14 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    // A 401 on the auth endpoints themselves is a normal, expected outcome
+    // (wrong password, unknown email, unverified provider...) — it must show
+    // an inline error, never wipe the session or redirect.
+    const url = err.config?.url || ''
+    const isAuthCall = /\/auth\/(login|register|google|firebase|verify-email)/.test(url)
+    if (err.response?.status === 401 && !isAuthCall) {
       localStorage.removeItem('token')
-      window.location.href = '/login'
+      if (window.location.pathname !== '/login') window.location.href = '/login'
     }
     return Promise.reject(err)
   }
