@@ -387,6 +387,37 @@ def _convert_update():
     return "UPDATE users SET avatar_url = %s WHERE id = %s" if USE_POSTGRES else "UPDATE users SET avatar_url = ? WHERE id = ?"
 
 
+def verify_firebase_id_token(id_token: str) -> dict:
+    """Verify a Firebase ID token (RS256 via Google's public certs).
+    Requires FIREBASE_PROJECT_ID. Returns the token claims."""
+    import time as _time
+    import httpx
+    from jose import jwt as jose_jwt, JWTError
+
+    project_id = os.getenv("FIREBASE_PROJECT_ID", "")
+    if not project_id:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            detail="Firebase sign-in not configured (FIREBASE_PROJECT_ID missing)")
+    now = _time.time()
+    if not _FIREBASE_CERTS["cached"] or now - _FIREBASE_CERTS["at"] > 3600:
+        r = httpx.get("https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com", timeout=10)
+        r.raise_for_status()
+        _FIREBASE_CERTS["cached"] = r.json()
+        _FIREBASE_CERTS["at"] = now
+    try:
+        header = jose_jwt.get_unverified_header(id_token)
+        return jose_jwt.decode(
+            id_token, _FIREBASE_CERTS["cached"][header["kid"]],
+            algorithms=["RS256"],
+            audience=project_id,
+            issuer=f"https://securetoken.google.com/{project_id}",
+        )
+    except JWTError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Invalid Firebase token: {e}")
+    except KeyError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown token key")
+
+
 class FirebaseLoginBody(BaseModel):
     idToken: str = Field(..., min_length=50)
 
@@ -403,28 +434,7 @@ def firebase_login(body: FirebaseLoginBody):
     import httpx
     from jose import jwt as jose_jwt, JWTError
 
-    project_id = os.getenv("FIREBASE_PROJECT_ID", "")
-    if not project_id:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                            detail="Firebase sign-in not configured (FIREBASE_PROJECT_ID missing)")
-    now = _time.time()
-    if not _FIREBASE_CERTS["cached"] or now - _FIREBASE_CERTS["at"] > 3600:
-        r = httpx.get("https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com", timeout=10)
-        r.raise_for_status()
-        _FIREBASE_CERTS["cached"] = r.json()
-        _FIREBASE_CERTS["at"] = now
-    try:
-        header = jose_jwt.get_unverified_header(body.idToken)
-        claims = jose_jwt.decode(
-            body.idToken, _FIREBASE_CERTS["cached"][header["kid"]],
-            algorithms=["RS256"],
-            audience=project_id,
-            issuer=f"https://securetoken.google.com/{project_id}",
-        )
-    except JWTError as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Invalid Firebase token: {e}")
-    except KeyError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown token key")
+    claims = verify_firebase_id_token(body.idToken)
 
     email = (claims.get("email") or "").lower().strip()
     if not email:

@@ -364,6 +364,18 @@ CREATE TABLE IF NOT EXISTS site_social_posts (
     posted_at TIMESTAMP,
     FOREIGN KEY (site_id) REFERENCES sites(id)
 );
+
+CREATE TABLE IF NOT EXISTS tenant_users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER NOT NULL,
+    firebase_uid TEXT,
+    email TEXT NOT NULL,
+    name TEXT,
+    phone TEXT,
+    avatar_url TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (site_id, email)
+);
 """
 
 _PG_DDL = """
@@ -590,6 +602,18 @@ CREATE TABLE IF NOT EXISTS site_social_posts (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     posted_at TIMESTAMPTZ,
     FOREIGN KEY (site_id) REFERENCES sites(id)
+);
+
+CREATE TABLE IF NOT EXISTS tenant_users (
+    id SERIAL PRIMARY KEY,
+    site_id INTEGER NOT NULL,
+    firebase_uid TEXT,
+    email TEXT NOT NULL,
+    name TEXT,
+    phone TEXT,
+    avatar_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (site_id, email)
 );
 """
 

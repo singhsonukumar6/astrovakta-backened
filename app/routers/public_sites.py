@@ -639,3 +639,63 @@ def tenant_kundli_full(body: KundliToolBody, request: Request, slug: str = None,
 
     core = tenant_kundli_tool(body, slug=slug, domain=domain)
     return {"core": core, "doshas": dosha, **sections}
+
+
+# ─────────────── tenant visitor accounts (per-site separation) ───────────────
+
+class TenantFirebaseBody(BaseModel):
+    idToken: str = Field(..., min_length=50)
+
+
+def _upsert_tenant_user(site_id: int, claims: dict):
+    from ..database import get_db
+    email = (claims.get("email") or "").lower().strip()
+    db = get_db()
+    row = db.execute(
+        _convert("SELECT * FROM tenant_users WHERE site_id = ? AND email = ?"),
+        (site_id, email),
+    ).fetchone()
+    user = row if isinstance(row, dict) else dict(zip(
+        ["id", "site_id", "firebase_uid", "email", "name", "phone", "avatar_url", "created_at"],
+        row)) if row else None
+    if user:
+        db.execute(
+            _convert("UPDATE tenant_users SET firebase_uid = ?, name = COALESCE(?, name), avatar_url = COALESCE(?, avatar_url) WHERE id = ?"),
+            (claims.get("user_id"), claims.get("name"), claims.get("picture"), user["id"]),
+        )
+        db.commit()
+        user = {**user, "firebase_uid": claims.get("user_id")}
+        return user, False
+    cur = db.execute(
+        _convert("INSERT INTO tenant_users (site_id, firebase_uid, email, name, avatar_url) VALUES (?, ?, ?, ?, ?) RETURNING id"),
+        (site_id, claims.get("user_id"), email, claims.get("name"), claims.get("picture")),
+    )
+    new_id = cur.fetchone()[0]
+    db.commit()
+    return {"id": new_id, "site_id": site_id, "email": email, "name": claims.get("name"),
+            "avatar_url": claims.get("picture"), "firebase_uid": claims.get("user_id"), "created_at": None}, True
+
+
+@router.post("/site/auth/firebase")
+async def tenant_firebase_login(body: TenantFirebaseBody, slug: str = None, domain: str = None):
+    """Visitor sign-in on a tenant site. The site comes from the host/slug, so
+    the same Google account is a SEPARATE identity per astrologer. Returns a
+    scoped tenant token (distinct from platform user tokens)."""
+    from ..routers.auth_router import verify_firebase_id_token
+    site = _resolve_site(slug, domain)
+    claims = verify_firebase_id_token(body.idToken)
+    if not claims.get("email_verified", True):
+        raise HTTPException(status_code=401, detail="Provider email is not verified")
+    user, created = _upsert_tenant_user(site["id"], claims)
+
+    # tenant-scoped token: carries the tenant user + site, never platform powers
+    import asyncio
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+    from ..auth import SECRET_KEY, ALGORITHM
+    payload = {
+        "sub": f"tenant-user:{user['id']}", "site_id": site["id"],
+        "email": user["email"], "exp": datetime.now(_tz.utc) + _td(days=30),
+    }
+    from jose import jwt as _jwt
+    token = _jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return {"tenant_user": user, "tenant_token": token, "site": {"id": site["id"], "name": site["name"], "slug": site["slug"]}, "created": created, "new_user": created}
