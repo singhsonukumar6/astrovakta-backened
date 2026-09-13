@@ -10,7 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
+from .admin_content import require_admin
 from ..tenants import (
+    get_site_by_slug,
     validate_slug, normalize_domain, slug_exists, domain_exists, TEMPLATES, WEEKDAYS,
     RESERVED_SLUGS, list_sites, get_site_by_id, create_site, update_site, set_site_status, delete_site,
     list_pages, upsert_page,
@@ -833,3 +835,24 @@ def bookings_ics(site_id: int, user: dict = Depends(get_current_user)):
     from fastapi import Response as _Resp
     return _Resp("\r\n".join(lines), media_type="text/calendar",
                  headers={"Content-Disposition": 'attachment; filename="bookings.ics"'})
+
+
+@router.post("/admin/visitor-google-auth")
+def set_visitor_google_auth(body: dict, user: dict = Depends(require_admin)):
+    """Superadmin: enable/disable Google sign-in for visitors of a site
+    (by slug or site id). body: {"slug": "..."} or {"site_id": 6}, {"enabled": true}"""
+    slug = body.get("slug")
+    site_id = body.get("site_id")
+    if not site_id and slug:
+        site = get_site_by_slug(slug)
+        if not site:
+            raise HTTPException(status_code=404, detail="Site not found")
+        site_id = site["id"]
+    if not site_id:
+        raise HTTPException(status_code=400, detail="slug or site_id required")
+    site = get_site_by_id(site_id)
+    settings = dict(site.get("settings") or {})
+    settings["visitorGoogleAuth"] = bool(body.get("enabled"))
+    from ..tenants import update_site
+    update_site(site_id, {"settings": settings})
+    return {"ok": True, "site": site["slug"], "visitorGoogleAuth": settings["visitorGoogleAuth"]}

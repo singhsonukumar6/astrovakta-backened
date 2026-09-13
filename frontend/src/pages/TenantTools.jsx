@@ -488,3 +488,95 @@ export function MatchingPage({ site, resolve, theme, COLORS }) {
     </ToolShell>
   )
 }
+
+// ─────────── VISITOR SIGN-IN (#/signin) — per-tenant accounts ───────────
+export function TenantSignIn({ site, resolve, theme, COLORS }) {
+  const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+  const [mode, setMode] = useState('signin')
+  const [form, setForm] = useState({ email: '', password: '', name: '' })
+  const [googleOn, setGoogleOn] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    fetch(`/sites/site/auth/config?${new URLSearchParams(resolve)}`)
+      .then((r) => r.json()).then((c) => setGoogleOn(!!c.googleEnabled)).catch(() => {})
+  }, [])
+
+  const save = (data) => {
+    localStorage.setItem(`tenantAuth_${site.slug}`, JSON.stringify({ token: data.tenant_token, user: data.tenant_user }))
+    window.location.hash = '#/'
+  }
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setError(null)
+    if (!form.email || !form.password || (mode === 'signup' && !form.name)) { setError('Please fill all fields'); return }
+    setBusy(true)
+    try {
+      const qs = new URLSearchParams(resolve).toString()
+      const path = mode === 'signin' ? '/sites/site/auth/login' : '/sites/site/auth/register'
+      const body = mode === 'signin' ? { email: form.email, password: form.password } : form
+      const res = await fetch(`${path}?${qs}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || data.message || 'Sign-in failed')
+      save(data)
+    } catch (err) { setError(err.message) } finally { setBusy(false) }
+  }
+
+  const google = async () => {
+    setError(null); setBusy(true)
+    try {
+      const { signInWithFirebase } = await import('../lib/firebase.js')
+      const fu = await signInWithFirebase('google')
+      const qs = new URLSearchParams(resolve).toString()
+      const res = await fetch(`/sites/site/auth/firebase?${qs}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: await fu.getIdToken() }) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || 'Google sign-in failed')
+      save(data)
+    } catch (err) { setError(err.message || 'Google sign-in failed') } finally { setBusy(false) }
+  }
+
+  return (
+    <ToolShell site={site} COLORS={COLORS} gradient={gradient} icon={Heart}
+      title={mode === 'signin' ? `Sign in to ${site.name}` : `Create your ${site.name} account`}
+      subtitle="Save your kundlis, track bookings and manage your readings — your account is private to this site.">
+      <form onSubmit={submit} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 28, display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 460, margin: '0 auto' }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {['signin', 'signup'].map((m) => (
+            <button key={m} type="button" onClick={() => { setMode(m); setError(null) }}
+              style={{ flex: 1, padding: '9px', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 13.5,
+                border: `1.5px solid ${mode === m ? theme.primaryColor : COLORS.border}`,
+                background: mode === m ? theme.primaryColor : 'transparent', color: mode === m ? '#fff' : COLORS.text }}>
+              {m === 'signin' ? 'Sign in' : 'Create account'}
+            </button>
+          ))}
+        </div>
+        {mode === 'signup' && (
+          <div><label style={labelStyle}>Your name</label>
+            <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Full name" style={inputStyle} /></div>
+        )}
+        <div><label style={labelStyle}>Email</label>
+          <input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="you@example.com" style={inputStyle} /></div>
+        <div><label style={labelStyle}>Password {mode === 'signup' && '(min 8 characters)'}</label>
+          <input type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder="••••••••" style={inputStyle} /></div>
+        {error && <div style={{ color: '#dc2626', fontSize: 13.5 }}>{error}</div>}
+        <button type="submit" disabled={busy} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none', background: gradient, color: '#fff', padding: 13, opacity: busy ? 0.7 : 1 }}>
+          {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}
+        </button>
+        {googleOn && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: COLORS.textDim, fontSize: 12, fontWeight: 600 }}>
+              <span style={{ flex: 1, height: 1, background: COLORS.border }} /> OR <span style={{ flex: 1, height: 1, background: COLORS.border }} />
+            </div>
+            <button type="button" onClick={google} disabled={busy}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '12px', borderRadius: 999, border: `1px solid ${COLORS.border}`, background: 'transparent', fontWeight: 700, fontSize: 14, color: COLORS.text, cursor: 'pointer' }}>
+              <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3l5.7-5.7C34.3 6.1 29.4 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3l5.7-5.7C34.3 6.1 29.4 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C41.4 35.4 44 30.2 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>
+              Continue with Google
+            </button>
+          </>
+        )}
+      </form>
+    </ToolShell>
+  )
+}

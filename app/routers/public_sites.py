@@ -760,3 +760,15 @@ def tenant_login(body: TenantRegisterBody, slug: str = None, domain: str = None)
     user = {k: v for k, v in user.items() if k != "password_hash"}
     return {"tenant_user": user, "tenant_token": _tenant_token(user, site),
             "site": {"id": site["id"], "name": site["name"], "slug": site["slug"]}, "new_user": False}
+
+
+@router.get("/site/auth/config")
+def tenant_auth_config(slug: str = None, domain: str = None):
+    """Visitor sign-in capabilities for a tenant site. Google appears only
+    when the superadmin has enabled it for this site."""
+    site = _resolve_site(slug, domain)
+    settings = site.get("settings") or {}
+    return {
+        "googleEnabled": settings.get("visitorGoogleAuth") is True,
+        "siteName": site.get("name"),
+    }

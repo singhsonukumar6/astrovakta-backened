@@ -27,7 +27,7 @@ import {
   publicHoroscopeTool, publicPlaceOrder,
 } from '../lib/api.js'
 import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
-import { KundliPage, MatchingPage } from './TenantTools.jsx'
+import { KundliPage, MatchingPage, TenantSignIn } from './TenantTools.jsx'
 import { tenantSiteUrl, tenantSubdomainLabel } from '../lib/tenant.js'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -703,6 +703,31 @@ function StoreSection({ site, resolve, theme, COLORS }) {
 // ═══════════════ MAIN PUBLIC SITE PAGE ═══════════════
 // Resolves either by slug (/s/:slug route or tenant subdomain) or by custom
 // domain (when the App shell renders it for a foreign hostname).
+
+// Visitor account chip (per-tenant session lives in localStorage under tenantAuth_<slug>)
+function VisitorBadge({ slug, COLORS, theme }) {
+  const [session, setSession] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(`tenantAuth_${slug}`) || 'null') } catch { return null }
+  })
+  if (!session) {
+    return <a href="#/signin" style={{ textDecoration: 'none', fontSize: 14, fontWeight: 600, color: COLORS.textDim, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      Sign in
+    </a>
+  }
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, color: COLORS.text }}>
+      <span style={{ width: 26, height: 26, borderRadius: '50%', background: theme.primaryColor, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800 }}>
+        {(session.user?.name || session.user?.email || '?').trim().charAt(0).toUpperCase()}
+      </span>
+      <span style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session.user?.name || session.user?.email}</span>
+      <button onClick={() => { localStorage.removeItem(`tenantAuth_${slug}`); setSession(null) }}
+        style={{ background: 'none', border: 'none', color: COLORS.textDim, cursor: 'pointer', fontSize: 12.5, textDecoration: 'underline', padding: 0 }}>
+        Sign out
+      </button>
+    </span>
+  )
+}
+
 export default function TenantSite({ slug: slugProp, domain: domainProp }) {
   const { slug: slugParam } = useParams()
   const slug = slugProp || slugParam
@@ -769,6 +794,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
   // Tool pages live on their own hash routes so the landing page stays clean.
   if (route.startsWith('#/kundli')) return <KundliPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
   if (route.startsWith('#/matching')) return <MatchingPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
+  if (route.startsWith('#/signin')) return <TenantSignIn site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
 
   const sectionStyle = { maxWidth: 1000, margin: '0 auto', padding: '72px 20px' }
   const h2Style = { fontSize: 32, fontWeight: 800, marginBottom: 12, color: COLORS.text, textAlign: 'center' }
@@ -823,6 +849,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
             {showStore && <a href="#shop" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Shop</a>}
             <a href="#/kundli" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Free Kundli</a>
             <a href="#/matching" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Match Making</a>
+            <VisitorBadge slug={slug} COLORS={COLORS} theme={theme} />
             <a href="#book" style={{
               padding: '9px 20px', borderRadius: 10, background: gradient, color: '#fff', textDecoration: 'none',
               display: 'flex', alignItems: 'center', gap: 6,
