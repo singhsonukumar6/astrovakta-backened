@@ -112,3 +112,19 @@ column added via DDL + migrations) · CSV exports (`/sites/my/{id}/leads|booking
 STILL OPEN: envelope standardization (deliberate, breaks clients) · daily digest (needs
 email/WA infra) · phase-2 OAuth + phase-3 auto-poster (see phases above) · stored media for
 scheduled posts · single-schema-source for DDL · rate limiting is per-process.
+
+## Store integrations (commit 4d36eb6, 2026-09-13)
+
+- Tenant connects Shopify (Admin API token from a custom app) or WooCommerce
+  (consumer key/secret) in Store → Integrations; connection is tested at save.
+- Product push creates/updates by SKU `av-<site_product_id>`; mappings in
+  `integration_products`.
+- Order capture: WooCommerce webhook `POST /sites/integrations/woocommerce/{conn_id}`
+  (HMAC via the stored consumer secret — give the tenant this URL for their
+  WooCommerce webhook config); Shopify orders via "Pull orders" button
+  (`/my/{id}/integrations/{cid}/pull-orders`).
+- NOT YET TESTED against live stores (needs real credentials) — first live
+  test should verify: Woo product image push (public image URLs only),
+  Shopify scopes (write_products, read_orders), webhook reachability from
+  the merchant's server, and multi-worker webhook auth (secrets come from DB,
+  so it's worker-safe).
