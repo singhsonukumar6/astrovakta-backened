@@ -385,3 +385,71 @@ def google_login(body: GoogleLoginBody):
 def _convert_update():
     from ..database import USE_POSTGRES
     return "UPDATE users SET avatar_url = %s WHERE id = %s" if USE_POSTGRES else "UPDATE users SET avatar_url = ? WHERE id = ?"
+
+
+class FirebaseLoginBody(BaseModel):
+    idToken: str = Field(..., min_length=50)
+
+
+_FIREBASE_CERTS = {"cached": None, "at": 0.0}
+
+
+@router.post("/firebase")
+def firebase_login(body: FirebaseLoginBody):
+    """Firebase Auth: verify a Firebase ID token (RS256 against Google's
+    public certs), then find or create the user. Only needs
+    FIREBASE_PROJECT_ID — no service-account credentials."""
+    import time as _time
+    import httpx
+    from jose import jwt as jose_jwt, JWTError
+
+    project_id = os.getenv("FIREBASE_PROJECT_ID", "")
+    if not project_id:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            detail="Firebase sign-in not configured (FIREBASE_PROJECT_ID missing)")
+    now = _time.time()
+    if not _FIREBASE_CERTS["cached"] or now - _FIREBASE_CERTS["at"] > 3600:
+        r = httpx.get("https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com", timeout=10)
+        r.raise_for_status()
+        _FIREBASE_CERTS["cached"] = r.json()
+        _FIREBASE_CERTS["at"] = now
+    try:
+        header = jose_jwt.get_unverified_header(body.idToken)
+        claims = jose_jwt.decode(
+            body.idToken, _FIREBASE_CERTS["cached"][header["kid"]],
+            algorithms=["RS256"],
+            audience=project_id,
+            issuer=f"https://securetoken.google.com/{project_id}",
+        )
+    except JWTError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Invalid Firebase token: {e}")
+    except KeyError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown token key")
+
+    email = (claims.get("email") or "").lower().strip()
+    if not email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Your Firebase sign-in provider did not return an email — enable an email-linked provider")
+    if not claims.get("email_verified", True):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Provider email is not verified")
+
+    from ..database import get_db
+    user = get_user_by_email(email)
+    if not user:
+        from ..auth import create_user, mark_email_verified
+        user = create_user(email, claims.get("name") or email.split("@")[0], secrets.token_urlsafe(32))
+        mark_email_verified(user["id"])
+    from ..auth import mark_email_verified
+    if not user.get("email_verified"):
+        mark_email_verified(user["id"])
+    picture = claims.get("picture")
+    if picture:
+        db = get_db()
+        db.execute(_convert_update(), (picture, user["id"]))
+        db.commit()
+        user = {**user, "avatar_url": picture}
+    token = create_access_token(user["id"])
+    resp = _user_response(user, token)
+    resp["email_sent"] = False
+    resp["provider"] = (claims.get("firebase") or {}).get("sign_in_provider", "firebase")
+    return resp
