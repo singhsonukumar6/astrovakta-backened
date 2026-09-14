@@ -547,7 +547,8 @@ def set_availability(site_id: int, rules: list) -> list:
 #  Bookings
 # ═══════════════════════════════════════════════
 
-def list_bookings(site_id: int, date_from: str = None, date_to: str = None, status: str = ""):
+def list_bookings(site_id: int, date_from: str = None, date_to: str = None, status: str = "",
+                  tenant_user_id: int = None):
     db = get_db()
     where = ["site_id = ?"]
     params = [site_id]
@@ -560,6 +561,9 @@ def list_bookings(site_id: int, date_from: str = None, date_to: str = None, stat
     if status:
         where.append("status = ?")
         params.append(status)
+    if tenant_user_id:
+        where.append("tenant_user_id = ?")
+        params.append(tenant_user_id)
     rows = db.execute(
         _convert(f"SELECT * FROM site_bookings WHERE {' AND '.join(where)} ORDER BY date, start_time"),
         params,
@@ -578,12 +582,13 @@ def create_booking(site_id: int, data: dict) -> dict:
     db = get_db()
     cur = db.execute(
         _convert(
-            "INSERT INTO site_bookings (site_id, service_id, client_name, client_phone, client_email, notes, date, start_time, end_time, status, amount, currency, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id"
+            "INSERT INTO site_bookings (site_id, service_id, tenant_user_id, client_name, client_phone, client_email, notes, date, start_time, end_time, status, amount, currency, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id"
         ),
         (
             site_id,
             data.get("service_id"),
+            data.get("tenant_user_id"),
             data.get("client_name"),
             data.get("client_phone"),
             data.get("client_email"),
@@ -760,13 +765,16 @@ def delete_product(site_id: int, product_id: int) -> bool:
 #  Orders (store)
 # ═══════════════════════════════════════════════
 
-def list_orders(site_id: int, status: str = "", limit: int = 300):
+def list_orders(site_id: int, status: str = "", limit: int = 300, tenant_user_id: int = None):
     db = get_db()
     where = ["site_id = ?"]
     params = [site_id]
     if status:
         where.append("status = ?")
         params.append(status)
+    if tenant_user_id:
+        where.append("tenant_user_id = ?")
+        params.append(tenant_user_id)
     rows = db.execute(
         _convert(f"SELECT * FROM site_orders WHERE {' AND '.join(where)} ORDER BY created_at DESC LIMIT ?"),
         (*params, limit),
@@ -799,11 +807,12 @@ def create_order(site_id: int, data: dict) -> dict:
         items = json.dumps(items)
     cur = db.execute(
         _convert(
-            "INSERT INTO site_orders (site_id, client_name, client_phone, client_email, address, items, amount, currency, status, notes, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id"
+            "INSERT INTO site_orders (site_id, tenant_user_id, client_name, client_phone, client_email, address, items, amount, currency, status, notes, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id"
         ),
         (
             site_id,
+            data.get("tenant_user_id"),
             data.get("client_name"),
             data.get("client_phone"),
             data.get("client_email"),
@@ -966,7 +975,17 @@ def products_with_category(site_id: int) -> list:
         "LEFT JOIN master_categories mc ON mc.id = mp.category_id "
         "WHERE sp.site_id = ? AND sp.is_active = 1 ORDER BY mc.sort_order, sp.sort_order, sp.id"
     ), (site_id,)).fetchall()
-    return [_to_dict(r) for r in rows]
+    import json as _json
+    out = []
+    for r in rows:
+        d = _to_dict(r)
+        if d.get("images") and isinstance(d.get("images"), str):
+            try: d["images"] = _json.loads(d["images"])
+            except Exception: d["images"] = []
+        if d.get("image") and not d.get("images"):
+            d["images"] = [d["image"]]
+        out.append(d)
+    return out
 
 
 def public_site_bundle(site: dict) -> dict:
@@ -1023,6 +1042,18 @@ def delete_master_category(cid: int):
     db.commit()
 
 
+def _parse_images(row: dict) -> dict:
+    import json as _json
+    if row.get("images") and isinstance(row.get("images"), str):
+        try: row["images"] = _json.loads(row["images"])
+        except Exception: row["images"] = []
+    elif not row.get("images"):
+        row["images"] = []
+    if row.get("image") and row["image"] not in row["images"]:
+        row["images"] = [row["image"]] + row["images"]
+    return row
+
+
 def list_master_products(category_id=None, active_only=False) -> list:
     sql = ("SELECT mp.*, mc.name AS category_name FROM master_products mp "
            "LEFT JOIN master_categories mc ON mc.id = mp.category_id")
@@ -1035,21 +1066,24 @@ def list_master_products(category_id=None, active_only=False) -> list:
         sql += " WHERE " + " AND ".join(conds)
     sql += " ORDER BY mc.sort_order, mp.name"
     rows = get_db().execute(_convert(sql), params).fetchall()
-    return [_to_dict(r) for r in rows]
+    return [_parse_images(_to_dict(r)) for r in rows]
 
 
 def get_master_product(mid: int):
     row = get_db().execute(_convert("SELECT * FROM master_products WHERE id = ?"), (mid,)).fetchone()
-    return _to_dict(row)
+    return _parse_images(_to_dict(row))
 
 
 def create_master_product(data: dict) -> dict:
+    import json as _json
+    images = data.get("images")
     db = get_db()
     cur = db.execute(_convert(
-        "INSERT INTO master_products (category_id, name, description, image, mrp, margin, active) "
-        "VALUES (?, ?, ?, ?, ?, ?, 1) RETURNING id"),
-        (data.get("category_id"), data.get("name"), data.get("description"),
-         data.get("image"), data.get("mrp", 0), data.get("margin", 0)))
+        "INSERT INTO master_products (category_id, name, description, image, images, mrp, margin, active) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, 1) RETURNING id"),
+        (data.get("category_id"), data.get("name"), data.get("description"), data.get("image"),
+         _json.dumps(images) if images else None,
+         data.get("mrp", 0), data.get("margin", 0)))
     mid = cur.fetchone()[0]
     db.commit()
     return get_master_product(mid)
@@ -1057,11 +1091,14 @@ def create_master_product(data: dict) -> dict:
 
 def update_master_product(mid: int, data: dict):
     db = get_db()
+    import json as _json
+    images = data.get("images")
     db.execute(_convert(
         "UPDATE master_products SET category_id = COALESCE(?, category_id), name = COALESCE(?, name), "
-        "description = COALESCE(?, description), image = COALESCE(?, image), mrp = COALESCE(?, mrp), "
-        "margin = COALESCE(?, margin), active = COALESCE(?, active) WHERE id = ?"),
+        "description = COALESCE(?, description), image = COALESCE(?, image), images = COALESCE(?, images), "
+        "mrp = COALESCE(?, mrp), margin = COALESCE(?, margin), active = COALESCE(?, active) WHERE id = ?"),
         (data.get("category_id"), data.get("name"), data.get("description"), data.get("image"),
+         _json.dumps(images) if images else None,
          data.get("mrp"), data.get("margin"), data.get("active"), mid))
     db.commit()
 
@@ -1075,17 +1112,22 @@ def delete_master_product(mid: int):
 def import_master_product(site_id: int, master_product: dict, price: int):
     """Copy a master product into the tenant's shop. Tenant cost = MRP - margin;
     they sell at `price` (must be >= their cost)."""
+    import json as _json
     cost = max(0, int(master_product.get("mrp", 0)) - int(master_product.get("margin", 0)))
     db = get_db()
+    images = master_product.get("images") or ([master_product["image"]] if master_product.get("image") else [])
     cur = db.execute(_convert(
         "INSERT INTO site_products (site_id, name, description, price, currency, image, stock, is_active, sort_order, "
-        "master_product_id, cost_price) VALUES (?, ?, ?, ?, 'INR', ?, -1, 1, 0, ?, ?) RETURNING id"),
+        "master_product_id, cost_price, images) VALUES (?, ?, ?, ?, 'INR', ?, -1, 1, 0, ?, ?, ?) RETURNING id"),
         (site_id, master_product["name"], master_product.get("description"),
-         int(price), master_product.get("image"), master_product["id"], cost))
+         int(price), images[0] if images else None, master_product["id"], cost,
+         _json.dumps(images[:8]) if images else None))
     pid = cur.fetchone()[0]
     db.commit()
     row = db.execute(_convert("SELECT * FROM site_products WHERE id = ?"), (pid,)).fetchone()
-    return _to_dict(row)
+    out = _to_dict(row)
+    out["images"] = images[:8]
+    return out
 
 
 # ═══════════════════════════════════════════════

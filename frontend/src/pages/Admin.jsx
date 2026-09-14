@@ -46,6 +46,7 @@ import {
   Layout,
   Palette,
   Link as LinkIcon,
+  Package,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth.jsx'
@@ -91,6 +92,7 @@ const tabs = [
   { id: 'jobs', label: 'Jobs', icon: Briefcase },
   { id: 'usage', label: 'Analytics', icon: Activity },
   { id: 'payments', label: 'Earnings', icon: DollarSign },
+  { id: 'catalog', label: 'Catalog', icon: Package },
   { id: 'blogs', label: 'Blogs', icon: FileText },
   { id: 'config', label: 'Page Config', icon: Settings },
   { id: 'sandbox', label: 'Sandbox', icon: Terminal },
@@ -1923,6 +1925,7 @@ export default function Admin() {
             {activeTab === 'jobs' && <JobsTab refreshTrigger={refreshTrigger} />}
             {activeTab === 'usage' && <UsageTab />}
             {activeTab === 'payments' && <EarningsTab />}
+            {activeTab === 'catalog' && <MasterCatalogAdmin />}
             {activeTab === 'blogs' && <BlogsTab />}
             {activeTab === 'config' && <PageConfigTab />}
             {activeTab === 'sandbox' && <SandboxTab />}

@@ -12,7 +12,9 @@ from typing import Optional, List
 from ..tenants import (
     get_site_by_slug, get_site_by_domain, public_site_bundle,
     list_availability, get_service, list_bookings, create_booking,
-    create_lead, list_products, get_product, create_order, adjust_product_stock,
+    get_booking, update_booking,
+    create_lead, list_products, get_product, create_order,
+    get_order, update_order, list_orders, adjust_product_stock,
 )
 
 router = APIRouter()
@@ -63,7 +65,7 @@ def get_public_availability(slug: str = None, domain: str = None, date_from: str
 
 class PublicBookingBody(BaseModel):
     service_id: Optional[int] = None
-    client_name: str = Field(..., min_length=1, max_length=120)
+    client_name: Optional[str] = Field(None, max_length=120)
     client_phone: Optional[str] = Field(None, max_length=20)
     client_email: Optional[str] = None
     notes: Optional[str] = Field(None, max_length=1000)
@@ -75,11 +77,14 @@ class PublicBookingBody(BaseModel):
 
 
 @router.post("/site/book")
-def public_book(body: PublicBookingBody, slug: str = None, domain: str = None):
-    """Client books a slot on a tenant site. Slot is validated against the
-    astrologer's weekly hours and existing bookings (no double-booking)."""
+def public_book(body: PublicBookingBody, request: Request, slug: str = None, domain: str = None):
+    """A signed-in visitor books a slot on a tenant site. Booking requires a
+    tenant account (sign-in/sign-up) so the client can track the consultation.
+    Slot is validated against the astrologer's weekly hours and existing
+    bookings (no double-booking)."""
     site = _resolve_site(slug, domain)
     site_id = site["id"]
+    user = _require_site_visitor(request, site_id)
 
     # service duration drives the end time
     duration = 30
@@ -123,9 +128,10 @@ def public_book(body: PublicBookingBody, slug: str = None, domain: str = None):
 
     booking = create_booking(site_id, {
         "service_id": body.service_id,
-        "client_name": body.client_name,
-        "client_phone": body.client_phone,
-        "client_email": body.client_email,
+        "tenant_user_id": user["id"],
+        "client_name": (body.client_name or "").strip() or user.get("name") or user["email"].split("@")[0],
+        "client_phone": (body.client_phone or "").strip() or user.get("phone"),
+        "client_email": (body.client_email or "").strip() or user.get("email"),
         "notes": body.notes,
         "date": body.date,
         "start_time": body.start_time,
@@ -135,7 +141,7 @@ def public_book(body: PublicBookingBody, slug: str = None, domain: str = None):
         "status": "confirmed",
     })
     # WhatsApp alert / payment hook point: integrations attach here later.
-    return {"booking": {k: v for k, v in booking.items() if k != "id" and k != "site_id"},
+    return {"booking": {k: v for k, v in booking.items() if k not in ("id", "site_id", "tenant_user_id")},
             "message": "Your appointment is confirmed. The astrologer has been notified."}
 
 
@@ -150,7 +156,7 @@ class PublicOrderItem(BaseModel):
 
 
 class PublicOrderBody(BaseModel):
-    client_name: str = Field(..., min_length=1, max_length=120)
+    client_name: Optional[str] = Field(None, max_length=120)
     client_phone: Optional[str] = Field(None, max_length=20)
     client_email: Optional[str] = Field(None, max_length=200)
     address: Optional[str] = Field(None, max_length=500)
@@ -162,10 +168,13 @@ class PublicOrderBody(BaseModel):
 
 
 @router.post("/site/order")
-def public_place_order(body: PublicOrderBody, slug: str = None, domain: str = None):
-    """A visitor places an order from the astrologer's store. Prices are taken
-    from the database (never from the client), and stock is checked."""
+def public_place_order(body: PublicOrderBody, request: Request, slug: str = None, domain: str = None):
+    """A signed-in visitor places an order from the astrologer's store. Orders
+    belong to the visitor's account so they can track them under My Account.
+    Prices are taken from the database (never from the client), and stock is
+    checked."""
     site = _resolve_site(slug, domain)
+    user = _require_site_visitor(request, site["id"])
     items_out = []
     total = 0
     for it in body.items:
@@ -177,9 +186,10 @@ def public_place_order(body: PublicOrderBody, slug: str = None, domain: str = No
         total += (p["price"] or 0) * it.qty
         items_out.append({"product_id": p["id"], "name": p["name"], "price": p["price"], "qty": it.qty})
     order = create_order(site["id"], {
-        "client_name": body.client_name,
-        "client_phone": body.client_phone,
-        "client_email": body.client_email,
+        "tenant_user_id": user["id"],
+        "client_name": (body.client_name or "").strip() or user.get("name") or user["email"].split("@")[0],
+        "client_phone": (body.client_phone or "").strip() or user.get("phone"),
+        "client_email": (body.client_email or "").strip() or user.get("email"),
         "address": body.address,
         "items": items_out,
         "amount": total,
@@ -225,6 +235,7 @@ class KundliToolBody(BaseModel):
     place: Optional[str] = Field(None, max_length=120)
     detail: bool = Field(False, description="Include houses, chart SVG, and Vimshottari dasha")
     chart_theme: Optional[str] = Field("light", pattern="^(light|dark)$")
+    lang: Optional[str] = Field("en", max_length=10, description="Report language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
     class Config:
         extra = "forbid"
@@ -355,13 +366,14 @@ class _BirthCoords(BaseModel):
 class MatchingToolBody(BaseModel):
     boy: _BirthCoords
     girl: _BirthCoords
+    lang: Optional[str] = Field("en", max_length=10, description="Report language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
     class Config:
         extra = "forbid"
 
 
 class DoshaToolBody(_BirthCoords):
-    pass
+    lang: Optional[str] = Field("en", max_length=10, description="Report language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
 
 
@@ -385,10 +397,10 @@ def _tool_limit(request: Request, max_calls: int = 12, window: float = 60.0):
     del _loc_limit
 
 
-def _stub_request():
+def _stub_request(lang: str = "en"):
     """dosha/compat internals only read accept-language off the request."""
     from types import SimpleNamespace
-    return SimpleNamespace(headers={"accept-language": "en"})
+    return SimpleNamespace(headers={"accept-language": lang})
 
 
 @router.post("/site/tools/matching")
@@ -402,9 +414,9 @@ async def tenant_matching_tool(body: MatchingToolBody, request: Request, slug: s
     from .dosha_standalone import DoshaStandaloneRequest
 
     # _full_guna_milan passes `request` through to translate_paragraphs; when
-    # called outside its own route, provide the stub it expects (lang is 'en').
-    if not hasattr(_compat_mod, "request"):
-        _compat_mod.request = _stub_request()
+    # called outside its own route, provide the stub it expects. Always set it
+    # so the language matches this request (concurrent calls share the module).
+    _compat_mod.request = _stub_request(body.lang)
 
     req = CompatRequest(
         maleDateOfBirth=body.boy.date, maleTimeOfBirth=body.boy.time,
@@ -415,9 +427,9 @@ async def tenant_matching_tool(body: MatchingToolBody, request: Request, slug: s
         femaleLatitude=body.girl.lat if body.girl.lat is not None else _DEFAULT_PLACE["lat"],
         femaleLongitude=body.girl.lon if body.girl.lon is not None else _DEFAULT_PLACE["lon"],
         femaleTimezone=body.girl.tz or _DEFAULT_PLACE["tz"],
-        lang="en",
+        lang=body.lang,
     )
-    milan = await _full_guna_milan(req, "en")
+    milan = await _full_guna_milan(req, body.lang)
 
     async def manglik(p):
         dsb = DoshaStandaloneRequest(
@@ -426,7 +438,7 @@ async def tenant_matching_tool(body: MatchingToolBody, request: Request, slug: s
             longitude=p.lon if p.lon is not None else _DEFAULT_PLACE["lon"],
             timezone=p.tz or _DEFAULT_PLACE["tz"],
         )
-        return await manglik_detailed(dsb, _stub_request())
+        return await manglik_detailed(dsb, _stub_request(body.lang))
 
     from .dosha_standalone import manglik_detailed
     boy_manglik = await manglik(body.boy)
@@ -465,7 +477,7 @@ async def tenant_dosha_tool(body: DoshaToolBody, request: Request, slug: str = N
         longitude=body.lon if body.lon is not None else _DEFAULT_PLACE["lon"],
         timezone=body.tz or _DEFAULT_PLACE["tz"],
     )
-    stub = _stub_request()
+    stub = _stub_request(body.lang)
     manglik = await manglik_detailed(dsb, stub)
     try:
         grahan_res = await grahan_dosha(dsb, stub)
@@ -560,15 +572,15 @@ def coroutine_type():
     return types.CoroutineType
 
 
-def _call_internal(path: str, payload: dict):
+def _call_internal(path: str, payload: dict, lang: str = "en"):
     """Invoke one of the platform's own POST endpoints in-process (no HTTP),
-    supplying a stub Request for language detection (lang='en')."""
+    supplying a stub Request carrying the requested report language."""
     import asyncio
     import inspect
     from types import SimpleNamespace
     from ..main import app as _app
 
-    stub = SimpleNamespace(headers={"accept-language": "en"})
+    stub = SimpleNamespace(headers={"accept-language": lang})
     for route in _app.routes:
         if getattr(route, "path", None) == path and hasattr(route, "endpoint"):
             kwargs = {}
@@ -617,14 +629,14 @@ def tenant_kundli_full(body: KundliToolBody, request: Request, slug: str = None,
         targets[f"divisional{v}"] = "/chart/divisional-svg"
     for key, path in targets.items():
         try:
-            payload = {**birth}
+            payload = {**birth, "lang": body.lang}
             if key.startswith("divisional"):
                 payload.update({
                     "name": key[len("divisional"):],
                     "width": 460, "height": 460,
                     "theme": body.chart_theme or "light",
                 })
-            sections[key] = _call_internal(path, payload)
+            sections[key] = _call_internal(path, payload, body.lang)
         except Exception as e:
             sections[key] = {"error": str(e)[:200]}
 
@@ -663,7 +675,6 @@ def tenant_kundli_full(body: KundliToolBody, request: Request, slug: str = None,
     dosha = {}
     try:
         import asyncio as _asyncio
-        stub = _stub_request()
         from .dosha_standalone import DoshaStandaloneRequest, manglik_detailed, grahan_dosha, shrapit_dosha
         dsb = DoshaStandaloneRequest(
             dateOfBirth=body.date, timeOfBirth=body.time,
@@ -672,9 +683,9 @@ def tenant_kundli_full(body: KundliToolBody, request: Request, slug: str = None,
             timezone=body.tz or _DEFAULT_PLACE["tz"],
         )
         dosha = {
-            "manglik": _asyncio.run(manglik_detailed(dsb, stub)),
-            "grahan": _asyncio.run(grahan_dosha(dsb, stub)),
-            "shrapit": _asyncio.run(shrapit_dosha(dsb, stub)),
+            "manglik": _asyncio.run(manglik_detailed(dsb, _stub_request(body.lang))),
+            "grahan": _asyncio.run(grahan_dosha(dsb, _stub_request(body.lang))),
+            "shrapit": _asyncio.run(shrapit_dosha(dsb, _stub_request(body.lang))),
         }
     except Exception as e:
         dosha = {"error": str(e)[:200]}
@@ -833,6 +844,36 @@ def _require_tenant_token(request_token: str, site_id: int):
     return int(str(claims["sub"]).split(":", 1)[1])
 
 
+def _tenant_bearer(request: Request) -> str:
+    return (request.headers.get("authorization") or "").replace("Bearer ", "").strip()
+
+
+def _get_tenant_user(site_id: int, user_id: int):
+    from ..database import get_db
+    row = get_db().execute(
+        _tenant_convert("SELECT id, site_id, email, name, phone, avatar_url FROM tenant_users WHERE site_id = ? AND id = ?"),
+        (site_id, user_id),
+    ).fetchone()
+    if not row:
+        return None
+    if isinstance(row, dict):
+        return row
+    return dict(zip(["id", "site_id", "email", "name", "phone", "avatar_url"], row))
+
+
+def _require_site_visitor(request: Request, site_id: int) -> dict:
+    """Booking and store checkout require a signed-in visitor account on this
+    site (email+password or Google). Returns the tenant_users row."""
+    token = _tenant_bearer(request)
+    if not token:
+        raise HTTPException(status_code=401, detail="Please sign in or create an account to continue")
+    user_id = _require_tenant_token(token, site_id)
+    user = _get_tenant_user(site_id, user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="Session expired — please sign in again")
+    return user
+
+
 @router.post("/site/auth/set-password")
 def tenant_set_password(body: SetPasswordBody, request: Request, slug: str = None, domain: str = None):
     """Let a Google/Firebase-signed-in visitor add a password so the email+
@@ -856,6 +897,70 @@ def tenant_set_password(body: SetPasswordBody, request: Request, slug: str = Non
                (hash_password(body.password), site["id"], user_id))
     db.commit()
     return {"ok": True, "alreadySet": False}
+
+
+# ─────────────── visitor account: my consultations & orders ───────────────
+
+def _booking_view(b: dict) -> dict:
+    return {k: v for k, v in b.items() if k not in ("site_id", "tenant_user_id")}
+
+
+def _order_view(o: dict) -> dict:
+    return {k: v for k, v in o.items() if k not in ("site_id", "tenant_user_id")}
+
+
+@router.get("/site/my/bookings")
+def my_bookings(request: Request, slug: str = None, domain: str = None):
+    """The signed-in visitor's consultations on this site (upcoming + past)."""
+    site = _resolve_site(slug, domain)
+    user = _require_site_visitor(request, site["id"])
+    rows = list_bookings(site["id"], tenant_user_id=user["id"])
+    return {"bookings": [_booking_view(b) for b in rows]}
+
+
+@router.get("/site/my/orders")
+def my_orders(request: Request, slug: str = None, domain: str = None):
+    """The signed-in visitor's store orders on this site."""
+    site = _resolve_site(slug, domain)
+    user = _require_site_visitor(request, site["id"])
+    rows = list_orders(site["id"], tenant_user_id=user["id"])
+    return {"orders": [_order_view(o) for o in rows]}
+
+
+@router.post("/site/my/bookings/{booking_id}/cancel")
+def cancel_my_booking(booking_id: int, request: Request, slug: str = None, domain: str = None):
+    """Visitor cancels their own upcoming consultation. Past appointments and
+    already-changed bookings cannot be cancelled here."""
+    site = _resolve_site(slug, domain)
+    user = _require_site_visitor(request, site["id"])
+    booking = get_booking(site["id"], booking_id)
+    if not booking or booking.get("tenant_user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking.get("status") != "confirmed":
+        raise HTTPException(status_code=400, detail="This booking can no longer be cancelled")
+    if booking.get("date", "") < date.today().isoformat():
+        raise HTTPException(status_code=400, detail="Past appointments cannot be cancelled")
+    update_booking(site["id"], booking_id, {"status": "cancelled"})
+    return {"ok": True, "booking": _booking_view(get_booking(site["id"], booking_id))}
+
+
+@router.post("/site/my/orders/{order_id}/cancel")
+def cancel_my_order(order_id: int, request: Request, slug: str = None, domain: str = None):
+    """Visitor cancels their own order before it is fulfilled. Reserved stock
+    is returned to the shelf, same as when the astrologer cancels."""
+    site = _resolve_site(slug, domain)
+    user = _require_site_visitor(request, site["id"])
+    order = get_order(site["id"], order_id)
+    if not order or order.get("tenant_user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.get("status") not in ("new", "confirmed"):
+        raise HTTPException(status_code=400, detail="This order can no longer be cancelled")
+    update_order(site["id"], order_id, {"status": "cancelled"})
+    for it in order.get("items") or []:
+        qty = it.get("qty", 0)
+        if qty > 0:
+            adjust_product_stock(site["id"], it["product_id"], qty)
+    return {"ok": True, "order": _order_view(get_order(site["id"], order_id))}
 
 
 @router.post("/integrations/woocommerce/{connection_id}")

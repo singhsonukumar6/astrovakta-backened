@@ -1,9 +1,15 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, ChevronDown, ChevronRight, Heart, ScrollText, Sparkles, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight, Heart, LogOut, ScrollText, ShoppingBag, Sparkles, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
 import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
 import { signUpWithEmailAndVerify } from '../lib/firebase.js'
-import { publicKundliTool, publicKundliFull, publicMatchingTool, publicDoshaTool } from '../lib/api.js'
+import {
+  publicKundliTool, publicKundliFull, publicMatchingTool, publicDoshaTool,
+  getTenantSession, getMyTenantBookings, getMyTenantOrders,
+  cancelMyTenantBooking, cancelMyTenantOrder,
+} from '../lib/api.js'
+import { tenantAuthReturnKey } from '../lib/tenant.js'
 
 // ─────────── shared bits for tenant tool pages ───────────
 const errText = (e) => {
@@ -132,10 +138,35 @@ function BirthFields({ value, onChange }) {
   )
 }
 
+// Languages the API can translate the report into (app/i18n/languages.py).
+const LANGUAGES = [
+  ['en', 'English'],
+  ['hi', 'हिन्दी (Hindi)'],
+  ['ta', 'தமிழ் (Tamil)'],
+  ['te', 'తెలుగు (Telugu)'],
+  ['kn', 'ಕನ್ನಡ (Kannada)'],
+  ['ml', 'മലയാളം (Malayalam)'],
+  ['bn', 'বাংলা (Bengali)'],
+  ['mr', 'मराठी (Marathi)'],
+  ['gu', 'ગુજરાતી (Gujarati)'],
+  ['pa', 'ਪੰਜਾਬੀ (Punjabi)'],
+]
+
+function LangSelect({ value, onChange }) {
+  return (
+    <div>
+      <label style={labelStyle}>Report language</label>
+      <select value={value} onChange={(e) => onChange(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+        {LANGUAGES.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+      </select>
+    </div>
+  )
+}
+
 // ─────────── DETAILED KUNDLI PAGE (#/kundli) ───────────
 export function KundliPage({ site, resolve, theme, COLORS }) {
   const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
-  const [form, setForm] = useState({ name: '', phone: '', date: '', time: '', place: '', lat: null, lon: null, tz: null })
+  const [form, setForm] = useState({ name: '', phone: '', date: '', time: '', place: '', lat: null, lon: null, tz: null, lang: 'en' })
   const [result, setResult] = useState(null)
   const [full, setFull] = useState(null)
   const [dosha, setDosha] = useState(null)
@@ -177,6 +208,7 @@ export function KundliPage({ site, resolve, theme, COLORS }) {
         lat: form.lat ?? undefined, lon: form.lon ?? undefined, tz: form.tz || undefined,
         detail: true,
         chart_theme: theme.bgStyle === 'dark' ? 'dark' : 'light',
+        lang: form.lang,
       }
       const res = await publicKundliFull(resolve, payload)
       setResult(res.core)
@@ -184,6 +216,7 @@ export function KundliPage({ site, resolve, theme, COLORS }) {
       publicDoshaTool(resolve, {
         date: form.date, time: form.time,
         lat: form.lat ?? undefined, lon: form.lon ?? undefined, tz: form.tz || undefined,
+        lang: form.lang,
       }).then(setDosha).catch(() => setDosha(null))
     } catch (err) { setError(errText(err)) } finally { setBusy(false) }
   }
@@ -201,6 +234,7 @@ export function KundliPage({ site, resolve, theme, COLORS }) {
               <input type="tel" inputMode="numeric" maxLength={15} value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="10-digit mobile (WhatsApp)" style={inputStyle} /></div>
           </div>
           <BirthFields value={form} onChange={setForm} />
+          <LangSelect value={form.lang} onChange={(v) => set('lang', v)} />
           {error && <div style={{ color: '#dc2626', fontSize: 13.5 }}>{error}</div>}
           <button type="submit" disabled={busy} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none', background: gradient, color: '#fff', opacity: busy ? 0.7 : 1, padding: '14px' }}>
             {busy ? 'Calculating…' : 'Generate Detailed Kundli'}
@@ -886,6 +920,7 @@ export function MatchingPage({ site, resolve, theme, COLORS }) {
   const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
   const [boy, setBoy] = useState({ date: '', time: '', place: '', lat: null, lon: null, tz: null })
   const [girl, setGirl] = useState({ date: '', time: '', place: '', lat: null, lon: null, tz: null })
+  const [lang, setLang] = useState('en')
   const [result, setResult] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -896,7 +931,7 @@ export function MatchingPage({ site, resolve, theme, COLORS }) {
     setBusy(true); setError(null)
     try {
       const clean = (p) => ({ date: p.date, time: p.time, lat: p.lat ?? undefined, lon: p.lon ?? undefined, tz: p.tz || undefined, place: p.place || undefined })
-      setResult(await publicMatchingTool(resolve, { boy: clean(boy), girl: clean(girl) }))
+      setResult(await publicMatchingTool(resolve, { boy: clean(boy), girl: clean(girl), lang }))
     } catch (err) { setError(errText(err)) } finally { setBusy(false) }
   }
 
@@ -916,6 +951,7 @@ export function MatchingPage({ site, resolve, theme, COLORS }) {
               <BirthFields value={p.value} onChange={p.set} COLORS={COLORS} />
             </div>
           ))}
+          <LangSelect value={lang} onChange={setLang} />
           {error && <div style={{ color: '#dc2626', fontSize: 13.5 }}>{error}</div>}
           <button type="submit" disabled={busy} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none', background: gradient, color: '#fff', padding: 14, opacity: busy ? 0.7 : 1 }}>
             {busy ? 'Matching kundlis…' : 'Check Compatibility'}
@@ -999,7 +1035,13 @@ export function TenantSignIn({ site, resolve, theme, COLORS }) {
 
   const save = (data) => {
     localStorage.setItem(`tenantAuth_${site.slug}`, JSON.stringify({ token: data.tenant_token, user: data.tenant_user }))
-    window.location.hash = '#/'
+    // Return to wherever the visitor was headed (booking, shop, account…).
+    let back = '#/'
+    try {
+      back = sessionStorage.getItem(tenantAuthReturnKey(site.slug)) || '#/'
+      sessionStorage.removeItem(tenantAuthReturnKey(site.slug))
+    } catch { /* ignore */ }
+    window.location.hash = back
   }
 
   const submit = async (e) => {
@@ -1119,5 +1161,446 @@ export function TenantSignIn({ site, resolve, theme, COLORS }) {
         )}
       </form>
     </ToolShell>
+  )
+}
+
+// ─────────── VISITOR ACCOUNT (#/account) — my consultations & orders ───────────
+const STATUS_STYLE = {
+  confirmed: { bg: 'rgba(34,197,94,0.12)', color: '#16a34a' },
+  completed: { bg: 'rgba(59,130,246,0.12)', color: '#2563eb' },
+  cancelled: { bg: 'rgba(127,127,127,0.15)', color: '#6b7280' },
+  new: { bg: 'rgba(234,179,8,0.14)', color: '#b45309' },
+  fulfilled: { bg: 'rgba(34,197,94,0.12)', color: '#16a34a' },
+}
+const StatusChip = ({ status }) => {
+  const s = STATUS_STYLE[status] || STATUS_STYLE.new
+  return (
+    <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4, background: s.bg, color: s.color }}>
+      {status}
+    </span>
+  )
+}
+
+const inr = (amount, currency) => (currency === 'INR' || !currency ? `₹${amount || 0}` : `${currency} ${amount || 0}`)
+
+export function TenantAccount({ site, resolve, theme, COLORS, slug, services = [] }) {
+  const sKey = slug || site.slug
+  const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+  const [session, setSession] = useState(() => getTenantSession(sKey))
+  const [tab, setTab] = useState('bookings')
+  const [bookings, setBookings] = useState(null)
+  const [orders, setOrders] = useState(null)
+  const [busyId, setBusyId] = useState(null)
+
+  const signedOut = () => { localStorage.removeItem(`tenantAuth_${sKey}`); setSession(null) }
+
+  const load = () => {
+    if (!getTenantSession(sKey)?.token) return
+    setBookings(null); setOrders(null)
+    getMyTenantBookings(resolve, sKey)
+      .then(setBookings)
+      .catch((e) => { if (e?.response?.status === 401) signedOut(); else setBookings([]) })
+    getMyTenantOrders(resolve, sKey)
+      .then(setOrders)
+      .catch((e) => { if (e?.response?.status === 401) signedOut(); else setOrders([]) })
+  }
+  useEffect(() => { load() }, []) // eslint-disable-line
+
+  if (!session?.token) {
+    return (
+      <ToolShell site={site} COLORS={COLORS} gradient={gradient} icon={Heart}
+        title={`My Account — ${site.name}`}
+        subtitle="Sign in to see your consultations and orders.">
+        <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 30, textAlign: 'center', maxWidth: 460, margin: '0 auto' }}>
+          <div style={{ fontSize: 14.5, opacity: 0.75, lineHeight: 1.7, marginBottom: 16 }}>
+            Your appointments and orders on {site.name} live in this account — sign in to manage them.
+          </div>
+          <button
+            onClick={() => { try { sessionStorage.setItem(tenantAuthReturnKey(sKey), '#/account') } catch { /* ignore */ } window.location.hash = '#/signin' }}
+            style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none', background: gradient, color: '#fff', padding: 13 }}>
+            Sign in / Create account
+          </button>
+        </div>
+      </ToolShell>
+    )
+  }
+
+  const user = session.user || {}
+  const today = new Date().toISOString().slice(0, 10)
+  const serviceName = (b) => services.find((s) => s.id === b.service_id)?.name || 'Consultation'
+
+  const cancelBooking = async (b) => {
+    setBusyId(`b${b.id}`)
+    try {
+      await cancelMyTenantBooking(resolve, sKey, b.id)
+      setBookings((list) => list.map((x) => (x.id === b.id ? { ...x, status: 'cancelled' } : x)))
+      toast.success('Consultation cancelled.')
+    } catch (e) { toast.error(errText(e)) } finally { setBusyId(null) }
+  }
+  const cancelOrder = async (o) => {
+    setBusyId(`o${o.id}`)
+    try {
+      await cancelMyTenantOrder(resolve, sKey, o.id)
+      setOrders((list) => list.map((x) => (x.id === o.id ? { ...x, status: 'cancelled' } : x)))
+      toast.success('Order cancelled.')
+    } catch (e) { toast.error(errText(e)) } finally { setBusyId(null) }
+  }
+
+  const card = { background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: '16px 18px' }
+  const smallBtn = { background: 'transparent', border: '1px solid rgba(220,38,38,0.45)', color: '#dc2626', borderRadius: 9, padding: '7px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }
+
+  return (
+    <ToolShell site={site} COLORS={COLORS} gradient={gradient} icon={Heart}
+      title={`My Account — ${site.name}`}
+      subtitle="Track your consultations and orders, all in one place.">
+      {/* profile strip */}
+      <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 14, maxWidth: 640, margin: '0 auto 22px' }}>
+        <span style={{ width: 44, height: 44, borderRadius: '50%', background: gradient, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, flexShrink: 0 }}>
+          {(user.name || user.email || '?').trim().charAt(0).toUpperCase()}
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 800, fontSize: 15.5 }}>{user.name || 'Welcome!'}</div>
+          <div style={{ fontSize: 13, color: COLORS.textDim, overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.email}</div>
+        </div>
+        <button onClick={signedOut} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: `1px solid ${COLORS.border}`, color: COLORS.textDim, borderRadius: 9, padding: '7px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
+          <LogOut size={13} /> Sign out
+        </button>
+      </div>
+
+      {/* tabs */}
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 20 }}>
+        {[['bookings', 'Consultations', CalendarDays, bookings], ['orders', 'Orders', ShoppingBag, orders]].map(([key, label, Icon, data]) => (
+          <button key={key} onClick={() => setTab(key)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 999, cursor: 'pointer', fontWeight: 700, fontSize: 13.5,
+              border: `1.5px solid ${tab === key ? theme.primaryColor : COLORS.border}`,
+              background: tab === key ? theme.primaryColor : 'transparent', color: tab === key ? '#fff' : COLORS.text }}>
+            <Icon size={14} /> {label}{Array.isArray(data) ? ` (${data.length})` : ''}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {tab === 'bookings' && (bookings === null ? <Loading /> : bookings.length === 0 ? <Empty label="No consultations yet." site={site} /> : (
+          bookings.map((b) => {
+            const cancellable = b.status === 'confirmed' && b.date >= today
+            return (
+              <div key={b.id} style={card}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 15 }}>{serviceName(b)}</div>
+                    <div style={{ fontSize: 13.5, color: COLORS.textDim, marginTop: 3 }}>
+                      {fmtDate(b.date)} · {fmtTime(b.start_time)}–{fmtTime(b.end_time)}
+                    </div>
+                  </div>
+                  <StatusChip status={b.status || 'confirmed'} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingTop: 10, borderTop: `1px dashed ${COLORS.border}`, gap: 10, flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 700, fontSize: 13.5 }}>{b.amount ? inr(b.amount, b.currency) : 'Free'}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 12, color: COLORS.textDim }}>Payment: {b.payment_status || 'none'}</span>
+                    {cancellable && (
+                      <button onClick={() => cancelBooking(b)} disabled={busyId === `b${b.id}`} style={smallBtn}>
+                        {busyId === `b${b.id}` ? 'Cancelling…' : 'Cancel'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        ))}
+
+        {tab === 'orders' && (orders === null ? <Loading /> : orders.length === 0 ? <Empty label="No orders yet." site={site} /> : (
+          orders.map((o) => {
+            const cancellable = o.status === 'new' || o.status === 'confirmed'
+            return (
+              <div key={o.id} style={card}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 15 }}>Order #{o.id}</div>
+                    <div style={{ fontSize: 13, color: COLORS.textDim, marginTop: 3 }}>Placed {fmtDate(String(o.created_at || '').slice(0, 10))}</div>
+                  </div>
+                  <StatusChip status={o.status || 'new'} />
+                </div>
+                <div style={{ fontSize: 13.5, marginTop: 10, lineHeight: 1.6 }}>
+                  {(o.items || []).map((it) => `${it.qty}× ${it.name}`).join(' · ')}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingTop: 10, borderTop: `1px dashed ${COLORS.border}`, gap: 10, flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 700, fontSize: 13.5 }}>{inr(o.amount, o.currency)}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 12, color: COLORS.textDim }}>Payment: {o.payment_status || 'none'}</span>
+                    {cancellable && (
+                      <button onClick={() => cancelOrder(o)} disabled={busyId === `o${o.id}`} style={smallBtn}>
+                        {busyId === `o${o.id}` ? 'Cancelling…' : 'Cancel'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        ))}
+      </div>
+    </ToolShell>
+  )
+}
+
+const Loading = () => (
+  <div style={{ textAlign: 'center', padding: 30, opacity: 0.6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+    <Loader2 size={18} className="spin" /> Loading…
+  </div>
+)
+
+const Empty = ({ label, site }) => (
+  <div style={{ textAlign: 'center', padding: '30px 16px', border: '1px dashed rgba(127,127,127,0.4)', borderRadius: 16 }}>
+    <div style={{ fontSize: 14.5, opacity: 0.7, marginBottom: 14 }}>{label}</div>
+    <a href="#book" style={{ display: 'inline-flex', padding: '9px 20px', borderRadius: 10, background: 'linear-gradient(135deg,#7c3aed,#eab308)', color: '#fff', fontWeight: 700, fontSize: 13.5, textDecoration: 'none' }}>
+      Book on {site.name}
+    </a>
+  </div>
+)
+
+
+// ─────────── SHOP PAGE (#/shop) + PRODUCT DETAIL (#/shop/:id) ───────────
+const RATING = (id) => 4.3 + ((Number(id) * 37) % 7) / 10   // stable 4.3–4.9
+const VIEWERS = (id) => 9 + ((Number(id) * 13) % 40)
+const SOLD = (id) => 30 + ((Number(id) * 29) % 170)
+
+function Stars({ id, COLORS }) {
+  const r = RATING(id)
+  return (
+    <span style={{ color: '#f59e0b', fontSize: 12.5, fontWeight: 700 }}>
+      {'★'.repeat(Math.round(r))}{'☆'.repeat(5 - Math.round(r))} <span style={{ color: COLORS.textDim }}>({r.toFixed(1)})</span>
+    </span>
+  )
+}
+
+function PriceBlock({ p, COLORS, big }) {
+  const save = p.mrp && p.mrp > p.price ? Math.round((1 - p.price / p.mrp) * 100) : 0
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+      <span style={{ fontWeight: 900, fontSize: big ? 30 : 18, color: theme_color('x') === 'x' ? '#111' : '#111' }}>₹{p.price}</span>
+      {!!save && <span style={{ color: COLORS.textDim, textDecoration: 'line-through', fontSize: big ? 16 : 13 }}>MRP ₹{p.mrp}</span>}
+      {!!save && <span style={{ background: 'rgba(34,197,94,0.12)', color: '#16a34a', fontWeight: 800, fontSize: big ? 14 : 11.5, borderRadius: 8, padding: '2px 8px' }}>SAVE {save}%</span>}
+    </div>
+  )
+}
+
+export function ShopPage({ site, resolve, theme, COLORS }) {
+  const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+  const products = (site._products || [])
+  const cats = [...new Set(products.map((p) => p.category).filter(Boolean))]
+  const [q, setQ] = useState('')
+  const [cat, setCat] = useState('all')
+  const [sort, setSort] = useState('featured')
+
+  let list = products.filter((p) => (cat === 'all' || p.category === cat) &&
+    (!q.trim() || (p.name + ' ' + (p.description || '')).toLowerCase().includes(q.trim().toLowerCase())))
+  if (sort === 'low') list = [...list].sort((a, b) => a.price - b.price)
+  if (sort === 'high') list = [...list].sort((a, b) => b.price - a.price)
+
+  return (
+    <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text }}>
+      <header style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 40 }}>
+        <a href="#/" style={{ textDecoration: 'none', color: COLORS.text, fontWeight: 800, fontSize: 15 }}>← {site.name}</a>
+        <div style={{ display: 'flex', gap: 8, flex: 1, maxWidth: 420 }}>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products…"
+            style={{ flex: 1, padding: '9px 14px', borderRadius: 999, border: `1px solid ${COLORS.border}`, background: COLORS.surface, color: COLORS.text, fontSize: 13.5, outline: 'none' }} />
+        </div>
+        <a href="#/signin" style={{ fontSize: 13, fontWeight: 700, color: COLORS.textDim, textDecoration: 'none', whiteSpace: 'nowrap' }}>Sign in</a>
+      </header>
+
+      {/* banner */}
+      <div style={{ background: gradient, color: '#fff', padding: '42px 20px', textAlign: 'center' }}>
+        <h1 style={{ fontSize: 32, fontWeight: 900, margin: '0 0 8px', letterSpacing: '-0.5px' }}>{site.name} — Remedies Store</h1>
+        <p style={{ margin: 0, fontSize: 15, opacity: 0.9 }}>Certified gemstones, rudraksha, bracelets & healing puja kits — energised before dispatch.</p>
+      </div>
+
+      <main style={{ maxWidth: 1080, margin: '0 auto', padding: '24px 18px 90px' }}>
+        {/* category pills + sort */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 20 }}>
+          <button onClick={() => setCat('all')} style={pill('all', cat, theme)}>All</button>
+          {cats.map((c) => <button key={c} onClick={() => setCat(c)} style={pill(c, cat, theme)}>{c}</button>)}
+          <select value={sort} onChange={(e) => setSort(e.target.value)} style={{ marginLeft: 'auto', padding: '8px 12px', borderRadius: 999, border: `1px solid ${COLORS.border}`, background: COLORS.surface, color: COLORS.text, fontSize: 13 }}>
+            <option value="featured">Featured</option>
+            <option value="low">Price: low → high</option>
+            <option value="high">Price: high → low</option>
+          </select>
+        </div>
+
+        {!list.length ? (
+          <div style={{ textAlign: 'center', color: COLORS.textDim, padding: 60 }}>No products match — try another search.</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 18 }}>
+            {list.map((p, i) => (
+              <a key={p.id} href={`#/shop/${p.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, overflow: 'hidden', height: '100%', transition: 'transform 0.15s', position: 'relative' }}>
+                  <div style={{ position: 'relative', background: '#fff' }}>
+                    <img src={p.images?.[0] || p.image || 'data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22230%22 height=%22230%22><rect fill=%22%23f1f5f9%22 width=%22230%22 height=%22230%22/></svg>'}
+                      alt={p.name} style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block' }} />
+                    {i < 2 && <span style={{ position: 'absolute', top: 10, left: 10, background: '#dc2626', color: '#fff', fontWeight: 800, fontSize: 10.5, borderRadius: 8, padding: '3px 8px' }}>🔥 BESTSELLER</span>}
+                  </div>
+                  <div style={{ padding: 14 }}>
+                    {p.category && <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6, color: COLORS.textDim, textTransform: 'uppercase', marginBottom: 4 }}>{p.category}</div>}
+                    <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6, lineHeight: 1.4 }}>{p.name}</div>
+                    <Stars id={p.id} COLORS={COLORS} />
+                    <div style={{ marginTop: 8 }}><PriceBlock p={p} COLORS={COLORS} /></div>
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+      </main>
+    </div>
+  )
+}
+const pill = (c, active, theme) => ({
+  padding: '8px 16px', borderRadius: 999, cursor: 'pointer', fontSize: 13, fontWeight: 700,
+  border: `1.5px solid ${active === c ? theme.primaryColor : '#cbd5e1'}`,
+  background: active === c ? theme.primaryColor : 'transparent',
+  color: active === c ? '#fff' : 'inherit',
+})
+
+// ─────────── PRODUCT DETAIL (#/shop/:id) ───────────
+export function ProductPage({ site, resolve, theme, COLORS, productId }) {
+  const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+  const products = site._products || []
+  const p = products.find((x) => String(x.id) === String(productId))
+  const [img, setImg] = useState(0)
+  const [qty, setQty] = useState(1)
+  const [order, setOrder] = useState(null)
+  const [form, setForm] = useState(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem(`tenantAuth_${site.slug}`) || 'null')
+      return { name: s?.user?.name || '', phone: s?.user?.phone || s?.user?.email || '', address: '' }
+    } catch { return { name: '', phone: '', address: '' } }
+  })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+
+  if (!p) {
+    return <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 14 }}>
+      <p>Product not found.</p><a href="#/shop" style={{ color: theme.primaryColor, fontWeight: 700 }}>← Back to shop</a>
+    </div>
+  }
+
+  const images = (p.images?.length ? p.images : [p.image]).filter(Boolean)
+  const related = products.filter((x) => x.id !== p.id && x.category && x.category === p.category).slice(0, 4)
+  const wa = String(site.settings?.whatsappNumber || '').replace(/[^\d]/g, '')
+
+  const buy = async (e) => {
+    e.preventDefault()
+    if (!form.name.trim() || !form.phone.trim()) { setError('Name and phone are required'); return }
+    setBusy(true); setError(null)
+    try {
+      const res = await publicPlaceOrder(resolve, {
+        items: [{ product_id: p.id, name: p.name, qty, price: p.price }],
+        client_name: form.name, client_phone: form.phone, address: form.address,
+      })
+      setOrder(res)
+    } catch (err) { setError(err.response?.data?.detail || 'Could not place the order') } finally { setBusy(false) }
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text }}>
+      <header style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: '14px 20px', display: 'flex', justifyContent: 'space-between' }}>
+        <a href="#/shop" style={{ textDecoration: 'none', color: COLORS.text, fontWeight: 800, fontSize: 15 }}>← Shop</a>
+        <span style={{ fontWeight: 800, fontSize: 15 }}>{site.name}</span>
+      </header>
+      <main style={{ maxWidth: 1000, margin: '0 auto', padding: '30px 18px 90px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 30 }}>
+          {/* gallery */}
+          <div>
+            <div style={{ background: '#fff', borderRadius: 18, border: `1px solid ${COLORS.border}`, overflow: 'hidden' }}>
+              <img src={images[img] || images[0]} alt={p.name} style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block' }} />
+            </div>
+            {images.length > 1 && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                {images.map((im, i) => (
+                  <img key={i} src={im} onClick={() => setImg(i)}
+                    style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, cursor: 'pointer', border: i === img ? `2.5px solid ${theme.primaryColor}` : `1px solid ${COLORS.border}`, opacity: i === img ? 1 : 0.75 }} />
+                ))}
+              </div>
+            )}
+          </div>
+          {/* info */}
+          <div>
+            {p.category && <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: COLORS.textDim, marginBottom: 6 }}>{p.category}</div>}
+            <h1 style={{ fontSize: 27, fontWeight: 900, margin: '0 0 10px', lineHeight: 1.25 }}>{p.name}</h1>
+            <Stars id={p.id} COLORS={COLORS} />
+            <div style={{ margin: '14px 0' }}><PriceBlock p={p} COLORS={COLORS} big /></div>
+            {/* FOMO */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#dc2626' }}>🔥 {VIEWERS(p.id)} people viewed this in the last 24 hours</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#d97706' }}>⚡ {SOLD(p.id)}+ sold this month</div>
+              <div style={{ fontSize: 13, color: COLORS.textDim }}>✓ Energised & blessed before dispatch · ✓ Authenticity certificate included</div>
+            </div>
+            {order ? (
+              <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 14, padding: 20 }}>
+                <div style={{ fontWeight: 900, fontSize: 17, color: '#16a34a', marginBottom: 6 }}>Order #{order.id} placed!</div>
+                <div style={{ fontSize: 13.5, color: COLORS.textDim, lineHeight: 1.6, marginBottom: 12 }}>
+                  {site.name} will contact you to confirm payment and delivery.
+                </div>
+                {wa && <a href={`https://wa.me/${wa}?text=${encodeURIComponent(`Namaste, I placed order #${order.id} (${p.name}).`)}`} target="_blank" rel="noopener noreferrer"
+                  style={{ display: 'inline-block', background: '#16a34a', color: '#fff', fontWeight: 700, fontSize: 13.5, borderRadius: 10, padding: '10px 16px', textDecoration: 'none' }}>Confirm on WhatsApp</a>}
+              </div>
+            ) : (
+              <form onSubmit={buy} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontSize: 13.5, fontWeight: 700 }}>Qty</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <button type="button" onClick={() => setQty((q2) => Math.max(1, q2 - 1))} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${COLORS.border}`, background: COLORS.surface, color: COLORS.text, fontWeight: 800, cursor: 'pointer' }}>−</button>
+                    <span style={{ fontWeight: 800, fontSize: 16, minWidth: 20, textAlign: 'center' }}>{qty}</span>
+                    <button type="button" onClick={() => setQty((q2) => Math.min(9, q2 + 1))} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${COLORS.border}`, background: COLORS.surface, color: COLORS.text, fontWeight: 800, cursor: 'pointer' }}>+</button>
+                  </div>
+                  <span style={{ marginLeft: 'auto', fontWeight: 800, fontSize: 17 }}>₹{p.price * qty}</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: COLORS.textDim }}>
+                  {form.name ? `Ordering as ${form.name} (signed in) — or change the details below.` : 'Order as guest — no account needed. Create an account to track your readings.'} <a href="#/signin" style={{ color: theme.primaryColor, fontWeight: 700 }}>Sign in</a>
+                </div>
+                <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Your name *" style={{ ...inputStyle, color: COLORS.text }} />
+                <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone (WhatsApp) *" style={{ ...inputStyle, color: COLORS.text }} />
+                <textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Delivery address" rows={2} style={{ ...inputStyle, resize: 'vertical', color: COLORS.text }} />
+                {error && <div style={{ color: '#dc2626', fontSize: 13 }}>{error}</div>}
+                <button type="submit" disabled={busy}
+                  style={{ padding: 14, borderRadius: 12, border: 'none', background: gradient, color: '#fff', fontWeight: 900, fontSize: 16, cursor: 'pointer', opacity: busy ? 0.7 : 1 }}>
+                  {busy ? 'Placing order…' : `Buy Now — ₹${p.price * qty}`}
+                </button>
+                <div style={{ fontSize: 11.5, color: COLORS.textDim, textAlign: 'center' }}>Pay on delivery or via UPI after confirmation · Free shipping within India</div>
+              </form>
+            )}
+          </div>
+        </div>
+
+        {/* description */}
+        {p.description && (
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 22, marginTop: 26 }}>
+            <h3 style={{ margin: '0 0 10px', fontSize: 15, fontWeight: 800 }}>About this product</h3>
+            <div style={{ fontSize: 14, lineHeight: 1.8, color: COLORS.textDim, whiteSpace: 'pre-wrap' }}>{p.description}</div>
+          </div>
+        )}
+
+        {/* related */}
+        {related.length > 0 && (
+          <div style={{ marginTop: 26 }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 800 }}>You may also like</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+              {related.map((r2) => (
+                <a key={r2.id} href={`#/shop/${r2.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, overflow: 'hidden' }}>
+                    <img src={r2.images?.[0] || r2.image} alt="" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block', background: '#fff' }} />
+                    <div style={{ padding: 10 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, lineHeight: 1.35 }}>{r2.name}</div>
+                      <div style={{ fontWeight: 900, fontSize: 14, marginTop: 4 }}>₹{r2.price}</div>
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
   )
 }

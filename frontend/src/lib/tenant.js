@@ -59,3 +59,11 @@ export function tenantSiteUrl(slug) {
 export function tenantSubdomainLabel(slug) {
   return `${slug}.astrovakta.com`
 }
+
+// ─── visitor session / flow helpers (per-site keys in browser storage) ───
+// Where to land after TenantSignIn succeeds ('' → site home).
+export const tenantAuthReturnKey = (slug) => `tenantAuthReturn_${slug}`
+// Booking widget selection saved across the sign-in round trip.
+export const tenantBookingDraftKey = (slug) => `tenantBookingDraft_${slug}`
+// Shop cart saved across the sign-in round trip.
+export const tenantCartKey = (slug) => `tenantCart_${slug}`

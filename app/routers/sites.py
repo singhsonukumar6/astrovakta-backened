@@ -876,6 +876,7 @@ class MasterProductBody(BaseModel):
     name: str = Field(..., min_length=1, max_length=160)
     description: Optional[str] = Field(None, max_length=2000)
     image: Optional[str] = None
+    images: Optional[list[str]] = None
     mrp: int = Field(0, ge=0)
     margin: int = Field(0, ge=0)
     active: Optional[bool] = None
@@ -926,7 +927,11 @@ def admin_create_master_product(body: MasterProductBody, user: dict = Depends(ge
     _admin(user)
     if body.margin > body.mrp:
         raise HTTPException(status_code=400, detail="Margin cannot exceed MRP")
-    return create_master_product(body.model_dump())
+    data = body.model_dump()
+    if data.get("images"):
+        import json as _json
+        data["images"] = _json.dumps(data["images"][:8])
+    return create_master_product(data)
 
 
 @router.put("/admin/master/products/{mid}")
@@ -934,7 +939,11 @@ def admin_update_master_product(mid: int, body: MasterProductBody, user: dict = 
     _admin(user)
     if body.margin > body.mrp:
         raise HTTPException(status_code=400, detail="Margin cannot exceed MRP")
-    update_master_product(mid, body.model_dump())
+    data = body.model_dump()
+    if data.get("images"):
+        import json as _json
+        data["images"] = _json.dumps(data["images"][:8])
+    update_master_product(mid, data)
     return get_master_product(mid)
 
 

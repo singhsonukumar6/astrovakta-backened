@@ -59,13 +59,35 @@ class PGConnectionWrapper:
         cur = conn.cursor()
         if params is not None and "?" in sql:
             sql = sql.replace("?", "%s")
-        cur.execute(sql, params)
+        try:
+            cur.execute(sql, params)
+        except _psycopg.Error as exc:
+            # A failed statement aborts psycopg's implicit transaction —
+            # without a rollback every later query on this connection dies
+            # with InFailedSqlTransaction. Always clear it, and drop the
+            # connection entirely when it's broken (server restart, idle
+            # timeout, network drop) so the next call reconnects fresh.
+            try:
+                conn.rollback()
+            except _psycopg.Error:
+                pass
+            if isinstance(exc, (_psycopg.OperationalError, _psycopg.InterfaceError)):
+                self.close()
+            raise
         self._active_cur = cur
         return cur
 
     def commit(self):
         if self._conn and not self._conn.closed:
-            self._conn.commit()
+            try:
+                self._conn.commit()
+            except _psycopg.Error:
+                try:
+                    self._conn.rollback()
+                except _psycopg.Error:
+                    pass
+                self.close()
+                raise
 
     def close(self):
         if self._conn and not self._conn.closed:
@@ -284,6 +306,7 @@ CREATE TABLE IF NOT EXISTS site_services (
     sort_order INTEGER DEFAULT 0,
     master_product_id INTEGER,
     cost_price INTEGER DEFAULT 0,
+    images TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (site_id) REFERENCES sites(id)
 );
@@ -299,6 +322,7 @@ CREATE TABLE IF NOT EXISTS site_bookings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     site_id INTEGER NOT NULL,
     service_id INTEGER,
+    tenant_user_id INTEGER,
     client_name TEXT NOT NULL,
     client_phone TEXT,
     client_email TEXT,
@@ -337,12 +361,14 @@ CREATE TABLE IF NOT EXISTS site_products (
     sort_order INTEGER DEFAULT 0,
     master_product_id INTEGER,
     cost_price INTEGER DEFAULT 0,
+    images TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (site_id) REFERENCES sites(id)
 );
 CREATE TABLE IF NOT EXISTS site_orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     site_id INTEGER NOT NULL,
+    tenant_user_id INTEGER,
     client_name TEXT NOT NULL,
     client_phone TEXT,
     client_email TEXT,
@@ -416,6 +442,7 @@ CREATE TABLE IF NOT EXISTS master_products (
     image TEXT,
     mrp INTEGER NOT NULL DEFAULT 0,
     margin INTEGER NOT NULL DEFAULT 0,
+    images TEXT,
     active INTEGER DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (category_id) REFERENCES master_categories(id)
@@ -585,6 +612,7 @@ CREATE TABLE IF NOT EXISTS site_bookings (
     id SERIAL PRIMARY KEY,
     site_id INTEGER NOT NULL REFERENCES sites(id),
     service_id INTEGER REFERENCES site_services(id),
+    tenant_user_id INTEGER,
     client_name TEXT NOT NULL,
     client_phone TEXT,
     client_email TEXT,
@@ -623,6 +651,7 @@ CREATE TABLE IF NOT EXISTS site_products (
 CREATE TABLE IF NOT EXISTS site_orders (
     id SERIAL PRIMARY KEY,
     site_id INTEGER NOT NULL REFERENCES sites(id),
+    tenant_user_id INTEGER,
     client_name TEXT NOT NULL,
     client_phone TEXT,
     client_email TEXT,
@@ -749,8 +778,12 @@ def init_db() -> None:
                 ("sites", "hero_image", "TEXT"),
                 ("sites", "settings", "TEXT"),
                 ("site_bookings", "payment_status", "TEXT DEFAULT 'none'"),
+                ("site_bookings", "tenant_user_id", "INTEGER"),
+                ("site_orders", "tenant_user_id", "INTEGER"),
                 ("site_products", "master_product_id", "INTEGER"),
                 ("site_products", "cost_price", "INTEGER DEFAULT 0"),
+                ("site_products", "images", "TEXT"),
+                ("master_products", "images", "TEXT"),
             ]:
                 try:
                     row = conn.execute(
@@ -782,8 +815,12 @@ def init_db() -> None:
         _migrate_sqlite(cursor, "usage_logs", "response_time_ms", "INTEGER")
         _migrate_sqlite(cursor, "usage_logs", "endpoint_group", "TEXT")
         _migrate_sqlite(cursor, "site_bookings", "payment_status", "TEXT DEFAULT 'none'")
+        _migrate_sqlite(cursor, "site_bookings", "tenant_user_id", "INTEGER")
+        _migrate_sqlite(cursor, "site_orders", "tenant_user_id", "INTEGER")
         _migrate_sqlite(cursor, "site_products", "master_product_id", "INTEGER")
         _migrate_sqlite(cursor, "site_products", "cost_price", "INTEGER DEFAULT 0")
+        _migrate_sqlite(cursor, "site_products", "images", "TEXT")
+        _migrate_sqlite(cursor, "master_products", "images", "TEXT")
         _migrate_sqlite(cursor, "usage_logs", "credits_used", "INTEGER DEFAULT 0")
         _migrate_sqlite(cursor, "sites", "logo_url", "TEXT")
         _migrate_sqlite(cursor, "sites", "hero_image", "TEXT")

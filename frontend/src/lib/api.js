@@ -6,7 +6,9 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
-  if (token) {
+  // An explicitly-provided header (tenant-site visitor token) always wins —
+  // platform and tenant sessions must never leak into each other.
+  if (token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
@@ -17,9 +19,10 @@ api.interceptors.response.use(
   (err) => {
     // A 401 on the auth endpoints themselves is a normal, expected outcome
     // (wrong password, unknown email, unverified provider...) — it must show
-    // an inline error, never wipe the session or redirect.
+    // an inline error, never wipe the session or redirect. Same for tenant
+    // site endpoints: a missing visitor sign-in is part of that site's own flow.
     const url = err.config?.url || ''
-    const isAuthCall = /\/auth\/(login|register|google|firebase|verify-email)/.test(url)
+    const isAuthCall = /\/auth\/(login|register|google|firebase|verify-email)/.test(url) || url.includes('/sites/site/')
     if (err.response?.status === 401 && !isAuthCall) {
       localStorage.removeItem('token')
       if (window.location.pathname !== '/login') window.location.href = '/login'
@@ -301,15 +304,26 @@ export const updateMyOrder = (siteId, orderId, data) =>
 const resolveParams = (resolve) =>
   typeof resolve === 'string' ? { slug: resolve } : resolve
 
+// ──── TENANT VISITOR SESSION (per-site accounts, stored by TenantSignIn) ────
+export const getTenantSession = (slug) => {
+  try { return JSON.parse(localStorage.getItem(`tenantAuth_${slug}`) || 'null') } catch { return null }
+}
+
+const tenantAuthHeaders = (slug) => {
+  const session = getTenantSession(slug)
+  return session?.token ? { Authorization: `Bearer ${session.token}` } : {}
+}
+
 export const getPublicSite = (resolve) =>
   api.get('/sites/site', { params: resolveParams(resolve) }).then((r) => r.data?.data ?? r.data)
 
 export const getPublicAvailability = (resolve, weeks = 2) =>
   api.get('/sites/site/availability', { params: { ...resolveParams(resolve), weeks } }).then((r) => r.data?.data ?? r.data)
 
-export const publicBook = (resolve, data) => {
+export const publicBook = (resolve, data, opts = {}) => {
   const qs = new URLSearchParams(resolveParams(resolve)).toString()
-  return api.post(`/sites/site/book?${qs}`, data).then((r) => r.data?.data ?? r.data)
+  return api.post(`/sites/site/book?${qs}`, data, { headers: tenantAuthHeaders(opts.slug) })
+    .then((r) => r.data?.data ?? r.data)
 }
 
 export const publicKundliTool = (resolve, data) => {
@@ -368,10 +382,30 @@ export const deleteSocialPost = (siteId, postId) =>
 export const socialPostMedia = (siteId, content, format) =>
   api.post(`/sites/my/${siteId}/social/media`, { content, format }).then((r) => r.data?.dataUrl ?? r.data?.data?.dataUrl)
 
-export const publicPlaceOrder = (resolve, data) => {
+export const publicPlaceOrder = (resolve, data, opts = {}) => {
   const qs = new URLSearchParams(resolveParams(resolve)).toString()
-  return api.post(`/sites/site/order?${qs}`, data).then((r) => r.data)
+  return api.post(`/sites/site/order?${qs}`, data, { headers: tenantAuthHeaders(opts.slug) })
+    .then((r) => r.data)
 }
+
+// ──── TENANT VISITOR ACCOUNT (my consultations & orders) ────
+const siteQs = (resolve) => new URLSearchParams(resolveParams(resolve)).toString()
+
+export const getMyTenantBookings = (resolve, slug) =>
+  api.get(`/sites/site/my/bookings?${siteQs(resolve)}`, { headers: tenantAuthHeaders(slug) })
+    .then((r) => r.data?.bookings ?? [])
+
+export const getMyTenantOrders = (resolve, slug) =>
+  api.get(`/sites/site/my/orders?${siteQs(resolve)}`, { headers: tenantAuthHeaders(slug) })
+    .then((r) => r.data?.orders ?? [])
+
+export const cancelMyTenantBooking = (resolve, slug, bookingId) =>
+  api.post(`/sites/site/my/bookings/${bookingId}/cancel?${siteQs(resolve)}`, {}, { headers: tenantAuthHeaders(slug) })
+    .then((r) => r.data)
+
+export const cancelMyTenantOrder = (resolve, slug, orderId) =>
+  api.post(`/sites/site/my/orders/${orderId}/cancel?${siteQs(resolve)}`, {}, { headers: tenantAuthHeaders(slug) })
+    .then((r) => r.data)
 
 // ──── JOBS ────
 export const submitPdfJob = (data) =>

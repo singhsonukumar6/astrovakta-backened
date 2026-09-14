@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
@@ -24,11 +24,11 @@ const TelegramIcon = brandIcon('M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0
 import toast from 'react-hot-toast'
 import {
   getPublicSite, getPublicAvailability, publicBook, publicKundliTool, publicPanchangTool,
-  publicHoroscopeTool, publicPlaceOrder,
+  publicHoroscopeTool, publicPlaceOrder, getTenantSession,
 } from '../lib/api.js'
 import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
-import { KundliPage, MatchingPage, TenantSignIn } from './TenantTools.jsx'
-import { tenantSiteUrl, tenantSubdomainLabel } from '../lib/tenant.js'
+import { KundliPage, MatchingPage, TenantSignIn, TenantAccount } from './TenantTools.jsx'
+import { tenantSiteUrl, tenantSubdomainLabel, tenantAuthReturnKey, tenantBookingDraftKey, tenantCartKey } from '../lib/tenant.js'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -179,17 +179,56 @@ function PaymentBox({ site, confirmed, service, inputStyle }) {
 const gradient_css = (site) => `linear-gradient(135deg, ${site.theme?.primaryColor || '#7c3aed'}, ${site.theme?.accentColor || '#eab308'})`
 
 // ═══════════════ BOOKING WIDGET ═══════════════
+// Booking requires a visitor account on this site: browse services/slots
+// freely, then sign in / sign up at the confirm step (selection survives the
+// round trip via sessionStorage).
 function BookingWidget({ site, resolve, services, theme }) {
   const [avail, setAvail] = useState(null)
   const [weekOffset, setWeekOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState(null)
   const [selectedTime, setSelectedTime] = useState(null)
   const [serviceId, setServiceId] = useState(services[0]?.id || null)
-  const [name, setName] = useState('')
-  const [phone, setPhone] = useState('')
+  const [session, setSession] = useState(() => getTenantSession(site.slug))
+  const [name, setName] = useState(session?.user?.name || '')
+  const [phone, setPhone] = useState(session?.user?.phone || '')
   const [notes, setNotes] = useState('')
   const [confirming, setConfirming] = useState(false)
   const [confirmed, setConfirmed] = useState(null)
+
+  const signedIn = !!session?.token
+
+  // Restored draft memo — lets the slot-reset effect below tell "restored from
+  // the sign-in detour" apart from a real user change (which clears the time).
+  const draftRef = useRef(null)
+
+  // Restore the selection saved before the sign-in detour.
+  useEffect(() => {
+    try {
+      const d = JSON.parse(sessionStorage.getItem(tenantBookingDraftKey(site.slug)) || 'null')
+      if (d) {
+        if (d.serviceId && services.some((s) => s.id === d.serviceId)) setServiceId(d.serviceId)
+        if (d.date) setSelectedDate(d.date)
+        if (d.time) setSelectedTime(d.time)
+        if (d.notes) setNotes(d.notes)
+        draftRef.current = { serviceId: d.serviceId, date: d.date }
+        sessionStorage.removeItem(tenantBookingDraftKey(site.slug))
+      }
+    } catch { /* ignore */ }
+  }, []) // eslint-disable-line
+
+  const saveSelection = () => {
+    try {
+      sessionStorage.setItem(tenantBookingDraftKey(site.slug), JSON.stringify({
+        serviceId, date: selectedDate, time: selectedTime, notes: notes.trim(),
+      }))
+    } catch { /* ignore */ }
+  }
+
+  const signInToBook = () => {
+    saveSelection()
+    sessionStorage.setItem(tenantAuthReturnKey(site.slug), '#book')
+    window.location.hash = '#/signin'
+  }
 
   const service = services.find((s) => s.id === serviceId) || null
   const duration = service?.duration_minutes || 30
@@ -237,7 +276,12 @@ function BookingWidget({ site, resolve, services, theme }) {
     return avail.days.slice(start, start + 7)
   }, [avail, weekOffset])
 
-  useEffect(() => { setSelectedTime(null) }, [selectedDate, serviceId])
+  // A user change of service/date clears the chosen time — but not the one
+  // just restored from the draft.
+  useEffect(() => {
+    if (draftRef.current && draftRef.current.serviceId === serviceId && draftRef.current.date === selectedDate) return
+    setSelectedTime(null)
+  }, [selectedDate, serviceId])
 
   const maxWeek = avail?.days ? Math.floor((avail.days.length - 1) / 7) - 1 : 0
 
@@ -249,11 +293,15 @@ function BookingWidget({ site, resolve, services, theme }) {
       const res = await publicBook(resolve, {
         service_id: serviceId, client_name: name.trim(), client_phone: phone.trim() || undefined,
         notes: notes.trim() || undefined, date: selectedDate, start_time: selectedTime,
-      })
+      }, { slug: site.slug })
       setConfirmed(res?.booking || {})
+      sessionStorage.removeItem(tenantBookingDraftKey(site.slug))
       toast.success(res?.message || 'Appointment confirmed!')
       loadAvail(selectedDate)
     } catch (e) {
+      if (e?.response?.status === 401) { // stale visitor session — show the sign-in gate again
+        localStorage.removeItem(`tenantAuth_${site.slug}`); setSession(null)
+      }
       toast.error(errDetail(e))
       loadAvail(selectedDate)
     } finally { setConfirming(false) }
@@ -288,6 +336,9 @@ function BookingWidget({ site, resolve, services, theme }) {
             Message on WhatsApp
           </a>
         )}
+        <a href="#/account" style={{ ...inputStyle, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, maxWidth: 260, marginTop: 16, padding: '11px 14px', cursor: 'pointer', fontWeight: 700, background: gradient_css(site), color: '#fff', border: 'none', textDecoration: 'none' }}>
+          View my consultations
+        </a>
         <div>
           <button onClick={() => { setConfirmed(null); setSelectedDate(null); setSelectedTime(null); setName(''); setPhone('') }}
             style={{ ...inputStyle, maxWidth: 220, marginTop: 12, padding: '11px 14px', cursor: 'pointer', fontWeight: 600, background: 'transparent', color: 'inherit', border: '1px solid var(--border-color)' }}>
@@ -370,8 +421,41 @@ function BookingWidget({ site, resolve, services, theme }) {
         </motion.div>
       )}
 
-      {/* Step 4: details */}
-      {selectedTime && (
+      {/* Step 4: confirm — requires a (free) visitor account on this site */}
+      {selectedTime && !signedIn && (
+        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} style={{ overflow: 'hidden' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.6, marginBottom: 10, letterSpacing: 0.5 }}>4 · CONFIRM</div>
+          <div style={{
+            display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', textAlign: 'center',
+            padding: '26px 20px', borderRadius: 14, border: `1px dashed ${theme.primaryColor}`,
+            background: `color-mix(in srgb, ${theme.primaryColor} 7%, transparent)`,
+          }}>
+            <div style={{ width: 46, height: 46, borderRadius: '50%', background: gradient_css(site), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Lock size={20} color="#fff" />
+            </div>
+            <div style={{ fontWeight: 800, fontSize: 16 }}>Sign in to confirm your booking</div>
+            <div style={{ fontSize: 13.5, opacity: 0.7, lineHeight: 1.6, maxWidth: 380 }}>
+              Create a free {site.name} account (or sign in) to book appointments, track consultations and manage your orders — all in one place.
+            </div>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, width: '100%',
+              maxWidth: 380, padding: '10px 14px', border: '1px dashed var(--border-color)', borderRadius: 10, fontSize: 13, opacity: 0.85,
+            }}>
+              <span>{service?.name}</span>
+              <span style={{ fontWeight: 700 }}>{selectedDate} · {selectedTime}</span>
+            </div>
+            <button onClick={signInToBook} style={{
+              ...inputStyle, maxWidth: 320, cursor: 'pointer', fontWeight: 800, fontSize: 15, padding: '13px 14px', border: 'none',
+              background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`, color: '#fff',
+            }}>
+              Sign in / Create account
+            </button>
+            <div style={{ fontSize: 12, opacity: 0.55 }}>Your selection is saved — it will be waiting when you return.</div>
+          </div>
+        </motion.div>
+      )}
+
+      {selectedTime && signedIn && (
         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} style={{ overflow: 'hidden' }}>
           <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.6, marginBottom: 10, letterSpacing: 0.5 }}>4 · YOUR DETAILS</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -393,7 +477,7 @@ function BookingWidget({ site, resolve, services, theme }) {
               {confirming ? 'Confirming…' : `Confirm booking${service?.price ? ` · ₹${service.price}` : ''}`}
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', fontSize: 12, opacity: 0.55 }}>
-              <BadgeCheck size={13} /> No advance payment · You pay after the consultation
+              <BadgeCheck size={13} /> Booking as {session?.user?.email} · manage it anytime under My Account
             </div>
           </div>
         </motion.div>
@@ -533,13 +617,23 @@ function PanchangCard({ resolve, COLORS }) {
 }
 
 // ═══════════════ STORE SECTION (cart + order, no online payment needed) ═══════════════
+// Checkout requires a visitor account so orders land in "My Account"; the
+// cart survives the sign-in detour via sessionStorage.
 function StoreSection({ site, resolve, theme, COLORS }) {
   const products = site._products || []
-  const [cart, setCart] = useState({})          // { product_id: qty }
+  const [cart, setCart] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem(tenantCartKey(site.slug)) || '{}') } catch { return {} }
+  })
   const [checkout, setCheckout] = useState(false)
-  const [form, setForm] = useState({ name: '', phone: '', address: '', notes: '' })
+  const [session, setSession] = useState(() => getTenantSession(site.slug))
+  const signedIn = !!session?.token
+  const [form, setForm] = useState({ name: session?.user?.name || '', phone: session?.user?.phone || '', address: '', notes: '' })
   const [placing, setPlacing] = useState(false)
   const [placed, setPlaced] = useState(null)
+
+  useEffect(() => {
+    try { sessionStorage.setItem(tenantCartKey(site.slug), JSON.stringify(cart)) } catch { /* ignore */ }
+  }, [cart, site.slug])
 
   const setQty = (p, q) => setCart((c) => {
     const next = { ...c }
@@ -558,6 +652,11 @@ function StoreSection({ site, resolve, theme, COLORS }) {
 
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
+  const signInToOrder = () => {
+    sessionStorage.setItem(tenantAuthReturnKey(site.slug), '#/shop')
+    window.location.hash = '#/signin'
+  }
+
   const placeOrder = async (e) => {
     e.preventDefault()
     if (!form.name.trim()) return toast.error('Please enter your name')
@@ -569,11 +668,15 @@ function StoreSection({ site, resolve, theme, COLORS }) {
         address: form.address.trim() || undefined,
         notes: form.notes.trim() || undefined,
         items: items.map(({ p, qty }) => ({ product_id: p.id, qty })),
-      })
+      }, { slug: site.slug })
       setPlaced(res?.order || { id: '?', amount: total })
       toast.success(res?.message || 'Order placed!')
       setCart({}); setCheckout(false)
     } catch (err) {
+      if (err?.response?.status === 401) { // stale visitor session — ask for sign-in again
+        localStorage.removeItem(`tenantAuth_${site.slug}`)
+        setSession(null); setCheckout(false)
+      }
       toast.error(errDetail(err))
     } finally { setPlacing(false) }
   }
@@ -607,6 +710,9 @@ function StoreSection({ site, resolve, theme, COLORS }) {
             Confirm on WhatsApp
           </a>
         )}
+        <a href="#/account" style={{ ...inputStyle, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, maxWidth: 240, marginTop: 16, cursor: 'pointer', fontWeight: 700, background: grad, color: '#fff', border: 'none', textDecoration: 'none' }}>
+          View my orders
+        </a>
         <div>
           <button onClick={() => setPlaced(null)} style={{ ...inputStyle, maxWidth: 200, marginTop: 12, cursor: 'pointer', background: 'transparent', color: 'inherit', border: `1px solid ${COLORS.border}` }}>
             Continue shopping
@@ -665,11 +771,13 @@ function StoreSection({ site, resolve, theme, COLORS }) {
           <div style={{ fontSize: 12.5, color: COLORS.textDim, marginBottom: 14, lineHeight: 1.6 }}>
             {items.map(({ p, qty }) => `${p.name} × ${qty}`).join(' · ')}
           </div>
-          <button onClick={() => setCheckout(true)} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none', background: grad, color: '#fff' }}>
-            Place Order
+          <button onClick={() => (signedIn ? setCheckout(true) : signInToOrder())} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none', background: grad, color: '#fff' }}>
+            {signedIn ? 'Place Order' : 'Sign in to Place Order'}
           </button>
           <p style={{ fontSize: 11.5, opacity: 0.55, marginTop: 8 }}>
-            No online payment — {site.name} confirms your order personally on WhatsApp/phone.
+            {signedIn
+              ? <>Ordering as {session?.user?.email} — track it anytime under My Account.</>
+              : <>A free account keeps your orders in one place — sign in takes a second.</>}
           </p>
         </motion.div>
       )}
@@ -706,9 +814,7 @@ function StoreSection({ site, resolve, theme, COLORS }) {
 
 // Visitor account chip (per-tenant session lives in localStorage under tenantAuth_<slug>)
 function VisitorBadge({ slug, COLORS, theme }) {
-  const [session, setSession] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(`tenantAuth_${slug}`) || 'null') } catch { return null }
-  })
+  const [session, setSession] = useState(() => getTenantSession(slug))
   if (!session) {
     return <a href="#/signin" style={{ textDecoration: 'none', fontSize: 14, fontWeight: 600, color: COLORS.textDim, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
       Sign in
@@ -716,10 +822,13 @@ function VisitorBadge({ slug, COLORS, theme }) {
   }
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, color: COLORS.text }}>
-      <span style={{ width: 26, height: 26, borderRadius: '50%', background: theme.primaryColor, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800 }}>
-        {(session.user?.name || session.user?.email || '?').trim().charAt(0).toUpperCase()}
-      </span>
-      <span style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session.user?.name || session.user?.email}</span>
+      <a href="#/account" title="My account — consultations & orders"
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: COLORS.text }}>
+        <span style={{ width: 26, height: 26, borderRadius: '50%', background: theme.primaryColor, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800 }}>
+          {(session.user?.name || session.user?.email || '?').trim().charAt(0).toUpperCase()}
+        </span>
+        <span style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session.user?.name || session.user?.email}</span>
+      </a>
       <button onClick={() => { localStorage.removeItem(`tenantAuth_${slug}`); setSession(null) }}
         style={{ background: 'none', border: 'none', color: COLORS.textDim, cursor: 'pointer', fontSize: 12.5, textDecoration: 'underline', padding: 0 }}>
         Sign out
@@ -795,26 +904,20 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
   if (route.startsWith('#/kundli')) return <KundliPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
   if (route.startsWith('#/matching')) return <MatchingPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
   if (route.startsWith('#/signin')) return <TenantSignIn site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
+  if (route.startsWith('#/account')) return <TenantAccount site={site} resolve={resolve} theme={theme} COLORS={COLORS} slug={slug} services={services} />
   const shopHome = (bundle?.pages?.home?.content) || {}
   const shopProducts = (bundle?.products) || []
+  const shopIdMatch = route.match(/^#\/shop\/(\d+)$/)
+  if (route.startsWith('#/shop/')) {
+    if (!bundle) return null
+    return <ProductPage site={{ ...bundle.site, _products: shopProducts }} resolve={resolve} theme={theme} COLORS={COLORS} productId={shopIdMatch[1]} />
+  }
   if (route.startsWith('#/shop')) {
     if (!bundle) return null
-    return (
-      <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text }}>
-        <header style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-          <a href="#/" style={{ textDecoration: 'none', color: COLORS.text, fontWeight: 800, fontSize: 15 }}>← {site.name}</a>
-          <span style={{ fontWeight: 800, fontSize: 16 }}>Shop</span>
-        </header>
-        <main style={{ maxWidth: 1000, margin: '0 auto', padding: '40px 18px 90px' }}>
-          <h1 style={{ fontSize: 32, fontWeight: 900, textAlign: 'center', margin: '0 0 8px' }}>{shopHome.storeTitle || 'Shop — Remedies & Products'}</h1>
-          <p style={{ textAlign: 'center', color: COLORS.textDim, fontSize: 15, lineHeight: 1.7, maxWidth: 620, margin: '0 auto 36px' }}>
-            Gemstones, rudraksha, bracelets and healing puja items recommended by {site.name}. Order now — pay on delivery or via UPI after confirmation.
-          </p>
-          <StoreSection site={{ ...bundle.site, _products: shopProducts }} resolve={resolve} theme={theme} COLORS={COLORS} />
-        </main>
-      </div>
-    )
+    return <ShopPage site={{ ...bundle.site, _products: shopProducts }} resolve={resolve} theme={theme} COLORS={COLORS} />
   }
+  if (route.startsWith('#/signin')) return <TenantSignIn site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
+  if (route.startsWith('#/account')) return <TenantAccount site={site} resolve={resolve} theme={theme} COLORS={COLORS} slug={slug} services={services} />
 
   const sectionStyle = { maxWidth: 1000, margin: '0 auto', padding: '72px 20px' }
   const h2Style = { fontSize: 32, fontWeight: 800, marginBottom: 12, color: COLORS.text, textAlign: 'center' }
