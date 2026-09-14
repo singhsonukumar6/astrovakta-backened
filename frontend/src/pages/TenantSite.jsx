@@ -27,7 +27,7 @@ import {
   publicHoroscopeTool, publicPlaceOrder, getTenantSession,
 } from '../lib/api.js'
 import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
-import { KundliPage, MatchingPage, TenantSignIn, TenantAccount } from './TenantTools.jsx'
+import { KundliPage, MatchingPage, TenantSignIn, TenantAccount, ShopPage, ProductPage } from './TenantTools.jsx'
 import { tenantSiteUrl, tenantSubdomainLabel, tenantAuthReturnKey, tenantBookingDraftKey, tenantCartKey } from '../lib/tenant.js'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
