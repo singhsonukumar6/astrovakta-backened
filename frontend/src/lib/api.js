@@ -346,8 +346,10 @@ export const publicKundliFull = (resolve, data) => {
   return api.post(`/sites/site/tools/kundli-full?${qs}`, data, { timeout: 120000 }).then((r) => r.data)
 }
 
-export const publicPanchangTool = (resolve) =>
-  api.get('/sites/site/tools/panchang', { params: resolveParams(resolve) }).then((r) => r.data?.data ?? r.data)
+export const publicPanchangTool = (resolve, place) =>
+  api.get('/sites/site/tools/panchang', {
+    params: { ...resolveParams(resolve), ...(place?.lat != null ? { lat: place.lat, lon: place.lon, tz: place.tz, place: place.label } : {}) },
+  }).then((r) => r.data?.data ?? r.data)
 
 export const publicHoroscopeTool = (resolve, sign) =>
   api.get('/sites/site/tools/horoscope', { params: { ...resolveParams(resolve), sign } }).then((r) => r.data)

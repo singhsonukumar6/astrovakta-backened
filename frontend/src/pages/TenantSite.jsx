@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Star, Calendar, Clock, Check, Sparkles, Moon, ArrowRight,
-  ChevronLeft, ChevronRight, Globe, BadgeCheck, Sparkle, Send,
+  ChevronLeft, ChevronRight, ChevronDown, Globe, BadgeCheck, Sparkle, Send,
   MapPin, Mail, Phone, ShoppingCart, Plus, Minus, ShoppingCart as CartIcon,
   ShieldCheck, HeartHandshake, Lock, UserCheck, Package, ShoppingBag, ScrollText, Heart,
 } from 'lucide-react'
@@ -576,20 +576,62 @@ function HoroscopeWidget({ resolve, theme, COLORS }) {
 }
 
 // ═══════════════ PANCHANG CARD ═══════════════
+const PANCHANG_PLACE_KEY = 'panchangPlace'
+
 function PanchangCard({ resolve, COLORS }) {
   const [panchang, setPanchang] = useState(null)
+  const [place, setPlace] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(PANCHANG_PLACE_KEY)) || null } catch { return null }
+  })
+  const [editing, setEditing] = useState(false)
+
   useEffect(() => {
-    publicPanchangTool(resolve).then(setPanchang).catch(() => setPanchang(null))
-  }, [resolve])
+    setPanchang(null)
+    publicPanchangTool(resolve, place).then(setPanchang).catch(() => setPanchang(null))
+  }, [resolve, place])
 
   const card = {
     background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 24,
   }
 
+  const shown = place?.label || panchang?.place || 'Delhi'
+
   return (
     <div style={card}>
       <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Today's Panchang</h3>
-      <p style={{ fontSize: 13, color: COLORS.textDim, marginBottom: 16 }}>{panchang?.date || new Date().toISOString().slice(0, 10)}</p>
+      <p style={{ fontSize: 13, color: COLORS.textDim, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        <MapPin size={13} /> {shown}
+        {!editing && (
+          <button type="button" onClick={() => setEditing(true)}
+            style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: COLORS.textDim, textDecoration: 'underline' }}>
+            change
+          </button>
+        )}
+      </p>
+      {editing && (
+        <div style={{ marginBottom: 16 }}>
+          <PlaceAutocomplete
+            value=""
+            onSelect={(sel) => {
+              if (!sel) return
+              setEditing(false)
+              setPlace({ label: sel.label, lat: sel.lat, lon: sel.lon, tz: sel.tz })
+              try { localStorage.setItem(PANCHANG_PLACE_KEY, JSON.stringify({ label: sel.label, lat: sel.lat, lon: sel.lon, tz: sel.tz })) } catch {}
+            }}
+            placeholder="Search a city to see its panchang"
+            inputStyle={{
+              width: '100%', padding: '10px 12px', fontSize: 14, borderRadius: 10,
+              border: `1px solid ${COLORS.border}`, background: COLORS.bg, color: COLORS.text, outline: 'none',
+            }}
+          />
+          {place && (
+            <button type="button" onClick={() => { setPlace(null); setEditing(false); try { localStorage.removeItem(PANCHANG_PLACE_KEY) } catch {} }}
+              style={{ marginTop: 8, border: `1px solid ${COLORS.border}`, background: 'transparent', color: COLORS.textDim, fontSize: 12, padding: '6px 10px', borderRadius: 8, cursor: 'pointer' }}>
+              Use default (Delhi)
+            </button>
+          )}
+        </div>
+      )}
       {panchang ? (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 14 }}>
           {[
@@ -837,6 +879,52 @@ function VisitorBadge({ slug, COLORS, theme }) {
   )
 }
 
+// "Tools" dropdown in the tenant nav — keeps the header light while every
+// free tool stays one click away. Opens on hover (desktop) or tap.
+function NavToolsMenu({ COLORS, theme }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [])
+
+  const items = [
+    ['#/horoscope', 'Horoscope', 'Daily to yearly forecasts'],
+    ['#/muhurat', 'Muhurat', 'Auspicious timings'],
+    ['#/numerology', 'Numerology', 'Numbers & name analysis'],
+    ['#/gemstone', 'Gemstone', 'Stone recommendations'],
+    ['#/lucky', 'Lucky Today', 'Numbers, colours & days'],
+  ]
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}
+      onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 14, fontWeight: 600, color: COLORS.textDim }}>
+        Tools <ChevronDown size={14} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 10px)', left: 0, zIndex: 60, minWidth: 230,
+          background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14,
+          boxShadow: '0 16px 40px rgba(0,0,0,0.18)', padding: 8, overflow: 'hidden',
+        }}>
+          {items.map(([href, label, hint]) => (
+            <a key={href} href={href} onClick={() => setOpen(false)}
+              style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '9px 12px', borderRadius: 10, textDecoration: 'none' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: COLORS.text }}>{label}</span>
+              <span style={{ fontSize: 11.5, color: COLORS.textDim }}>{hint}</span>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function TenantSite({ slug: slugProp, domain: domainProp }) {
   const { slug: slugParam } = useParams()
   const slug = slugProp || slugParam
@@ -980,11 +1068,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
             {showStore && <a href="#/shop" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Shop</a>}
             <a href="#/kundli" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Free Kundli</a>
             <a href="#/matching" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Match Making</a>
-            <a href="#/horoscope" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Horoscope</a>
-            <a href="#/muhurat" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Muhurat</a>
-            <a href="#/numerology" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Numerology</a>
-            <a href="#/gemstone" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Gemstone</a>
-            <a href="#/lucky" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Lucky</a>
+            <NavToolsMenu COLORS={COLORS} theme={theme} />
             <VisitorBadge slug={slug} COLORS={COLORS} theme={theme} />
             <a href="#book" style={{
               padding: '9px 20px', borderRadius: 10, background: gradient, color: '#fff', textDecoration: 'none',

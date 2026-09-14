@@ -657,8 +657,13 @@ async def tenant_lucky_tool(body: LuckyToolBody, request: Request, slug: str = N
 
 
 @router.get("/site/tools/panchang")
-def tenant_panchang_tool(slug: str = None, domain: str = None, date_str: str = None):
-    """Today's panchang for a tenant site's daily widget."""
+def tenant_panchang_tool(
+    slug: str = None, domain: str = None, date_str: str = None,
+    lat: float = Query(None, ge=-90, le=90), lon: float = Query(None, ge=-180, le=180),
+    tz: str = Query(None, max_length=60), place: str = Query(None, max_length=120),
+):
+    """Today's panchang for a tenant site's daily widget. Defaults to Delhi;
+    pass lat/lon/tz (from the location picker) to see another place's panchang."""
     site = _resolve_site(slug, domain)
     from ..utils import compute_panchang
     d = date_str or date.today().isoformat()
@@ -666,8 +671,12 @@ def tenant_panchang_tool(slug: str = None, domain: str = None, date_str: str = N
         date.fromisoformat(d)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date")
-    p = compute_panchang(d, "12:00", _DEFAULT_PLACE["tz"], _DEFAULT_PLACE["lat"], _DEFAULT_PLACE["lon"])
-    return {"date": d, "panchang": p, "astrologer": site["name"]}
+    lat = lat if lat is not None else _DEFAULT_PLACE["lat"]
+    lon = lon if lon is not None else _DEFAULT_PLACE["lon"]
+    tz = tz or _DEFAULT_PLACE["tz"]
+    place = place or _DEFAULT_PLACE["label"]
+    p = compute_panchang(d, "12:00", tz, lat, lon)
+    return {"date": d, "place": place, "latitude": lat, "longitude": lon, "panchang": p, "astrologer": site["name"]}
 
 
 class _NoLangRequest:
