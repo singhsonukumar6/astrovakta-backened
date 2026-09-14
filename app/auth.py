@@ -647,7 +647,15 @@ def admin_get_all_keys(page: int = 1, per_page: int = 50) -> dict:
         "ORDER BY ak.created_at DESC LIMIT ? OFFSET ?",
         (per_page, offset),
     ).fetchall()
-    return {"keys": [dict(r) for r in rows], "total": total, "page": page}
+    keys = []
+    for r in rows:
+        d = dict(r)
+        full = d.get("key") or ""
+        # admins get a masked preview only — full keys are never re-served
+        d["key_display"] = (full[:12] + "..." + full[-4:]) if len(full) > 18 else full
+        d.pop("key", None)
+        keys.append(d)
+    return {"keys": keys, "total": total, "page": page}
 
 
 def admin_revoke_key(key_id: int) -> bool:

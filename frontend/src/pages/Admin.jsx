@@ -48,6 +48,7 @@ import {
   Link as LinkIcon,
   Package,
 } from 'lucide-react'
+import MasterCatalogAdmin from '../components/MasterCatalogAdmin.jsx'
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth.jsx'
 import {
@@ -536,7 +537,7 @@ function KeysTab({ refreshTrigger }) {
             ) : keys.map((k) => (
               <tr key={k.id} style={{ borderBottom: '1px solid rgba(124,58,237,0.08)' }}>
                 <td style={{ padding: '12px 16px' }}>
-                  <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#475569' }}>{maskKey(k.key)}</code>
+                  <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#475569' }}>{maskKey(k.key_display || k.key)}</code>
                 </td>
                 <td style={{ padding: '12px 16px' }}>
                   <div style={{ color: '#1e293b', fontSize: 13 }}>{k.user_name || '-'}</div>
