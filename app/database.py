@@ -9,6 +9,7 @@ and other callers don't need to know which engine is active.
 import os
 import sqlite3
 import logging
+from datetime import datetime, timezone, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -427,6 +428,14 @@ CREATE TABLE IF NOT EXISTS integration_products (
     FOREIGN KEY (connection_id) REFERENCES store_connections(id),
     FOREIGN KEY (site_product_id) REFERENCES site_products(id)
 );
+CREATE TABLE IF NOT EXISTS oauth_handshakes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    state TEXT UNIQUE NOT NULL,
+    site_id INTEGER NOT NULL,
+    provider TEXT NOT NULL,
+    shop_domain TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS master_categories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -709,6 +718,14 @@ CREATE TABLE IF NOT EXISTS integration_products (
     FOREIGN KEY (connection_id) REFERENCES store_connections(id),
     FOREIGN KEY (site_product_id) REFERENCES site_products(id)
 );
+CREATE TABLE IF NOT EXISTS oauth_handshakes (
+    id SERIAL PRIMARY KEY,
+    state TEXT UNIQUE NOT NULL,
+    site_id INTEGER NOT NULL,
+    provider TEXT NOT NULL,
+    shop_domain TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS master_categories (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
@@ -796,6 +813,13 @@ def init_db() -> None:
                         conn.commit()
                 except Exception as e:
                     logger.debug(f"Migration {t}.{c}: {e}")
+            try:
+                # OAuth handshake states are single-use and short-lived (10 min);
+                # anything older is stale and safe to drop.
+                conn.execute("DELETE FROM oauth_handshakes WHERE created_at < NOW() - INTERVAL '1 hour'")
+                conn.commit()
+            except Exception as e:
+                logger.debug(f"oauth_handshakes cleanup: {e}")
             logger.info("PostgreSQL schema initialized")
         except Exception as e:
             logger.error(f"PostgreSQL init failed: {e}")
@@ -825,4 +849,11 @@ def init_db() -> None:
         _migrate_sqlite(cursor, "sites", "logo_url", "TEXT")
         _migrate_sqlite(cursor, "sites", "hero_image", "TEXT")
         _migrate_sqlite(cursor, "sites", "settings", "TEXT")
+        try:
+            # OAuth handshake states are single-use and short-lived (10 min);
+            # anything older is stale and safe to drop.
+            cutoff = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+            cursor.execute("DELETE FROM oauth_handshakes WHERE created_at < ?", (cutoff,))
+        except Exception as e:
+            logger.debug(f"oauth_handshakes cleanup: {e}")
         conn.commit()

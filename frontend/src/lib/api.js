@@ -465,6 +465,10 @@ export const importCatalogProduct = (siteId, masterId, price) =>
 // ──── EXTERNAL STORE INTEGRATIONS ────
 export const getMyIntegrations = (siteId) =>
   api.get(`/sites/my/${siteId}/integrations`).then((r) => r.data?.data ?? r.data)
+export const getIntegrationProviders = (siteId) =>
+  api.get(`/sites/my/${siteId}/integrations/providers`).then((r) => r.data?.data ?? r.data)
+export const beginStoreConnect = (siteId, provider, shopDomain) =>
+  api.post(`/sites/my/${siteId}/integrations/begin`, { provider, shop_domain: shopDomain }).then((r) => r.data?.data ?? r.data)
 export const connectStore = (siteId, data) =>
   api.post(`/sites/my/${siteId}/integrations`, data).then((r) => r.data?.data ?? r.data)
 export const disconnectStore = (siteId, id) =>

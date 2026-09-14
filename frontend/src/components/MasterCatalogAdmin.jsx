@@ -3,7 +3,7 @@ import { Plus, Trash2, Loader2, Save, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api.js'
 
-const inputStyle = { width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 14, outline: 'none', background: '#fff' }
+const inputStyle = { width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 14, outline: 'none', background: '#fff', color: '#0f172a' }
 const labelStyle = { display: 'block', fontSize: 12.5, fontWeight: 700, color: '#475569', marginBottom: 5 }
 
 // Master dropshipping catalog: categories + products (MRP, margin, multi-image).

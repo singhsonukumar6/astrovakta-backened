@@ -1182,3 +1182,40 @@ def get_integration_product_map(connection_id: int) -> dict:
         "SELECT site_product_id, external_id FROM integration_products WHERE connection_id = ?"), (connection_id,)).fetchall()
     return {(r[1] if not isinstance(r, dict) else r["site_product_id"]):
             (r[1] if not isinstance(r, dict) else r["external_id"]) for r in rows}
+
+
+# ── one-click OAuth handshake state (Shopify / WooCommerce) ──
+# A handshake row is created when the tenant clicks "Connect", carries the
+# shop domain through the provider's approval screen, and is consumed exactly
+# once by the callback (single-use CSRF state).
+
+def create_oauth_state(site_id: int, provider: str, shop_domain: str) -> str:
+    import secrets as _secrets
+    state = _secrets.token_urlsafe(24)
+    db = get_db()
+    # one pending handshake per (site, provider, shop) — replace any stale one
+    db.execute(_convert("DELETE FROM oauth_handshakes WHERE site_id = ? AND provider = ? AND shop_domain = ?"),
+               (site_id, provider, shop_domain))
+    db.execute(_convert("INSERT INTO oauth_handshakes (state, site_id, provider, shop_domain, created_at) VALUES (?, ?, ?, ?, ?)"),
+               (state, site_id, provider, shop_domain, _now()))
+    db.commit()
+    return state
+
+
+def get_oauth_state(state: str):
+    row = get_db().execute(_convert(
+        "SELECT * FROM oauth_handshakes WHERE state = ?"), (state,)).fetchone()
+    return _to_dict(row)
+
+
+def delete_oauth_state(state: str):
+    db = get_db()
+    db.execute(_convert("DELETE FROM oauth_handshakes WHERE state = ?"), (state,))
+    db.commit()
+
+
+def delete_oauth_state_for_site(site_id: int, provider: str, shop_domain: str):
+    db = get_db()
+    db.execute(_convert("DELETE FROM oauth_handshakes WHERE site_id = ? AND provider = ? AND shop_domain = ?"),
+               (site_id, provider, shop_domain))
+    db.commit()

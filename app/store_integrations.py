@@ -3,6 +3,83 @@ import base64
 import hashlib
 import hmac
 import httpx
+import os
+from urllib.parse import urlencode
+
+
+# ── one-click connect (OAuth-style, no keys pasted by the tenant) ──
+
+def _normalize_shop_domain(domain: str) -> str:
+    return (domain or "").replace("https://", "").replace("http://", "").split("/")[0].rstrip(".").strip().lower()
+
+
+def public_base_url() -> str:
+    """Where providers should redirect back to. Override per-deploy."""
+    url = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
+    if url:
+        return url
+    # legacy deployments may only set the browser-facing frontend URL
+    fe = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
+    if fe:
+        return fe
+    return "https://api.astrovakta.com"
+
+
+def shopify_credentials() -> tuple[str, str]:
+    """(client_id, client_secret) of our Shopify app."""
+    cid = os.getenv("SHOPIFY_CLIENT_ID", "").strip()
+    secret = os.getenv("SHOPIFY_CLIENT_SECRET", "").strip()
+    return cid, secret
+
+
+def shopify_oauth_configured() -> bool:
+    cid, secret = shopify_credentials()
+    return bool(cid and secret)
+
+
+def shopify_authorize_url(shop_domain: str, state: str, redirect_uri: str, scopes: str = "read_products,write_products,read_orders") -> str:
+    shop = _normalize_shop_domain(shop_domain)
+    q = urlencode({
+        "client_id": shopify_credentials()[0],
+        "scope": scopes,
+        "redirect_uri": redirect_uri,
+        "state": state,
+    })
+    return f"https://{shop}/admin/oauth/authorize?{q}"
+
+
+def shopify_exchange_code(shop_domain: str, code: str, redirect_uri: str) -> dict:
+    """Exchange the oauth `code` for a permanent offline access token."""
+    shop = _normalize_shop_domain(shop_domain)
+    cid, secret = shopify_credentials()
+    if not (cid and secret):
+        return {"ok": False, "error": "Server is missing SHOPIFY_CLIENT_ID/SECRET — one-click connect is not configured"}
+    try:
+        r = httpx.post(
+            f"https://{shop}/admin/oauth/access_token",
+            json={"client_id": cid, "client_secret": secret, "code": code, "redirect_uri": redirect_uri},
+            timeout=15,
+        )
+        if r.status_code == 200:
+            return {"ok": True, "access_token": r.json().get("access_token", "")}
+        return {"ok": False, "status": r.status_code, "error": r.text[:200]}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:200]}
+
+
+def woo_authorize_url(shop_domain: str, redirect_uri: str) -> str:
+    """WordPress core Application Passwords approval screen (works on any
+    WooCommerce store, no plugin/keys needed). WordPress appends
+    ?site_url&user_login&password to success_url on approval — but it does
+    NOT forward arbitrary params, so any state we need must already be
+    embedded in the success/reject URL passed here."""
+    shop = _normalize_shop_domain(shop_domain)
+    q = urlencode({
+        "app_name": "AstroVakta",
+        "success_url": redirect_uri,
+        "reject_url": redirect_uri,
+    })
+    return f"https://{shop}/wp-admin/authorize_application.php?{q}" if shop else ""
 
 
 def _woo_auth(conn):

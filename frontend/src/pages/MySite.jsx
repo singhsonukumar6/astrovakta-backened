@@ -29,7 +29,7 @@ import {
   getMyOrders, updateMyOrder, getKeys,
   getMySocial, generateSocialPost, createSocialPost, updateSocialPost, deleteSocialPost, socialPostMedia,
   getMyCatalog, importCatalogProduct,
-  getMyIntegrations, connectStore, disconnectStore, pushToStore, pullStoreOrders,
+  getMyIntegrations, getIntegrationProviders, beginStoreConnect, connectStore, disconnectStore, pushToStore, pullStoreOrders,
   aiGenerateSiteContent,
 } from '../lib/api.js'
 
@@ -593,16 +593,34 @@ function ServicesTab({ site, reload }) {
 
 // ═══════════════ STORE TAB (products + orders) ═══════════════
 function StoreTab({ site, reload }) {
-  const [sub, setSub] = useState('products')
+  // Returning from a provider's approval screen → open Integrations directly
+  // so the success/error banner and the new connection are visible.
+  const [sub, setSub] = useState(() =>
+    new URLSearchParams(window.location.search).get('status') === 'ok' ? 'integrations' : 'products')
   const [catalog, setCatalog] = useState(null)
   const [importPrice, setImportPrice] = useState({})
   const [integrations, setIntegrations] = useState([])
+  const [providers, setProviders] = useState(null) // {shopify_one_click, woocommerce_one_click}
+  const [domains, setDomains] = useState({ shopify: '', woocommerce: '' }) // per-provider input
+  const [showManual, setShowManual] = useState(false)
   const [connForm, setConnForm] = useState({ provider: 'woocommerce', shop_domain: '', api_key: '', api_secret: '', access_token: '' })
+  const [oauthResult, setOauthResult] = useState(null) // {status, message} from the provider redirect
   const [pushSel, setPushSel] = useState([])
   const [products, setProducts] = useState(null)
   const [orders, setOrders] = useState(null)
   const [form, setForm] = useState({ name: '', description: '', price: 500, stock: -1 })
   const [busy, setBusy] = useState(false)
+  const [connecting, setConnecting] = useState(null) // provider id while awaiting redirect
+
+  // The OAuth callback lands on /mysite/store?status=…&message=…
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search)
+    if (q.get('status')) {
+      setOauthResult({ status: q.get('status'), message: q.get('message') || '' })
+      q.delete('status'); q.delete('message')
+      window.history.replaceState({}, '', `${window.location.pathname}${q.toString() ? `?${q}` : ''}`)
+    }
+  }, [])
 
   const loadProducts = () => getMyProducts(site.id).then(setProducts).catch(() => setProducts([]))
   const loadOrders = () => getMyOrders(site.id).then(setOrders).catch(() => setOrders([]))
@@ -614,8 +632,38 @@ function StoreTab({ site, reload }) {
   const loadCatalog = () => getMyCatalog(site.id).then(setCatalog).catch(() => setCatalog({ categories: [], products: [] }))
   useEffect(() => { if (sub === 'catalog') loadCatalog() }, [sub, site.id]) // eslint-disable-line
 
-  const loadIntegrations = () => getMyIntegrations(site.id).then((d) => setIntegrations(d.integrations || [])).catch(() => setIntegrations([]))
+  const loadIntegrations = () => {
+    getMyIntegrations(site.id).then((d) => { setIntegrations(d.integrations || []) }).catch(() => setIntegrations([]))
+    getIntegrationProviders(site.id).then(setProviders).catch(() => setProviders(null))
+  }
   useEffect(() => { if (sub === 'integrations') { loadIntegrations(); loadProducts() } }, [sub, site.id]) // eslint-disable-line
+
+  // After a successful OAuth redirect, refresh the integration list — the
+  // connection was created by the backend callback, not by this tab.
+  useEffect(() => {
+    if (oauthResult?.status === 'ok' && sub === 'integrations') loadIntegrations()
+  }, [oauthResult, sub]) // eslint-disable-line
+
+  const startOneClick = async (provider) => {
+    const domain = (domains[provider] || '').trim()
+    if (!domain) return toast.error(provider === 'shopify' ? 'Enter your Shopify store domain (e.g. mystore.myshopify.com)' : 'Enter your store domain (e.g. mystore.com)')
+    if (provider === 'shopify' && providers && providers.shopify_one_click === false) {
+      return toast.error('One-click Shopify is not enabled on this deployment — use "Advanced" below')
+    }
+    setConnecting(provider)
+    try {
+      const res = await beginStoreConnect(site.id, provider, domain)
+      window.location.href = res.authorize_url // provider's own approval screen
+    } catch (e) {
+      const detail = errDetail(e, '')
+      if (e.response?.status === 405 || /method not allowed/i.test(detail)) {
+        toast.error('The server does not support one-click connect yet — it needs a backend update. Use "Advanced" below for now.')
+      } else {
+        toast.error(errDetail(e, 'Could not start the connection'))
+      }
+      setConnecting(null)
+    }
+  }
 
   const doConnect = async (e) => {
     e.preventDefault(); setBusy(true)
@@ -750,15 +798,39 @@ function StoreTab({ site, reload }) {
 
                       {sub === 'integrations' && (
           <div style={{ ...cardStyle, marginBottom: 20 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Connect Shopify or WooCommerce</h3>
-            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 14, lineHeight: 1.6 }}>
-              Push your products to your own store and pull its orders here. WooCommerce: paste the Consumer Key/Secret (WooCommerce → Settings → Advanced → REST API). Shopify: create a custom app with write_products/read_orders scopes and paste the Admin API access token.
+            {oauthResult && (
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 10,
+                marginBottom: 16, fontSize: 13.5, lineHeight: 1.5,
+                background: oauthResult.status === 'ok' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
+                border: `1px solid ${oauthResult.status === 'ok' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                color: oauthResult.status === 'ok' ? '#166534' : '#991b1b',
+              }}>
+                <span style={{ fontSize: 16 }}>{oauthResult.status === 'ok' ? '✓' : '⚠'}</span>
+                <span style={{ flex: 1 }}>{oauthResult.message}</span>
+                <button onClick={() => setOauthResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, fontSize: 15, lineHeight: 1 }}><X size={14} /></button>
+              </div>
+            )}
+
+            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Connect your store</h3>
+            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16, lineHeight: 1.6 }}>
+              Push your products to your Shopify or WooCommerce store and pull its orders back here —
+              no API keys to create or copy. Enter the store address, click connect, and approve on the
+              next screen. Done.
             </p>
+
             {(integrations || []).length > 0 && (
-              <div style={{ marginBottom: 16 }}>
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: '#475569', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 }}>Connected stores</div>
                 {integrations.map((c) => (
-                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid #f1f5f9', flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 700, fontSize: 14 }}>{c.provider === 'shopify' ? 'Shopify' : 'WooCommerce'}: {c.shop_domain}</span>
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 12, marginBottom: 8, flexWrap: 'wrap', background: '#f8fafc' }}>
+                    <span style={{ width: 30, height: 30, borderRadius: 8, background: c.provider === 'shopify' ? '#95bf47' : '#7f54b3', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800 }}>
+                      {c.provider === 'shopify' ? 'S' : 'W'}
+                    </span>
+                    <span style={{ fontWeight: 700, fontSize: 14, flex: 1, minWidth: 140 }}>
+                      {c.provider === 'shopify' ? 'Shopify' : 'WooCommerce'} — {c.shop_domain}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 8, fontSize: 11.5, fontWeight: 700, color: '#16a34a' }}><Check size={12} /> connected</span>
+                    </span>
                     {c.provider === 'shopify' && (
                       <button onClick={() => doPull(c.id)} disabled={busy} style={{ ...ghostBtn, padding: '6px 12px', fontSize: 12.5 }}>Pull orders</button>
                     )}
@@ -773,22 +845,73 @@ function StoreTab({ site, reload }) {
                 ))}
               </div>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginBottom: 10 }}>
-              <select value={connForm.provider} onChange={(e) => setConnForm({ ...connForm, provider: e.target.value })} style={inputStyle}>
-                <option value="woocommerce">WooCommerce</option>
-                <option value="shopify">Shopify</option>
-              </select>
-              <input value={connForm.shop_domain} onChange={(e) => setConnForm({ ...connForm, shop_domain: e.target.value })} placeholder="mystore.com" style={inputStyle} />
-              {connForm.provider === 'woocommerce' ? (
-                <>
-                  <input value={connForm.api_key} onChange={(e) => setConnForm({ ...connForm, api_key: e.target.value })} placeholder="Consumer key (ck_…)" style={inputStyle} />
-                  <input value={connForm.api_secret} onChange={(e) => setConnForm({ ...connForm, api_secret: e.target.value })} placeholder="Consumer secret (cs_…)" style={inputStyle} />
-                </>
-              ) : (
-                <input value={connForm.access_token} onChange={(e) => setConnForm({ ...connForm, access_token: e.target.value })} placeholder="Admin API access token (shpat_…)" style={inputStyle} />
-              )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginBottom: 14 }}>
+              {[[
+                'shopify', 'Shopify', '#95bf47', 'mystore.myshopify.com',
+                providers?.shopify_one_click !== false,
+              ], [
+                'woocommerce', 'WooCommerce', '#7f54b3', 'mystore.com',
+                true,
+              ]].map(([id, label, color, ph, enabled]) => (
+                <div key={id} style={{ border: '1px solid #e2e8f0', borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 10, opacity: enabled ? 1 : 0.55 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ width: 34, height: 34, borderRadius: 10, background: color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 800 }}>
+                      {label[0]}
+                    </span>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14.5 }}>{label}</div>
+                      <div style={{ fontSize: 11.5, color: '#64748b' }}>{enabled ? 'One-click connect' : 'Not enabled on this deployment'}</div>
+                    </div>
+                  </div>
+                  <input
+                    value={domains[id] || ''}
+                    onChange={(e) => setDomains((d) => ({ ...d, [id]: e.target.value }))}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && enabled) startOneClick(id) }}
+                    placeholder={ph}
+                    style={inputStyle}
+                    disabled={!enabled}
+                  />
+                  <button
+                    onClick={() => startOneClick(id)}
+                    disabled={!enabled || connecting === id}
+                    className={enabled ? 'btn-primary' : ''}
+                    style={{ ...primaryBtn, justifyContent: 'center', opacity: enabled && connecting !== id ? 1 : 0.6, fontSize: 13.5, padding: '10px 16px' }}>
+                    {connecting === id ? <><Loader2 size={15} className="spin" /> Redirecting…</> : <><Zap size={15} /> Connect {label} in one click</>}
+                  </button>
+                </div>
+              ))}
             </div>
-            <button onClick={doConnect} disabled={busy} className="btn-primary" style={{ ...primaryBtn, opacity: busy ? 0.6 : 1 }}>Connect store</button>
+
+            <button onClick={() => setShowManual((s) => !s)} style={{ background: 'none', border: 'none', color: '#4f46e5', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+              {showManual ? 'Hide' : 'Advanced'} — connect manually with API keys
+            </button>
+            {showManual && (
+              <form onSubmit={doConnect} style={{ marginTop: 12, padding: 16, border: '1px dashed #cbd5e1', borderRadius: 12 }}>
+                <p style={{ fontSize: 12.5, color: '#64748b', marginBottom: 12, lineHeight: 1.6 }}>
+                  For stores that can't use one-click (e.g. a WooCommerce site on plain http).
+                  WooCommerce: paste the Consumer Key/Secret from WooCommerce → Settings → Advanced → REST API.
+                  Shopify: create a custom app with write_products/read_orders scopes and paste the Admin API access token.
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginBottom: 10 }}>
+                  <select value={connForm.provider} onChange={(e) => setConnForm({ ...connForm, provider: e.target.value })} style={inputStyle}>
+                    <option value="woocommerce">WooCommerce</option>
+                    <option value="shopify">Shopify</option>
+                  </select>
+                  <input value={connForm.shop_domain} onChange={(e) => setConnForm({ ...connForm, shop_domain: e.target.value })} placeholder="mystore.com" style={inputStyle} />
+                  {connForm.provider === 'woocommerce' ? (
+                    <>
+                      <input value={connForm.api_key} onChange={(e) => setConnForm({ ...connForm, api_key: e.target.value })} placeholder="Consumer key (ck_…)" style={inputStyle} />
+                      <input value={connForm.api_secret} onChange={(e) => setConnForm({ ...connForm, api_secret: e.target.value })} placeholder="Consumer secret (cs_…)" style={inputStyle} />
+                    </>
+                  ) : (
+                    <input value={connForm.access_token} onChange={(e) => setConnForm({ ...connForm, access_token: e.target.value })} placeholder="Admin API access token (shpat_…)" style={inputStyle} />
+                  )}
+                </div>
+                <button type="submit" disabled={busy} className="btn-primary" style={{ ...primaryBtn, opacity: busy ? 0.6 : 1 }}>Connect store</button>
+              </form>
+            )}
+
             {(products || []).length > 0 && (
               <div style={{ marginTop: 18 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', marginBottom: 8 }}>Your products — tick to push:</div>
@@ -1180,6 +1303,35 @@ function BookingsTab({ site }) {
 }
 
 // ═══════════════ DOMAIN TAB ═══════════════
+// One DNS record row with a copy button — values are the Vercel records the
+// main frontend is hosted on (A 76.76.21.21 for the apex, CNAME
+// cname.vercel-dns.com for www).
+function DnsRow({ label, cells }) {
+  const copyAll = () => {
+    const text = cells.map(([k, v]) => `${k}: ${v}`).join('\n')
+    navigator.clipboard?.writeText(text).then(() => toast.success('Record copied'))
+  }
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+      background: 'rgba(255,255,255,0.65)', border: '1px solid rgba(245,158,11,0.35)',
+      borderRadius: 10, padding: '10px 12px',
+    }}>
+      <span style={{ fontSize: 12, fontWeight: 800, color: '#92400e', minWidth: 110 }}>{label}</span>
+      {cells.map(([k, v]) => (
+        <span key={k} style={{ fontSize: 12.5 }}>
+          <span style={{ color: '#92400e', fontWeight: 600 }}>{k}: </span>
+          <code style={{ color: '#1e293b', background: 'rgba(245,158,11,0.1)', padding: '2px 7px', borderRadius: 6 }}>{v}</code>
+        </span>
+      ))}
+      <button type="button" onClick={copyAll} title="Copy record"
+        style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4, background: 'none', border: '1px solid rgba(245,158,11,0.45)', color: '#92400e', borderRadius: 8, padding: '4px 9px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
+        <Copy size={12} /> Copy
+      </button>
+    </div>
+  )
+}
+
 function DomainTab({ site, reload }) {
   const [domain, setDomain] = useState(site.custom_domain || '')
   const [busy, setBusy] = useState(false)
@@ -1204,7 +1356,7 @@ function DomainTab({ site, reload }) {
     setBusy(true)
     try {
       await setMySiteDomain(site.id, domain)
-      toast.success('Domain saved — now add the DNS record and verify')
+      toast.success('Domain saved — add the DNS records below, then verify')
       setVerifyResult(null)
       reload()
     } catch (e) {
@@ -1244,11 +1396,11 @@ function DomainTab({ site, reload }) {
       <div style={cardStyle}>
         <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>Your own domain</h3>
         <p style={{ color: '#64748b', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
-          Use your own domain like <strong>astrovakra.com</strong> instead of the free address. Free SSL (the 🔒 padlock) is included automatically.
+          Use your own domain like <strong>yourname.com</strong> or <strong>yournameastrology.in</strong> instead of the free address. Free SSL (the 🔒 padlock) is included automatically.
         </p>
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
-          <input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="astrovakra.com"
+          <input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="yourname.com"
             disabled={active} style={{ ...inputStyle, flex: 1, minWidth: 220 }} />
           {!site.custom_domain ? (
             <button onClick={connect} disabled={busy} className="btn-primary" style={{ ...primaryBtn, opacity: busy ? 0.6 : 1 }}>
@@ -1285,10 +1437,22 @@ function DomainTab({ site, reload }) {
             background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
             borderRadius: 12, padding: '16px 18px', fontSize: 13, color: '#d97706', lineHeight: 1.8,
           }}>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>DNS setup — do this at your domain provider (GoDaddy, Namecheap, etc.)</div>
-            Add a <strong>CNAME record</strong>:<br />
-            Name / Host: <code style={{ color: '#1e293b' }}>www</code> · Value / Target: <code style={{ color: '#1e293b' }}>sites.astrovakta.com</code><br />
-            Then tap <strong>Verify DNS</strong>. DNS changes can take 5 minutes to a few hours.
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>
+              DNS setup — add these records at your domain provider (GoDaddy, Namecheap, BigRock…)
+            </div>
+            <p style={{ margin: '0 0 10px', color: '#b45309' }}>
+              Open your domain's DNS settings and add the two records below so <strong>{site.custom_domain}</strong> and <strong>www.{site.custom_domain}</strong> both point to your site:
+            </p>
+            <div style={{ display: 'grid', gap: 8 }}>
+              <DnsRow label="A record (apex)" cells={[['Type', 'A'], ['Name / Host', '@'], ['Value', '76.76.21.21']]} />
+              <DnsRow label="CNAME (www)" cells={[['Type', 'CNAME'], ['Name / Host', 'www'], ['Value', 'cname.vercel-dns.com']]} />
+            </div>
+            <p style={{ margin: '10px 0 0', color: '#b45309' }}>
+              Some providers ask for a full host name — use <code style={{ color: '#1e293b' }}>www.{site.custom_domain}</code> instead of <code style={{ color: '#1e293b' }}>www</code>. Delete any other A/CNAME records for <code style={{ color: '#1e293b' }}>@</code> or <code style={{ color: '#1e293b' }}>www</code> so they don't conflict.
+            </p>
+            <p style={{ margin: '8px 0 0', color: '#b45309' }}>
+              Save, then tap <strong>Verify DNS</strong> — DNS changes can take 5 minutes to a few hours to propagate.
+            </p>
             {verifyResult && !verifyResult.verified && (
               <div style={{ marginTop: 10, color: '#dc2626' }}>{verifyResult.message}</div>
             )}

@@ -4,9 +4,11 @@ All routes require the site owner's JWT (get_current_user). A tenant resolves
 their site via /sites/my/* — sites are looked up by id and verified against the
 owner's user id, so tenants can never touch each other's data.
 """
+import os
 import re
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
@@ -27,6 +29,7 @@ from ..tenants import (
     import_master_product,
     list_store_connections, get_store_connection, create_store_connection, delete_store_connection,
     record_integration_product, get_integration_product_map, get_order, create_order,
+    create_oauth_state, get_oauth_state, delete_oauth_state, delete_oauth_state_for_site,
     list_orders, get_order, create_order, update_order, ORDER_STATUSES,
     site_stats, adjust_product_stock,
 )
@@ -177,7 +180,7 @@ def _slug_suggestion(slug: str):
 def check_domain(domain: str):
     d = normalize_domain(domain)
     if not d or "." not in d:
-        return {"valid": False, "available": False, "reason": "Enter a valid domain like astrovakra.com"}
+        return {"valid": False, "available": False, "reason": "Enter a valid domain like yourname.com"}
     available = not domain_exists(d)
     return {"valid": True, "available": available,
             "reason": None if available else "That domain is already connected to another site"}
@@ -273,20 +276,27 @@ def set_my_site_domain(site_id: int, body: SetDomainBody, user: dict = Depends(g
     _require_owned_site(site_id, user)
     domain = normalize_domain(body.domain)
     if not domain or "." not in domain:
-        raise HTTPException(status_code=400, detail="Enter a valid domain like astrovakra.com")
+        raise HTTPException(status_code=400, detail="Enter a valid domain like yourname.com")
     if domain_exists(domain, exclude_id=site_id):
         raise HTTPException(status_code=409, detail="That domain is already connected to another site")
     site = update_site(site_id, {"custom_domain": domain, "domain_status": "pending"})
-    # DNS verification: the tenant must point a CNAME/A record at the platform.
-    # We return the DNS instructions; activation is confirmed by the platform
-    # (automated job / manual verify endpoint) once the record resolves.
+    # The main frontend is hosted on Vercel: the custom domain points at
+    # Vercel's edge (A 76.76.21.21 / CNAME cname.vercel-dns.com), which
+    # serves this tenant's site for that hostname. Activation is confirmed
+    # by the verify endpoint once the records resolve.
     return {
         **site,
         "dns_instructions": {
-            "record_type": "CNAME",
-            "host": "www" if False else "@",
-            "value": "sites.astrovakta.com",
-            "note": f"Add a CNAME record for www.{domain} (and an A/ALIAS record for {domain}) pointing to sites.astrovakta.com, then tap Verify.",
+            "records": [
+                {"type": "A", "host": "@", "value": "76.76.21.21",
+                 "label": f"A record for {domain} (apex)"},
+                {"type": "CNAME", "host": "www", "value": "cname.vercel-dns.com",
+                 "label": f"CNAME for www.{domain}"},
+            ],
+            "note": (
+                f"Add an A record @ → 76.76.21.21 and a CNAME www → cname.vercel-dns.com "
+                f"at your DNS provider, then tap Verify."
+            ),
         },
     }
 
@@ -1079,6 +1089,10 @@ def import_catalog_product(site_id: int, master_id: int, body: ImportBody, user:
 
 
 # ─────────────── external store integrations (Shopify / WooCommerce) ───────────────
+# One-click flow: begin → provider approval screen → callback (creates the
+# connection automatically). The legacy paste-credentials path remains as a
+# fallback for stores that cannot use the one-click flow (e.g. a Woo store on
+# plain http, where WordPress refuses to hand out application passwords).
 
 class ConnectStoreBody(BaseModel):
     provider: str = Field(..., pattern="^(shopify|woocommerce)$")
@@ -1088,25 +1102,141 @@ class ConnectStoreBody(BaseModel):
     access_token: Optional[str] = Field(None, max_length=300)
 
 
+def _clean_shop_domain(domain: str) -> str:
+    from ..store_integrations import _normalize_shop_domain
+    d = _normalize_shop_domain(domain)
+    if not d or "." not in d:
+        raise HTTPException(status_code=400, detail="Enter your store's domain, e.g. mystore.myshopify.com or mystore.com")
+    return d
+
+
 @router.get("/my/{site_id}/integrations")
 def my_integrations(site_id: int, user: dict = Depends(get_current_user)):
     _require_owned_site(site_id, user)
     conns = list_store_connections(site_id)
-    from ..store_integrations import test_connection
     for c in conns:
         c["has_credentials"] = bool(c.get("access_token") or (c.get("api_key") and c.get("api_secret")))
         c.pop("api_key", None); c.pop("api_secret", None); c.pop("access_token", None)
     return {"integrations": conns}
 
 
+@router.get("/my/{site_id}/integrations/providers")
+def integration_providers(site_id: int, user: dict = Depends(get_current_user)):
+    """Which one-click flows this deployment supports."""
+    _require_owned_site(site_id, user)
+    from ..store_integrations import shopify_oauth_configured, public_base_url
+    return {
+        "shopify_one_click": shopify_oauth_configured(),
+        "woocommerce_one_click": True,
+        "callback_base": public_base_url(),
+    }
+
+
+class BeginConnectBody(BaseModel):
+    provider: str = Field(..., pattern="^(shopify|woocommerce)$")
+    shop_domain: str = Field(..., max_length=200)
+
+
+@router.post("/my/{site_id}/integrations/begin")
+def begin_store_connect(site_id: int, body: BeginConnectBody, user: dict = Depends(get_current_user)):
+    """Create a single-use handshake state and return the provider's approval
+    URL — the tenant clicks once, approves on the provider's own screen, and
+    the callback wires everything up."""
+    _require_owned_site(site_id, user)
+    shop = _clean_shop_domain(body.shop_domain)
+    from ..store_integrations import (
+        shopify_oauth_configured, shopify_authorize_url, woo_authorize_url, public_base_url,
+    )
+    if body.provider == "shopify" and not shopify_oauth_configured():
+        raise HTTPException(status_code=400, detail="One-click Shopify connect is not configured on this deployment yet — use the manual token option instead")
+    base = public_base_url()
+    if body.provider == "shopify":
+        redirect_uri = f"{base}/sites/integrations/callback/shopify"
+        state = create_oauth_state(site_id, body.provider, shop)
+        url = shopify_authorize_url(shop, state, redirect_uri)
+    else:
+        # WordPress does not forward a state param through its approval
+        # screen — embed it in the success/reject URL instead.
+        state = create_oauth_state(site_id, body.provider, shop)
+        redirect_uri = f"{base}/sites/integrations/callback/woocommerce?state={state}"
+        url = woo_authorize_url(shop, redirect_uri)
+    return {"authorize_url": url, "state": state, "redirect_uri": redirect_uri}
+
+
+def _frontend_result_url(status: str, message: str) -> str:
+    from urllib.parse import urlencode
+    base = os.getenv("FRONTEND_URL", "https://dev.astrovakta.com").strip().rstrip("/") or "https://dev.astrovakta.com"
+    return f"{base}/mysite/store?{urlencode({'status': status, 'message': message})}"
+
+
+def _shopify_redirect_uri() -> str:
+    from ..store_integrations import public_base_url
+    return f"{public_base_url()}/sites/integrations/callback/shopify"
+
+
+@router.get("/integrations/callback/shopify")
+def shopify_callback(code: str = None, state: str = None, shop: str = None, hmac_sig: str = None, host: str = None, timestamp: str = None):
+    """Shopify redirects here after the tenant approves. Public by design —
+    the single-use state (created under the owner's JWT) is the auth."""
+    from ..store_integrations import shopify_exchange_code, test_connection
+    hs = get_oauth_state(state) if state else None
+    if not hs:
+        return RedirectResponse(_frontend_result_url("error", "This connect link has expired — please try connecting again"), status_code=302)
+    delete_oauth_state(state)
+    shop_domain = _clean_shop_domain(shop or hs["shop_domain"])
+    result = shopify_exchange_code(shop_domain, code or "", _shopify_redirect_uri())
+    if not result.get("ok"):
+        return RedirectResponse(_frontend_result_url("error", f"Shopify did not grant access: {str(result.get('error', ''))[:150]}"), status_code=302)
+    conn = create_store_connection(hs["site_id"], {
+        "provider": "shopify", "shop_domain": shop_domain,
+        "access_token": result["access_token"],
+    })
+    check = test_connection(conn)
+    if not check.get("ok"):
+        delete_store_connection(hs["site_id"], conn["id"])
+        return RedirectResponse(_frontend_result_url("error", "The token was rejected by your Shopify store — please try connecting again"), status_code=302)
+    return RedirectResponse(_frontend_result_url("ok", f"Shopify store {shop_domain} connected — push products and pull orders from the Integrations tab"), status_code=302)
+
+
+@router.get("/integrations/callback/woocommerce")
+def woocommerce_callback(request: Request, state: str = None, user_login: str = None, password: str = None, site_url: str = None):
+    """WordPress core authorize_application.php returns the tenant with a
+    fresh Application Password (user_login + password) appended to the
+    success_url (which carries our state). Store it as Basic-auth
+    credentials, verify, drop the state."""
+    hs = get_oauth_state(state) if state else None
+    if not hs:
+        return RedirectResponse(_frontend_result_url("error", "This connect link has expired — please try connecting again"), status_code=302)
+    delete_oauth_state(state)
+    if not (user_login and password):
+        # WordPress bounces to reject_url (the user cancelled or the store
+        # refused). No connection is created.
+        return RedirectResponse(_frontend_result_url("error", "Approval was not completed — the store owner must click Approve"), status_code=302)
+    shop_domain = _clean_shop_domain(hs["shop_domain"])
+    conn = create_store_connection(hs["site_id"], {
+        "provider": "woocommerce", "shop_domain": shop_domain,
+        "api_key": user_login, "api_secret": password,
+    })
+    from ..store_integrations import test_connection
+    check = test_connection(conn)
+    if not check.get("ok"):
+        err = str(check.get("error", "") or "unknown error")
+        status_code_ = str(check.get("status", ""))
+        hint = "WordPress only hands out application passwords to HTTPS callbacks — is your store on plain http? Use the manual key option." if status_code_ in ("401", "404") or "https" in err.lower() else err
+        delete_store_connection(hs["site_id"], conn["id"])
+        return RedirectResponse(_frontend_result_url("error", f"Could not reach the store: {hint[:180]}"), status_code=302)
+    return RedirectResponse(_frontend_result_url("ok", f"WooCommerce store {shop_domain} connected — push products and pull orders from the Integrations tab"), status_code=302)
+
+
 @router.post("/my/{site_id}/integrations")
 def connect_store(site_id: int, body: ConnectStoreBody, user: dict = Depends(get_current_user)):
+    """Manual fallback: paste a Shopify token / Woo consumer keys directly."""
     _require_owned_site(site_id, user)
     if body.provider == "woocommerce" and not (body.api_key and body.api_secret):
-        raise HTTPException(status_code=400, detail="WooCommerce needs the consumer key and consumer secret")
+        raise HTTPException(status_code=400, detail="WooCommerce needs the consumer key and secret")
     if body.provider == "shopify" and not body.access_token:
-        raise HTTPException(status_code=400, detail="Shopify needs the Admin API access token from your custom app")
-    conn = create_store_connection(site_id, {"provider": body.provider, "shop_domain": body.shop_domain,
+        raise HTTPException(status_code=400, detail="Shopify needs the Admin API access token")
+    conn = create_store_connection(site_id, {"provider": body.provider, "shop_domain": _clean_shop_domain(body.shop_domain),
                                              "api_key": body.api_key, "api_secret": body.api_secret,
                                              "access_token": body.access_token})
     from ..store_integrations import test_connection
