@@ -189,6 +189,11 @@ def download_job_result(job_id: int, user: dict = Depends(get_current_user)):
         )
 
 
+@router.get("/my-jobs")
+def my_jobs_alias(status: Optional[str] = Query(None), limit: int = Query(20, ge=1, le=100), user: dict = Depends(get_current_user)):
+    return my_jobs(status=status, limit=limit, user=user)
+
+
 @router.get("")
 def my_jobs(
     status: Optional[str] = Query(None),
