@@ -352,6 +352,35 @@ export const publicPanchangTool = (resolve) =>
 export const publicHoroscopeTool = (resolve, sign) =>
   api.get('/sites/site/tools/horoscope', { params: { ...resolveParams(resolve), sign } }).then((r) => r.data)
 
+export const publicPersonalHoroscope = (resolve, data) => {
+  const qs = new URLSearchParams(resolveParams(resolve)).toString()
+  return api.post(`/sites/site/tools/horoscope?${qs}`, data).then((r) => r.data)
+}
+
+export const publicNumerologyTool = (resolve, data) => {
+  const qs = new URLSearchParams(resolveParams(resolve)).toString()
+  return api.post(`/sites/site/tools/numerology?${qs}`, data).then((r) => r.data)
+}
+
+export const publicGemstoneTool = (resolve, data) => {
+  const qs = new URLSearchParams(resolveParams(resolve)).toString()
+  return api.post(`/sites/site/tools/gemstone?${qs}`, data).then((r) => r.data)
+}
+
+export const publicMuhuratTool = (resolve, data) => {
+  const qs = new URLSearchParams(resolveParams(resolve)).toString()
+  return api.post(`/sites/site/tools/muhurat?${qs}`, data).then((r) => r.data)
+}
+
+export const publicLuckyTool = (resolve, data) => {
+  const qs = new URLSearchParams(resolveParams(resolve)).toString()
+  return api.post(`/sites/site/tools/lucky?${qs}`, data).then((r) => r.data)
+}
+
+// ──── SITE OWNER: AI CONTENT GENERATION (uses the owner's AI provider) ────
+export const aiGenerateSiteContent = (siteId, data) =>
+  api.post(`/sites/my/${siteId}/ai-generate`, data).then((r) => r.data)
+
 // ──── LOCATION AUTOCOMPLETE (public — powers kundli birth-place fields) ────
 export const searchLocations = (q, countrycode) =>
   api.get('/api/location/search', { params: { q, limit: 6, countrycode } })

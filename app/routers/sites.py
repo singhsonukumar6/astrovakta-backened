@@ -454,6 +454,89 @@ def upsert_my_page(site_id: int, page_key: str, body: PageBody, user: dict = Dep
     return upsert_page(site_id, page_key, body.model_dump())
 
 
+# ─────────────── AI content generation (site owner's own AI provider) ───────────────
+
+class AiGenerateBody(BaseModel):
+    field: str = Field(..., pattern="^(heroTitle|heroSubtitle|aboutTitle|aboutText|pageTitle|pageText|serviceDescription|tagline)$")
+    tone: str = Field("warm", pattern="^(warm|professional|spiritual|friendly)$")
+    keywords: Optional[str] = Field(None, max_length=300)
+    # serviceDescription: which service; pageTitle/pageText: which page key
+    context_key: Optional[str] = Field(None, max_length=40)
+
+
+@router.post("/my/{site_id}/ai-generate")
+def my_site_ai_generate(site_id: int, body: AiGenerateBody, user: dict = Depends(get_current_user)):
+    """Generate website copy with the site owner's configured AI provider
+    (AI Providers tab). Falls back to template copy when no provider is set,
+    so the button always returns something usable."""
+    site = _require_owned_site(site_id, user)
+    name = site.get("name") or "our astrologer"
+    tagline = site.get("tagline") or ""
+    services = list_services(site_id) or []
+    svc_names = ", ".join(s["name"] for s in services[:6]) or "kundli reading, match making, career guidance"
+
+    TONE = {"warm": "warm and inviting", "professional": "polished and professional",
+            "spiritual": "devotional and rooted in Vedic tradition", "friendly": "friendly and easygoing"}
+    tone = TONE.get(body.tone, "warm and inviting")
+    kw = f" Weave in these themes if natural: {body.keywords}." if body.keywords else ""
+
+    fallbacks = {
+        "heroTitle": f"{name} — Vedic Astrology Guidance",
+        "heroSubtitle": f"{tagline or 'Authentic kundli readings'} by {name}. Personalised guidance for career, "
+                        "relationships and life's big decisions — book a consultation today.",
+        "aboutTitle": f"About {name}",
+        "aboutText": f"{name} is a dedicated Vedic astrologer offering kundli readings, match making and "
+                     "remedial guidance. With a practical, compassionate approach, every reading is prepared "
+                     "personally for you. Services include {svc_names}.",
+        "pageTitle": f"{body.context_key or 'About'.capitalize()}",
+        "pageText": f"Welcome. {name} offers {svc_names} with personal attention to every chart. "
+                    "Reach out to book a consultation or ask a question — you'll hear back the same day.",
+        "serviceDescription": f"A personal session with {name} — detailed analysis of your chart with clear, "
+                               "actionable guidance. Book online in under a minute.",
+        "tagline": "Authentic Vedic astrology, personalised for you",
+    }
+    fallback = fallbacks.get(body.field)
+
+    prompt_extra = {
+        "heroTitle": "ONE punchy headline, max 8 words, no quotes.",
+        "heroSubtitle": "ONE sub-headline of 1-2 sentences (max 180 chars).",
+        "aboutTitle": "ONE section title, max 6 words.",
+        "aboutText": "2-3 short paragraphs (max 900 chars total), plain text, no markdown.",
+        "pageTitle": "ONE page title, max 6 words.",
+        "pageText": "2-3 short paragraphs (max 1200 chars total), plain text, no markdown.",
+        "serviceDescription": "ONE sentence of 15-35 words describing the service.",
+        "tagline": "ONE short tagline, max 10 words.",
+    }.get(body.field, "ONE short value.")
+
+    prompt = (
+        f"You write website copy for a professional Vedic astrology practice.\n"
+        f"Astrologer / business: {name}. Tagline: {tagline or 'none yet'}. Services: {svc_names}.\n"
+        f"Write in a {tone} tone.{kw}\n"
+        f"Produce ONLY the requested copy — no greeting, no explanation, no quotes, no markdown.\n"
+        f"Requested: {prompt_extra}"
+    )
+
+    # Reuse the platform's AI plumbing: the owner's active provider from the
+    # AI Providers tab, decrypted server-side exactly like horoscope generation.
+    text = None
+    try:
+        from ..auth import get_active_ai_provider
+        from ..crypto import decrypt_api_key
+        from ..i18n.ai_translate import _call_ai
+        cfg = get_active_ai_provider(user["id"])
+        if cfg:
+            api_key = decrypt_api_key(cfg["api_key_encrypted"])
+            text = _call_ai(prompt, api_key, cfg["provider"], cfg.get("model"))
+    except Exception:
+        text = None
+
+    if not text or not text.strip():
+        text = fallback or "Welcome to our practice."
+    text = text.strip().strip('"').strip()
+
+    return {"field": body.field, "text": text, "ai": bool(text != fallback and fallback is not None)}
+
+
 # ─────────────── services ───────────────
 
 @router.get("/my/{site_id}/services")

@@ -27,7 +27,7 @@ import {
   publicHoroscopeTool, publicPlaceOrder, getTenantSession,
 } from '../lib/api.js'
 import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
-import { KundliPage, MatchingPage, TenantSignIn, TenantAccount, ShopPage, ProductPage } from './TenantTools.jsx'
+import { KundliPage, MatchingPage, TenantSignIn, TenantAccount, ShopPage, ProductPage, HoroscopePage, NumerologyPage, GemstonePage, MuhuratPage, LuckyPage, AboutPage, ServicesPage, ContactPage } from './TenantTools.jsx'
 import { tenantSiteUrl, tenantSubdomainLabel, tenantAuthReturnKey, tenantBookingDraftKey, tenantCartKey } from '../lib/tenant.js'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -903,6 +903,14 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
   // Tool pages live on their own hash routes so the landing page stays clean.
   if (route.startsWith('#/kundli')) return <KundliPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
   if (route.startsWith('#/matching')) return <MatchingPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
+  if (route.startsWith('#/horoscope')) return <HoroscopePage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
+  if (route.startsWith('#/numerology')) return <NumerologyPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
+  if (route.startsWith('#/gemstone')) return <GemstonePage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
+  if (route.startsWith('#/muhurat')) return <MuhuratPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
+  if (route.startsWith('#/lucky')) return <LuckyPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
+  if (route.startsWith('#/about')) return <AboutPage site={site} pages={bundle?.pages} theme={theme} COLORS={COLORS} slug={slug} />
+  if (route.startsWith('#/services')) return <ServicesPage site={site} services={services} theme={theme} COLORS={COLORS} resolve={resolve} />
+  if (route.startsWith('#/contact')) return <ContactPage site={site} theme={theme} COLORS={COLORS} />
   if (route.startsWith('#/signin')) return <TenantSignIn site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
   if (route.startsWith('#/account')) return <TenantAccount site={site} resolve={resolve} theme={theme} COLORS={COLORS} slug={slug} services={services} />
   const shopHome = (bundle?.pages?.home?.content) || {}
@@ -967,11 +975,16 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
             </div>
           </a>
           <nav style={{ display: 'flex', gap: 18, alignItems: 'center', fontSize: 14, fontWeight: 600, flexWrap: 'wrap' }}>
-            <a href="#about" style={{ color: COLORS.textDim, textDecoration: 'none' }}>About</a>
-            <a href="#services" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Services</a>
+            <a href="#/about" style={{ color: COLORS.textDim, textDecoration: 'none' }}>About</a>
+            <a href="#/services" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Services</a>
             {showStore && <a href="#/shop" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Shop</a>}
             <a href="#/kundli" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Free Kundli</a>
             <a href="#/matching" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Match Making</a>
+            <a href="#/horoscope" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Horoscope</a>
+            <a href="#/muhurat" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Muhurat</a>
+            <a href="#/numerology" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Numerology</a>
+            <a href="#/gemstone" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Gemstone</a>
+            <a href="#/lucky" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Lucky</a>
             <VisitorBadge slug={slug} COLORS={COLORS} theme={theme} />
             <a href="#book" style={{
               padding: '9px 20px', borderRadius: 10, background: gradient, color: '#fff', textDecoration: 'none',
@@ -1257,6 +1270,17 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
           </div>
           <div style={{ fontSize: 13, color: COLORS.textDim, marginBottom: 18, textAlign: 'center' }}>
             {site.custom_domain || tenantSubdomainLabel(site.slug)}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 24, fontSize: 13 }}>
+            {[
+              ['#/', 'Home'], ['#/about', 'About'], ['#/services', 'Services & Booking'],
+              ...(showStore ? [['#/shop', 'Shop']] : []),
+              ['#/kundli', 'Free Kundli'], ['#/matching', 'Match Making'], ['#/horoscope', 'Horoscope'],
+              ['#/muhurat', 'Muhurat'], ['#/numerology', 'Numerology'], ['#/gemstone', 'Gemstone'],
+              ['#/lucky', 'Lucky Finder'], ['#/contact', 'Contact'],
+            ].map(([href, label]) => (
+              <a key={href} href={href} style={{ color: COLORS.textDim, textDecoration: 'none', padding: '4px 10px' }}>{label}</a>
+            ))}
           </div>
           {socials.length > 0 && (
             <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 22 }}>

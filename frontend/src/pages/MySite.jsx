@@ -30,6 +30,7 @@ import {
   getMySocial, generateSocialPost, createSocialPost, updateSocialPost, deleteSocialPost, socialPostMedia,
   getMyCatalog, importCatalogProduct,
   getMyIntegrations, connectStore, disconnectStore, pushToStore, pullStoreOrders,
+  aiGenerateSiteContent,
 } from '../lib/api.js'
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -135,13 +136,16 @@ function OverviewTab({ site, reload }) {
   )
 }
 
-// ═══════════════ CONTENT TAB (pages editor) ═══════════════
+// ═══════════════ CONTENT TAB (pages editor + AI copy generation) ═══════════════
 function ContentTab({ site, reload }) {
   const [pageKey, setPageKey] = useState('home')
   const pages = site.pages || []
   const page = pages.find((p) => p.page_key === pageKey) || { content: {} }
   const [content, setContent] = useState(page.content || {})
   const [saving, setSaving] = useState(false)
+  const [tone, setTone] = useState('warm')
+  const [keywords, setKeywords] = useState('')
+  const [genBusy, setGenBusy] = useState('')
 
   useEffect(() => { setContent(page.content || {}) }, [pageKey, site.updated_at]) // eslint-disable-line
 
@@ -158,11 +162,82 @@ function ContentTab({ site, reload }) {
 
   const set = (k, v) => setContent((c) => ({ ...c, [k]: v }))
 
+  // field: one of the backend's supported fields; context_key disambiguates
+  // which service/page when generating pageTitle/pageText/serviceDescription.
+  const generate = async (field, contextKey) => {
+    setGenBusy(contextKey ? `${field}:${contextKey}` : field)
+    try {
+      const res = await aiGenerateSiteContent(site.id, {
+        field, tone, keywords: keywords || undefined, context_key: contextKey || undefined,
+      })
+      if (res?.text) {
+        // serviceDescription edits live in the Services tab — surface it as
+        // a toast to copy instead of writing into this page's content.
+        if (field === 'serviceDescription') {
+          toast(`Suggested description: ${res.text}`, { duration: 8000 })
+        } else {
+          set(field, res.text)
+          toast.success(res.ai ? 'Generated with AI — edit freely' : 'Draft generated (add an AI provider for personalised copy)')
+        }
+      } else {
+        toast.error('Could not generate — try again')
+      }
+    } catch {
+      toast.error('Could not generate — try again')
+    } finally { setGenBusy('') }
+  }
+
+  const GenBtn = ({ field, contextKey }) => {
+    const myKey = contextKey ? `${field}:${contextKey}` : field
+    return (
+      <button type="button" onClick={() => generate(field, contextKey)} disabled={!!genBusy}
+        title="Write this for me with AI"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5, marginLeft: 10, padding: '5px 12px',
+          borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: genBusy ? 'wait' : 'pointer',
+          border: '1px solid rgba(79,70,229,0.35)', color: '#4f46e5', background: 'rgba(79,70,229,0.06)',
+          opacity: genBusy && genBusy !== myKey ? 0.55 : 1,
+        }}>
+        {genBusy === myKey ? <Loader2 size={12} className="spin" /> : <Sparkles size={12} />}
+        {genBusy === myKey ? 'Writing…' : 'Write with AI'}
+      </button>
+    )
+  }
+
   const testiList = Array.isArray(content.testimonials) ? content.testimonials : []
   const setTesti = (i, patch) => setContent((c) => ({
     ...c,
     testimonials: (c.testimonials || []).map((t, j) => (j === i ? { ...t, ...patch } : t)),
   }))
+
+  const aiCard = (
+    <div style={{
+      border: '1px dashed rgba(79,70,229,0.35)', borderRadius: 14, padding: '14px 18px',
+      marginBottom: 20, background: 'rgba(79,70,229,0.03)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8, fontSize: 13, fontWeight: 700 }}>
+        <Sparkles size={14} color="#4f46e5" /> AI writing assistant
+      </div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div style={{ minWidth: 160 }}>
+          <label style={{ ...labelStyle, fontSize: 11 }}>Tone</label>
+          <select value={tone} onChange={(e) => setTone(e.target.value)} style={{ ...inputStyle, padding: '8px 10px', fontSize: 13 }}>
+            <option value="warm">Warm & inviting</option>
+            <option value="professional">Professional</option>
+            <option value="spiritual">Spiritual / devotional</option>
+            <option value="friendly">Friendly & easygoing</option>
+          </select>
+        </div>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <label style={{ ...labelStyle, fontSize: 11 }}>Keywords / themes (optional)</label>
+          <input value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="e.g. 15 years experience, specialization in career & marriage" style={{ ...inputStyle, fontSize: 13 }} />
+        </div>
+      </div>
+      <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 8 }}>
+        Uses the AI provider you configured in the AI Providers tab. Without one, you still get solid starter copy.
+      </div>
+    </div>
+  )
 
   return (
     <div>
@@ -180,14 +255,15 @@ function ContentTab({ site, reload }) {
       </div>
 
       <div style={cardStyle}>
+        {aiCard}
         {pageKey === 'home' && (
           <>
             <div style={{ marginBottom: 18 }}>
-              <label style={labelStyle}>Headline (appears large at top)</label>
+              <label style={labelStyle}>Headline (appears large at top)<GenBtn field="heroTitle" /></label>
               <input value={content.heroTitle || ''} onChange={(e) => set('heroTitle', e.target.value)} style={inputStyle} />
             </div>
             <div style={{ marginBottom: 18 }}>
-              <label style={labelStyle}>Sub-headline</label>
+              <label style={labelStyle}>Sub-headline<GenBtn field="heroSubtitle" /></label>
               <textarea rows={2} value={content.heroSubtitle || ''} onChange={(e) => set('heroSubtitle', e.target.value)} style={{ ...inputStyle, resize: 'vertical' }} />
             </div>
 
@@ -208,11 +284,11 @@ function ContentTab({ site, reload }) {
             </div>
 
             <div style={{ marginBottom: 18 }}>
-              <label style={labelStyle}>About section title</label>
+              <label style={labelStyle}>About section title<GenBtn field="aboutTitle" /></label>
               <input value={content.aboutTitle || ''} onChange={(e) => set('aboutTitle', e.target.value)} style={inputStyle} />
             </div>
             <div style={{ marginBottom: 24 }}>
-              <label style={labelStyle}>About section text</label>
+              <label style={labelStyle}>About section text<GenBtn field="aboutText" /></label>
               <textarea rows={4} value={content.aboutText || ''} onChange={(e) => set('aboutText', e.target.value)} style={{ ...inputStyle, resize: 'vertical' }} />
             </div>
 
@@ -241,11 +317,11 @@ function ContentTab({ site, reload }) {
         {(pageKey === 'about' || pageKey === 'contact') && (
           <>
             <div style={{ marginBottom: 18 }}>
-              <label style={labelStyle}>Title</label>
+              <label style={labelStyle}>Title<GenBtn field="pageTitle" contextKey={pageKey} /></label>
               <input value={content.title || ''} onChange={(e) => set('title', e.target.value)} style={inputStyle} />
             </div>
             <div style={{ marginBottom: 18 }}>
-              <label style={labelStyle}>Text</label>
+              <label style={labelStyle}>Text<GenBtn field="pageText" contextKey={pageKey} /></label>
               <textarea rows={6} value={content.text || ''} onChange={(e) => set('text', e.target.value)} style={{ ...inputStyle, resize: 'vertical' }} />
             </div>
           </>
@@ -484,7 +560,17 @@ function ServicesTab({ site, reload }) {
               <input value={svc.name} onChange={(e) => setSvc((s) => ({ ...s, name: e.target.value }))} placeholder="Gemstone Consultation" style={inputStyle} />
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>Description (optional)</label>
+              <label style={labelStyle}>Description (optional)
+                <button type="button" onClick={async () => {
+                  if (!svc.name.trim()) return toast.error('Give the service a name first')
+                  try {
+                    const res = await aiGenerateSiteContent(site.id, { field: 'serviceDescription', context_key: svc.name.trim() })
+                    if (res?.text) setSvc((s) => ({ ...s, description: res.text }))
+                  } catch { toast.error('Could not generate') }
+                }} style={{ marginLeft: 8, padding: '3px 10px', borderRadius: 7, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', border: '1px solid rgba(79,70,229,0.35)', color: '#4f46e5', background: 'rgba(79,70,229,0.06)' }}>
+                  ✨ Write with AI
+                </button>
+              </label>
               <input value={svc.description} onChange={(e) => setSvc((s) => ({ ...s, description: e.target.value }))} placeholder="Find your right gemstone by kundli" style={inputStyle} />
             </div>
             <div>
@@ -1695,7 +1781,16 @@ function SettingsTab({ site, reload }) {
           <input defaultValue={site.name} onBlur={(e) => updateMySite(site.id, { name: e.target.value }).then(reload).catch(() => {})} style={inputStyle} />
         </div>
         <div style={{ marginBottom: 18 }}>
-          <label style={labelStyle}>Tagline</label>
+          <label style={labelStyle}>Tagline
+            <button type="button" onClick={async () => {
+              try {
+                const res = await aiGenerateSiteContent(site.id, { field: 'tagline' })
+                if (res?.text) await updateMySite(site.id, { tagline: res.text }).then(reload)
+              } catch { toast.error('Could not generate') }
+            }} style={{ marginLeft: 8, padding: '3px 10px', borderRadius: 7, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', border: '1px solid rgba(79,70,229,0.35)', color: '#4f46e5', background: 'rgba(79,70,229,0.06)' }}>
+              ✨ Write with AI
+            </button>
+          </label>
           <input defaultValue={site.tagline} onBlur={(e) => updateMySite(site.id, { tagline: e.target.value }).then(reload).catch(() => {})} style={inputStyle} />
         </div>
         <button onClick={() => {

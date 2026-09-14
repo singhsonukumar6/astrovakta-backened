@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
-import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight, Heart, LogOut, ScrollText, ShoppingBag, Sparkles, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight, Gem, Hash, Heart, LogOut, Moon, ScrollText, ShoppingBag, Sparkles, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
 import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
 import { signUpWithEmailAndVerify } from '../lib/firebase.js'
 import {
   publicKundliTool, publicKundliFull, publicMatchingTool, publicDoshaTool,
+  publicPersonalHoroscope, publicNumerologyTool, publicGemstoneTool, publicMuhuratTool, publicLuckyTool,
   getTenantSession, getMyTenantBookings, getMyTenantOrders,
   cancelMyTenantBooking, cancelMyTenantOrder,
 } from '../lib/api.js'
@@ -1616,6 +1617,559 @@ export function ProductPage({ site, resolve, theme, COLORS, productId }) {
             </div>
           </div>
         )}
+      </main>
+    </div>
+  )
+}
+
+// ─────────── PERSONAL HOROSCOPE PAGE (#/horoscope) ───────────
+const HORO_PERIODS = [['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['yearly', 'Yearly']]
+
+export function HoroscopePage({ site, resolve, theme, COLORS }) {
+  const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+  const [form, setForm] = useState({ date: '', time: '', place: '', lat: null, lon: null, tz: null, period: 'daily', lang: 'en' })
+  const [result, setResult] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!form.date || !form.time) return setError('Please select your birth date and time')
+    if (form.lat == null) return setError('Please select your birth place from the suggestions')
+    setBusy(true); setError(null)
+    try {
+      setResult(await publicPersonalHoroscope(resolve, {
+        date: form.date, time: form.time, period: form.period,
+        lat: form.lat, lon: form.lon, tz: form.tz, lang: form.lang,
+      }))
+    } catch (err) { setError(errText(err)) } finally { setBusy(false) }
+  }
+
+  const h = result?.horoscope || {}
+  const overview = h.overview || h.description || ''
+  const sections = ['career', 'love', 'finance', 'health'].filter((s) => h[s])
+
+  return (
+    <ToolShell site={site} COLORS={COLORS} gradient={gradient} icon={Moon}
+      title="Personal Horoscope" subtitle={`Your own ${form.period === 'daily' ? 'daily' : form.period} forecast computed from your birth chart — not a generic sun-sign column. Presented by ${site?.name || 'our astrologer'}.`}>
+      {!result ? (
+        <motion.form onSubmit={submit} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 28, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={labelStyle}>Forecast period</label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {HORO_PERIODS.map(([id, label]) => (
+                <button type="button" key={id} onClick={() => set('period', id)} style={{
+                  ...inputStyle, cursor: 'pointer', fontWeight: 700, padding: '9px 16px', borderRadius: 999,
+                  background: form.period === id ? gradient : 'transparent',
+                  color: form.period === id ? '#fff' : 'inherit',
+                  border: form.period === id ? 'none' : `1px solid ${COLORS.border}`,
+                }}>{label}</button>
+              ))}
+            </div>
+          </div>
+          <BirthFields value={form} onChange={setForm} />
+          <LangSelect value={form.lang} onChange={(v) => set('lang', v)} />
+          {error && <div style={{ color: '#dc2626', fontSize: 13.5 }}>{error}</div>}
+          <button type="submit" disabled={busy} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none', background: gradient, color: '#fff', opacity: busy ? 0.7 : 1, padding: 14 }}>
+            {busy ? 'Reading your chart…' : 'Get My Horoscope'}
+          </button>
+        </motion.form>
+      ) : (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 26 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ fontWeight: 800, fontSize: 18 }}>Your {result.period} horoscope</div>
+              <span style={{ background: gradient, color: '#fff', fontWeight: 700, fontSize: 12, borderRadius: 8, padding: '4px 10px', textTransform: 'capitalize' }}>{result.period}</span>
+            </div>
+            {h.sign && <div style={{ fontSize: 13, color: COLORS.textDim, marginBottom: 10 }}>Moon sign: <strong style={{ color: COLORS.text }}>{h.sign}</strong></div>}
+            <p style={{ fontSize: 15, lineHeight: 1.8, margin: 0 }}>{overview}</p>
+          </div>
+          {sections.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+              {sections.map((s) => (
+                <div key={s} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 20 }}>
+                  <div style={{ fontWeight: 800, textTransform: 'capitalize', marginBottom: 8, fontSize: 14 }}>{s}</div>
+                  {typeof h[s] === 'string'
+                    ? <div style={{ fontSize: 13.5, lineHeight: 1.7, color: COLORS.textDim }}>{h[s]}</div>
+                    : <>
+                        <div style={{ fontSize: 12.5, color: '#16a34a', marginBottom: 6 }}>✔ {h[s]?.positive}</div>
+                        <div style={{ fontSize: 12.5, color: '#d97706' }}>⚠ {h[s]?.challenging}</div>
+                      </>}
+                </div>
+              ))}
+            </div>
+          )}
+          {h.luckyColor && <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 16, fontSize: 13.5 }}>Lucky colour today: <strong>{h.luckyColor}</strong></div>}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button onClick={() => setResult(null)} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 700, maxWidth: 240 }}>Check another period</button>
+            <button onClick={submit} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, background: gradient, color: '#fff', border: 'none', flex: 1, minWidth: 200 }}>Refresh forecast</button>
+          </div>
+        </motion.div>
+      )}
+    </ToolShell>
+  )
+}
+
+// ─────────── NUMEROLOGY PAGE (#/numerology) ───────────
+export function NumerologyPage({ site, resolve, theme, COLORS }) {
+  const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+  const [form, setForm] = useState({ name: '', date: '', mobile: '', lang: 'en' })
+  const [result, setResult] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!form.name.trim()) return setError('Please enter your full name')
+    if (!form.date) return setError('Please select your birth date')
+    const digits = form.mobile.replace(/\D/g, '')
+    if (form.mobile && !/^[6-9]\d{9}$/.test(digits)) return setError('Please enter a valid 10-digit mobile number')
+    setBusy(true); setError(null)
+    try {
+      setResult(await publicNumerologyTool(resolve, {
+        fullName: form.name.trim(), date: form.date,
+        mobileNumber: form.mobile || undefined, lang: form.lang,
+      }))
+    } catch (err) { setError(errText(err)) } finally { setBusy(false) }
+  }
+
+  const CARD = (num, title, desc, interp) => (
+    <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+        <div style={{ width: 46, height: 46, borderRadius: 14, background: gradient, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 22 }}>{num}</div>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 14.5 }}>{title}</div>
+          {interp?.rating && <div style={{ fontSize: 12, color: interp.rating >= 4 ? '#16a34a' : interp.rating >= 3 ? '#d97706' : '#dc2626', fontWeight: 700 }}>Rating: {interp.rating}/5</div>}
+        </div>
+      </div>
+      <div style={{ fontSize: 13, lineHeight: 1.7, color: COLORS.textDim, marginBottom: interp ? 10 : 0 }}>{desc}</div>
+      {interp && <>
+        {interp.positive_traits?.length > 0 && <div style={{ marginBottom: 8 }}><strong style={{ fontSize: 12 }}>Strengths:</strong> {interp.positive_traits.join(', ')}</div>}
+        {interp.challenges?.length > 0 && <div style={{ marginBottom: 8 }}><strong style={{ fontSize: 12 }}>Watch out for:</strong> {interp.challenges.join(', ')}</div>}
+        {interp.career_suggestions?.length > 0 && <div style={{ marginBottom: 8 }}><strong style={{ fontSize: 12 }}>Good careers:</strong> {interp.career_suggestions.join(', ')}</div>}
+        {interp.relationships && <div style={{ fontSize: 12.5 }}><strong>Relationships:</strong> {interp.relationships}</div>}
+      </>}
+    </div>
+  )
+
+  const unwrap = (x) => x?.data || x
+  const lp = unwrap(result?.lifePath), dn = unwrap(result?.destiny), sl = unwrap(result?.soul), mb = unwrap(result?.mobile)
+
+  return (
+    <ToolShell site={site} COLORS={COLORS} gradient={gradient} icon={Hash}
+      title="Numerology" subtitle={`Your life path, destiny and soul numbers — and what your mobile number says about you. Presented by ${site?.name || 'our astrologer'}.`}>
+      {!result ? (
+        <motion.form onSubmit={submit} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 28, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+            <div><label style={labelStyle}>Full name *</label>
+              <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Name as on documents" style={inputStyle} /></div>
+            <div><label style={labelStyle}>Mobile number (optional)</label>
+              <input type="tel" inputMode="numeric" maxLength={15} value={form.mobile} onChange={(e) => set('mobile', e.target.value)} placeholder="Your mobile number" style={inputStyle} /></div>
+          </div>
+          <div><label style={labelStyle}>Birth date *</label>
+            <DateSelector value={form.date} onChange={(v) => set('date', v)} /></div>
+          <LangSelect value={form.lang} onChange={(v) => set('lang', v)} />
+          {error && <div style={{ color: '#dc2626', fontSize: 13.5 }}>{error}</div>}
+          <button type="submit" disabled={busy} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none', background: gradient, color: '#fff', opacity: busy ? 0.7 : 1, padding: 14 }}>
+            {busy ? 'Calculating…' : 'Reveal My Numbers'}
+          </button>
+        </motion.form>
+      ) : (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+            {lp && CARD(lp.number, 'Life Path Number', lp.description, lp.interpretation)}
+            {dn && CARD(dn.number, 'Destiny Number', dn.description, dn.interpretation)}
+            {sl && CARD(sl.number, 'Soul Urge Number', sl.description, sl.interpretation)}
+            {mb && CARD(mb.number, 'Mobile Number', mb.description, { ...mb.interpretation, rating: mb.rating })}
+          </div>
+          <button onClick={() => setResult(null)} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 700, maxWidth: 240 }}>Check another name</button>
+        </motion.div>
+      )}
+    </ToolShell>
+  )
+}
+
+// ─────────── GEMSTONE PAGE (#/gemstone) ───────────
+export function GemstonePage({ site, resolve, theme, COLORS }) {
+  const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+  const [form, setForm] = useState({ date: '', time: '', place: '', lat: null, lon: null, tz: null, lang: 'en' })
+  const [result, setResult] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!form.date || !form.time) return setError('Please select your birth date and time')
+    if (form.lat == null) return setError('Please select your birth place from the suggestions')
+    setBusy(true); setError(null)
+    try {
+      setResult(await publicGemstoneTool(resolve, {
+        date: form.date, time: form.time, lat: form.lat, lon: form.lon, tz: form.tz, lang: form.lang,
+      }))
+    } catch (err) { setError(errText(err)) } finally { setBusy(false) }
+  }
+
+  const g = (result?.gemstone?.data || result?.gemstone || {})
+  const gem = g.gemstone || {}
+  const wear = g.wearing || {}
+  const alt = g.alternateGemstone
+  const KV = ([k, v]) => v ? <div key={k} style={{ padding: '10px 14px', borderBottom: `1px solid ${COLORS.border}` }}><span style={{ color: COLORS.textDim, fontSize: 12.5, display: 'block' }}>{k}</span><span style={{ fontWeight: 700, fontSize: 14 }}>{String(v)}</span></div> : null
+
+  return (
+    <ToolShell site={site} COLORS={COLORS} gradient={gradient} icon={Gem}
+      title="Gemstone Recommendation" subtitle={`Which gemstone suits your chart — computed from your ascendant and current dasha, not guesswork. Presented by ${site?.name || 'our astrologer'}.`}>
+      {!result ? (
+        <motion.form onSubmit={submit} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 28, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <BirthFields value={form} onChange={setForm} />
+          <LangSelect value={form.lang} onChange={(v) => set('lang', v)} />
+          {error && <div style={{ color: '#dc2626', fontSize: 13.5 }}>{error}</div>}
+          <button type="submit" disabled={busy} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none', background: gradient, color: '#fff', opacity: busy ? 0.7 : 1, padding: 14 }}>
+            {busy ? 'Reading your chart…' : 'Find My Gemstone'}
+          </button>
+        </motion.form>
+      ) : (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 26, textAlign: 'center' }}>
+            {gem.imageUrl && <img src={gem.imageUrl} alt={gem.name} style={{ width: 84, height: 84, borderRadius: 18, objectFit: 'cover', marginBottom: 10 }} onError={(e) => { e.currentTarget.style.display = 'none' }} />}
+            <div style={{ fontSize: 26, fontWeight: 900, color: theme.primaryColor }}>{gem?.name || '—'}</div>
+            {gem?.hindiName && <div style={{ color: COLORS.textDim, fontSize: 14, marginTop: 2 }}>{gem.hindiName}</div>}
+            {g.planet && <div style={{ marginTop: 10, fontSize: 13, background: 'rgba(127,127,127,0.06)', borderRadius: 10, padding: '8px 14px', display: 'inline-block' }}>For planet <strong>{g.planet}</strong></div>}
+            {g.recommendationReason && <div style={{ marginTop: 8, fontSize: 12.5, color: COLORS.textDim }}>Recommended because: {g.recommendationReason}</div>}
+          </div>
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+            {[
+              ['Color', gem?.color],
+              ['Quality to look for', gem?.quality],
+              ['Wear on finger', wear?.finger],
+              ['Metal', wear?.metal],
+              ['Weight', wear?.weightRange],
+              ['Best day to start', wear?.day],
+              ['Mantra', wear?.mantra],
+            ].map(KV)}
+          </div>
+          {(wear?.dos?.length > 0 || wear?.donts?.length > 0) && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+              {wear?.dos?.length > 0 && (
+                <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 18 }}>
+                  <div style={{ fontWeight: 800, color: '#16a34a', fontSize: 13, marginBottom: 10 }}>Do's</div>
+                  {wear.dos.map((d, i) => <div key={i} style={{ fontSize: 13, lineHeight: 1.7 }}>✓ {d}</div>)}
+                </div>
+              )}
+              {wear?.donts?.length > 0 && (
+                <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 18 }}>
+                  <div style={{ fontWeight: 800, color: '#dc2626', fontSize: 13, marginBottom: 10 }}>Don'ts</div>
+                  {wear.donts.map((d, i) => <div key={i} style={{ fontSize: 13, lineHeight: 1.7 }}>✕ {d}</div>)}
+                </div>
+              )}
+            </div>
+          )}
+          {alt && (
+            <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 18 }}>
+              <div style={{ fontWeight: 800, fontSize: 13.5, marginBottom: 6 }}>Alternative: {alt.name} {alt.hindiName ? `(${alt.hindiName})` : ''}</div>
+              <div style={{ fontSize: 13, color: COLORS.textDim }}>{alt.reason}</div>
+            </div>
+          )}
+          <div style={{ fontSize: 12.5, color: COLORS.textDim }}>Gemstones influence your chart's energy — {site?.name || 'consult your astrologer'} can confirm the right weight and muhurat before you buy.</div>
+          <button onClick={() => setResult(null)} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 700, maxWidth: 240 }}>Check another chart</button>
+        </motion.div>
+      )}
+    </ToolShell>
+  )
+}
+
+// ─────────── MUHURAT PAGE (#/muhurat) ───────────
+const MUHURAT_TASKS = [
+  ['marriage', 'Marriage', '💍'], ['engagement', 'Engagement', '💞'],
+  ['business-opening', 'Business opening', '🏪'], ['house-warming', 'House warming (Griha Pravesh)', '🏠'],
+  ['property-purchase', 'Property purchase', '🔑'], ['vehicle-purchase', 'Vehicle purchase', '🚗'],
+  ['naming-ceremony', 'Naming ceremony (Namkaran)', '👶'],
+]
+
+export function MuhuratPage({ site, resolve, theme, COLORS }) {
+  const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+  const [task, setTask] = useState('marriage')
+  const [date, setDate] = useState('')
+  const [lang, setLang] = useState('en')
+  const [result, setResult] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!date) return setError('Please select the date you are planning for')
+    setBusy(true); setError(null)
+    try {
+      setResult(await publicMuhuratTool(resolve, { task, date, lang }))
+    } catch (err) { setError(errText(err)) } finally { setBusy(false) }
+  }
+
+  const m = (result?.muhurat?.data || result?.muhurat || {})
+  const verdict = m.verdict || m.recommendation
+  const windows = m.muhurat || m.favorablePeriods || m.timeWindows || []
+  const good = windows.filter((w) => (w.rating || '').toLowerCase() !== 'avoid')
+  const notes = m.reasons || m.notes || []
+  const panchang = m.panchang || {}
+
+  return (
+    <ToolShell site={site} COLORS={COLORS} gradient={gradient} icon={CalendarDays}
+      title="Shubh Muhurat" subtitle={`Find the auspicious time for weddings, griha pravesh, business openings and more — checked against tithi, nakshatra, rahu kaal and choghadiya. Presented by ${site?.name || 'our astrologer'}.`}>
+      {!result ? (
+        <motion.form onSubmit={submit} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 28, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div><label style={labelStyle}>What are you planning? *</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8 }}>
+              {MUHURAT_TASKS.map(([id, label, emoji]) => (
+                <button type="button" key={id} onClick={() => setTask(id)} style={{
+                  ...inputStyle, cursor: 'pointer', textAlign: 'left', fontWeight: 700, padding: '12px 14px',
+                  borderColor: task === id ? theme.primaryColor : COLORS.border,
+                  background: task === id ? `${theme.primaryColor}14` : 'transparent',
+                }}>{emoji} {label}</button>
+              ))}
+            </div>
+          </div>
+          <div><label style={labelStyle}>Planning date *</label>
+            <DateSelector value={date} onChange={setDate} /></div>
+          <LangSelect value={lang} onChange={setLang} />
+          {error && <div style={{ color: '#dc2626', fontSize: 13.5 }}>{error}</div>}
+          <button type="submit" disabled={busy} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none', background: gradient, color: '#fff', opacity: busy ? 0.7 : 1, padding: 14 }}>
+            {busy ? 'Checking the panchang…' : 'Find Auspicious Timings'}
+          </button>
+        </motion.form>
+      ) : (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 26 }}>
+            <div style={{ fontSize: 13, color: COLORS.textDim, marginBottom: 6 }}>{MUHURAT_TASKS.find(([id]) => id === result.task)?.[1]} — {fmtDate(result.date)}</div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: good.length > 0 ? '#16a34a' : '#d97706' }}>
+              {good.length > 0 ? `✓ ${good.length} auspicious window${good.length > 1 ? 's' : ''} found` : 'No clear auspicious window — pick another date'}
+            </div>
+            {m.description && <p style={{ fontSize: 14, lineHeight: 1.7, margin: '10px 0 0' }}>{m.description}</p>}
+          </div>
+          {panchang.tithi && (
+            <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 18, display: 'flex', gap: 18, flexWrap: 'wrap', fontSize: 13.5 }}>
+              <span>Tithi: <strong>{panchang.tithi}</strong></span>
+              <span>Nakshatra: <strong>{panchang.nakshatra}</strong></span>
+              <span>Yoga: <strong>{panchang.yoga}</strong></span>
+              {m.sunrise && <span>Sunrise <strong>{m.sunrise}</strong> · Sunset <strong>{m.sunset}</strong></span>}
+            </div>
+          )}
+          {windows.length > 0 && (
+            <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 20 }}>
+              <div style={{ fontWeight: 800, fontSize: 13, letterSpacing: 0.8, textTransform: 'uppercase', color: COLORS.textDim, marginBottom: 12 }}>Choghadiya windows</div>
+              {windows.map((w, i) => {
+                const bad = (w.rating || '').toLowerCase() === 'avoid'
+                return (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: `1px solid ${COLORS.border}`, fontSize: 13.5, flexWrap: 'wrap' }}>
+                    <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <span style={{ width: 9, height: 9, borderRadius: 99, background: bad ? '#d97706' : '#16a34a', display: 'inline-block' }} />
+                      {w.name || w.choghadiya}
+                    </span>
+                    <span style={{ display: 'flex', gap: 14, alignItems: 'center', color: COLORS.textDim }}>
+                      <strong style={{ color: COLORS.text }}>{w.startTime} – {w.endTime}</strong>
+                      <span style={{ fontSize: 12 }}>{bad ? '⚠ avoid' : '✓ good'}</span>
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          <button onClick={() => setResult(null)} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 700, maxWidth: 240 }}>Check another date</button>
+        </motion.div>
+      )}
+    </ToolShell>
+  )
+}
+
+// ─────────── LUCKY FINDER PAGE (#/lucky) ───────────
+export function LuckyPage({ site, resolve, theme, COLORS }) {
+  const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+  const [date, setDate] = useState('')
+  const [lang, setLang] = useState('en')
+  const [result, setResult] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!date) return setError('Please select your birth date')
+    setBusy(true); setError(null)
+    try {
+      setResult(await publicLuckyTool(resolve, { date, lang }))
+    } catch (err) { setError(errText(err)) } finally { setBusy(false) }
+  }
+
+  const u = (x) => x?.data || x
+  const colors = u(result?.colors), numbers = u(result?.numbers), days = u(result?.days), metals = u(result?.metals)
+  const Chip = ({ label, value }) => value ? (
+    <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 18, textAlign: 'center' }}>
+      <div style={{ fontSize: 20, fontWeight: 900, color: theme.primaryColor }}>{value}</div>
+      <div style={{ fontSize: 12, color: COLORS.textDim, marginTop: 4 }}>Your {label}</div>
+    </div>
+  ) : null
+  const first = (v) => Array.isArray(v) ? v[0] : v
+
+  return (
+    <ToolShell site={site} COLORS={COLORS} gradient={gradient} icon={Sparkles}
+      title="Lucky Numbers & Colours" subtitle={`Your lucky numbers, colours, days and metals from numerology — quick guidance for important days. Presented by ${site?.name || 'our astrologer'}.`}>
+      {!result ? (
+        <motion.form onSubmit={submit} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 28, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div><label style={labelStyle}>Birth date *</label>
+            <DateSelector value={date} onChange={setDate} /></div>
+          <LangSelect value={lang} onChange={setLang} />
+          {error && <div style={{ color: '#dc2626', fontSize: 13.5 }}>{error}</div>}
+          <button type="submit" disabled={busy} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none', background: gradient, color: '#fff', opacity: busy ? 0.7 : 1, padding: 14 }}>
+            {busy ? 'Calculating…' : 'Find My Lucky Charms'}
+          </button>
+        </motion.form>
+      ) : (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+            <Chip label="lucky number" value={first(numbers?.luckyNumbers || numbers?.luckyNumber)} />
+            <Chip label="lucky colour" value={first(colors?.luckyColors || colors?.luckyColor)} />
+            <Chip label="lucky day" value={first(days?.luckyDays || days?.luckyDay)} />
+            <Chip label="lucky metal" value={first(metals?.luckyMetals || metals?.luckyMetal)} />
+          </div>
+          {(colors?.description || numbers?.description) && (
+            <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 18, fontSize: 13.5, lineHeight: 1.8 }}>
+              {colors?.description || numbers?.description}
+            </div>
+          )}
+          <button onClick={() => setResult(null)} style={{ ...inputStyle, cursor: 'pointer', fontWeight: 700, maxWidth: 240 }}>Check another birth date</button>
+        </motion.div>
+      )}
+    </ToolShell>
+  )
+}
+
+// ─────────── ABOUT / SERVICES / CONTACT SITE PAGES ───────────
+export function AboutPage({ site, pages, theme, COLORS, slug }) {
+  const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+  const about = (pages?.about?.content) || {}
+  const home = (pages?.home?.content) || {}
+  const title = about.title || home.aboutTitle || `About ${site?.name || 'Us'}`
+  const text = about.text || home.aboutText || 'A dedicated Vedic astrologer helping people find clarity through kundli analysis.'
+  const socials = site?.settings || {}
+  return (
+    <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text }}>
+      <header style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 40 }}>
+        <a href="#/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: COLORS.text, fontWeight: 800, fontSize: 15 }}>
+          <ArrowLeft size={16} /> {site?.name || 'Home'}
+        </a>
+        <span style={{ fontWeight: 700, fontSize: 14 }}>About</span>
+      </header>
+      <main style={{ maxWidth: 760, margin: '0 auto', padding: '48px 20px 90px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 30 }}>
+          <div style={{ width: 84, height: 84, borderRadius: 26, background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: 34, margin: '0 auto 18px' }}>
+            {(site?.name || 'A').charAt(0)}
+          </div>
+          <h1 style={{ fontSize: 32, fontWeight: 900, margin: '0 0 10px' }}>{title}</h1>
+          <p style={{ color: COLORS.textDim, fontSize: 15, lineHeight: 1.8, whiteSpace: 'pre-line' }}>{text}</p>
+        </div>
+        {(home.statsYears || home.statsReadings || home.statsRating) && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 30 }}>
+            {home.statsYears && <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 20, textAlign: 'center' }}><div style={{ fontSize: 24, fontWeight: 900, color: theme.primaryColor }}>{home.statsYears}</div><div style={{ fontSize: 12, color: COLORS.textDim }}>Years of practice</div></div>}
+            {home.statsReadings && <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 20, textAlign: 'center' }}><div style={{ fontSize: 24, fontWeight: 900, color: theme.primaryColor }}>{home.statsReadings}</div><div style={{ fontSize: 12, color: COLORS.textDim }}>Kundlis read</div></div>}
+            {home.statsRating && <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 20, textAlign: 'center' }}><div style={{ fontSize: 24, fontWeight: 900, color: theme.primaryColor }}>{home.statsRating}</div><div style={{ fontSize: 12, color: COLORS.textDim }}>Client rating</div></div>}
+          </div>
+        )}
+        {Array.isArray(home.whyPoints) && home.whyPoints.length > 0 && (
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 24 }}>
+            <div style={{ fontWeight: 800, marginBottom: 14 }}>Why clients choose {site?.name}</div>
+            {home.whyPoints.map((w, i) => <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 10, fontSize: 14, lineHeight: 1.6 }}>✦ <span>{w}</span></div>)}
+          </div>
+        )}
+        <div style={{ textAlign: 'center', marginTop: 34 }}>
+          <a href="#services"><button style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, background: gradient, color: '#fff', border: 'none', padding: '13px 26px' }}>Explore services</button></a>
+        </div>
+      </main>
+    </div>
+  )
+}
+
+export function ServicesPage({ site, services, theme, COLORS, resolve }) {
+  const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+  return (
+    <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text }}>
+      <header style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 40 }}>
+        <a href="#/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: COLORS.text, fontWeight: 800, fontSize: 15 }}>
+          <ArrowLeft size={16} /> {site?.name || 'Home'}
+        </a>
+        <span style={{ fontWeight: 700, fontSize: 14 }}>Services</span>
+      </header>
+      <main style={{ maxWidth: 900, margin: '0 auto', padding: '48px 20px 90px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+          <h1 style={{ fontSize: 32, fontWeight: 900, margin: '0 0 10px' }}>Services & Consultations</h1>
+          <p style={{ color: COLORS.textDim, fontSize: 15 }}>Every session is prepared personally by {site?.name || 'your astrologer'} — pick a service below to see available times and book online.</p>
+        </div>
+        {(services || []).length === 0 ? (
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 40, textAlign: 'center', color: COLORS.textDim }}>
+            Services are being updated — please check back soon, or <a href="#contact" style={{ color: theme.primaryColor }}>get in touch</a>.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
+            {services.map((s) => (
+              <div key={s.id} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>{s.name}</div>
+                {s.description && <div style={{ fontSize: 13.5, color: COLORS.textDim, lineHeight: 1.7, flex: 1 }}>{s.description}</div>}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                  <span style={{ fontWeight: 900, fontSize: 18, color: theme.primaryColor }}>₹{s.price}</span>
+                  <span style={{ fontSize: 12, color: COLORS.textDim }}>⏱ {s.duration_minutes} min</span>
+                </div>
+                <a href={`#book-${s.id}`}><button style={{ ...inputStyle, cursor: 'pointer', fontWeight: 700, background: gradient, color: '#fff', border: 'none', padding: 11 }}>Book this service</button></a>
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+    </div>
+  )
+}
+
+export function ContactPage({ site, theme, COLORS }) {
+  const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+  const s = site?.settings || {}
+  const rows = [
+    ['Email', s.email, '✉️'],
+    ['Phone / WhatsApp', s.phone, '📞'],
+    ['City', s.city, '📍'],
+    ['Website', s.websiteUrl, '🌐'],
+  ].filter(([, v]) => !!v)
+  return (
+    <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text }}>
+      <header style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 40 }}>
+        <a href="#/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: COLORS.text, fontWeight: 800, fontSize: 15 }}>
+          <ArrowLeft size={16} /> {site?.name || 'Home'}
+        </a>
+        <span style={{ fontWeight: 700, fontSize: 14 }}>Contact</span>
+      </header>
+      <main style={{ maxWidth: 640, margin: '0 auto', padding: '48px 20px 90px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 34 }}>
+          <h1 style={{ fontSize: 32, fontWeight: 900, margin: '0 0 10px' }}>Get in Touch</h1>
+          <p style={{ color: COLORS.textDim, fontSize: 15, lineHeight: 1.8 }}>Questions about a reading, booking or remedy? {site?.name || 'We'} usually reply the same day.</p>
+        </div>
+        {rows.length === 0 ? (
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 40, textAlign: 'center', color: COLORS.textDim }}>
+            Contact details coming soon — meanwhile, use the booking form on the <a href="#services" style={{ color: theme.primaryColor }}>services page</a>.
+          </div>
+        ) : (
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+            {rows.map(([label, value, icon]) => (
+              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 22px', borderBottom: `1px solid ${COLORS.border}`, gap: 12 }}>
+                <span style={{ display: 'flex', gap: 8, alignItems: 'center', color: COLORS.textDim, fontSize: 13.5 }}>{icon} {label}</span>
+                <span style={{ fontWeight: 700, fontSize: 14.5, wordBreak: 'break-all' }}>{value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ textAlign: 'center', marginTop: 30 }}>
+          <a href="#services"><button style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, background: gradient, color: '#fff', border: 'none', padding: '13px 26px' }}>Book a consultation</button></a>
+        </div>
       </main>
     </div>
   )

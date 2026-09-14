@@ -375,6 +375,14 @@ class MatchingToolBody(BaseModel):
 class DoshaToolBody(_BirthCoords):
     lang: Optional[str] = Field("en", max_length=10, description="Report language: en, hi, ta, te, kn, ml, bn, mr, gu, pa")
 
+    class Config:
+        extra = "forbid"
+
+
+class HoroscopeToolBody(_BirthCoords):
+    period: str = Field("daily", pattern="^(daily|weekly|monthly|yearly)$")
+    lang: Optional[str] = Field("en", max_length=10)
+
 
 
 # CPU-heavy public tools get a modest per-IP cap (shared limiter with location).
@@ -497,6 +505,157 @@ async def tenant_dosha_tool(body: DoshaToolBody, request: Request, slug: str = N
     }
 
 
+@router.post("/site/tools/horoscope")
+async def tenant_horoscope_tool(body: HoroscopeToolBody, request: Request, slug: str = None, domain: str = None):
+    """Personal daily/weekly/monthly/yearly horoscope from the visitor's own
+    birth chart (unlike the public widget, which is sign-only)."""
+    _tool_limit(request)
+    site = _resolve_site(slug, domain)
+    from .horoscope_text import HoroscopeRequest, daily_horoscope, weekly_horoscope, \
+        monthly_horoscope, yearly_horoscope
+    fn = {"daily": daily_horoscope, "weekly": weekly_horoscope,
+          "monthly": monthly_horoscope, "yearly": yearly_horoscope}.get(body.period)
+    try:
+        result = fn(
+            HoroscopeRequest(
+                dateOfBirth=body.date, timeOfBirth=body.time,
+                latitude=body.lat if body.lat is not None else _DEFAULT_PLACE["lat"],
+                longitude=body.lon if body.lon is not None else _DEFAULT_PLACE["lon"],
+                timezone=body.tz or _DEFAULT_PLACE["tz"],
+            ),
+            request=_stub_request(body.lang),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not generate the horoscope — {str(e)[:120]}")
+    data = result.get("data", result) if isinstance(result, dict) else {}
+    return {"period": body.period, "horoscope": data, "astrologer": site["name"]}
+
+
+class NumerologyToolBody(BaseModel):
+    fullName: Optional[str] = Field(None, max_length=120)
+    date: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    mobileNumber: Optional[str] = Field(None, max_length=20)
+    lang: Optional[str] = Field("en", max_length=10)
+
+    class Config:
+        extra = "forbid"
+
+
+@router.post("/site/tools/numerology")
+async def tenant_numerology_tool(body: NumerologyToolBody, request: Request, slug: str = None, domain: str = None):
+    """Numerology reading for a tenant site's visitor: life-path (birth date),
+    destiny & soul numbers (name) and mobile-number analysis, in one call."""
+    _tool_limit(request)
+    site = _resolve_site(slug, domain)
+    from .numerology import LifePathRequest, DestinyRequest, SoulRequest, MobileRequest, \
+        life_path_number, destiny_number, soul_number, mobile_number
+
+    out = {"astrologer": site["name"]}
+    for key, body_cls, fn, payload in [
+        ("lifePath", LifePathRequest, life_path_number,
+         {"dateOfBirth": body.date} if body.date else None),
+        ("destiny", DestinyRequest, destiny_number,
+         {"fullName": body.fullName} if body.fullName else None),
+        ("soul", SoulRequest, soul_number,
+         {"fullName": body.fullName} if body.fullName else None),
+        ("mobile", MobileRequest, mobile_number,
+         {"mobileNumber": body.mobileNumber} if body.mobileNumber else None),
+    ]:
+        if payload is None:
+            continue
+        payload["lang"] = body.lang
+        try:
+            out[key] = await fn(body_cls(**payload), _stub_request(body.lang))
+        except Exception as e:
+            out[key] = {"error": str(e)[:200]}
+    return out
+
+
+class GemstoneToolBody(_BirthCoords):
+    lang: Optional[str] = Field("en", max_length=10)
+
+    class Config:
+        extra = "forbid"
+
+
+@router.post("/site/tools/gemstone")
+async def tenant_gemstone_tool(body: GemstoneToolBody, request: Request, slug: str = None, domain: str = None):
+    """Personal gemstone recommendation computed from the visitor's chart
+    (lagna lord + current mahadasha lord)."""
+    _tool_limit(request)
+    site = _resolve_site(slug, domain)
+    from .gemstone import BirthDetailRequest, gemstone_recommendation
+    try:
+        rec = await gemstone_recommendation(
+            BirthDetailRequest(
+                dateOfBirth=body.date, timeOfBirth=body.time,
+                latitude=body.lat if body.lat is not None else _DEFAULT_PLACE["lat"],
+                longitude=body.lon if body.lon is not None else _DEFAULT_PLACE["lon"],
+                timezone=body.tz or _DEFAULT_PLACE["tz"], lang=body.lang,
+            ),
+            request=_stub_request(body.lang),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not recommend a gemstone — {str(e)[:120]}")
+    return {"gemstone": rec, "astrologer": site["name"]}
+
+
+class MuhuratToolBody(BaseModel):
+    task: str = Field(..., pattern="^(marriage|engagement|business-opening|house-warming|property-purchase|vehicle-purchase|naming-ceremony)$")
+    date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+    lang: Optional[str] = Field("en", max_length=10)
+
+    class Config:
+        extra = "forbid"
+
+
+@router.post("/site/tools/muhurat")
+async def tenant_muhurat_tool(body: MuhuratToolBody, request: Request, slug: str = None, domain: str = None):
+    """Auspicious timings (shubh muhurat) for a task on a chosen date."""
+    _tool_limit(request)
+    site = _resolve_site(slug, domain)
+    path = {
+        "marriage": "/horoscope/muhurat/marriage", "engagement": "/horoscope/muhurat/engagement",
+        "business-opening": "/horoscope/muhurat/business-opening", "house-warming": "/horoscope/muhurat/griha-pravesh",
+        "property-purchase": "/horoscope/muhurat/property-purchase", "vehicle-purchase": "/horoscope/muhurat/vehicle-purchase",
+        "naming-ceremony": "/horoscope/muhurat/naming-ceremony",
+    }[body.task]
+    payload = {
+        "dateOfBirth": body.date, "lang": body.lang,
+        "latitude": _DEFAULT_PLACE["lat"], "longitude": _DEFAULT_PLACE["lon"],
+        "timezone": _DEFAULT_PLACE["tz"],
+    }
+    result = await _acall_internal(path, payload, body.lang)
+    if result is None or (isinstance(result, dict) and result.get("error")):
+        raise HTTPException(status_code=400, detail="Could not compute the muhurat — check the date")
+    return {"task": body.task, "date": body.date, "muhurat": result, "astrologer": site["name"]}
+
+
+class LuckyToolBody(BaseModel):
+    date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+    lang: Optional[str] = Field("en", max_length=10)
+
+    class Config:
+        extra = "forbid"
+
+
+@router.post("/site/tools/lucky")
+async def tenant_lucky_tool(body: LuckyToolBody, request: Request, slug: str = None, domain: str = None):
+    """Lucky colors / numbers / days / metals for a birth date — quick daily guidance."""
+    _tool_limit(request)
+    site = _resolve_site(slug, domain)
+    out = {"astrologer": site["name"]}
+    for key, path in [("colors", "/lucky/color"), ("numbers", "/lucky/number"),
+                      ("days", "/lucky/day"), ("metals", "/lucky/metal")]:
+        try:
+            res = await _acall_internal(path, {"dateOfBirth": body.date, "lang": body.lang}, body.lang)
+            data = res.get("data", res) if isinstance(res, dict) else {}
+            out[key] = data
+        except Exception as e:
+            out[key] = {"error": str(e)[:200]}
+    return out
+
+
 @router.get("/site/tools/panchang")
 def tenant_panchang_tool(slug: str = None, domain: str = None, date_str: str = None):
     """Today's panchang for a tenant site's daily widget."""
@@ -574,7 +733,8 @@ def coroutine_type():
 
 def _call_internal(path: str, payload: dict, lang: str = "en"):
     """Invoke one of the platform's own POST endpoints in-process (no HTTP),
-    supplying a stub Request carrying the requested report language."""
+    supplying a stub Request carrying the requested report language. Safe from
+    sync endpoints only; from async endpoints use _acall_internal."""
     import asyncio
     import inspect
     from types import SimpleNamespace
@@ -592,6 +752,29 @@ def _call_internal(path: str, payload: dict, lang: str = "en"):
             result = route.endpoint(**kwargs)
             if inspect.iscoroutine(result):
                 result = asyncio.run(result)
+            return _sanitize(result)
+    return None
+
+
+async def _acall_internal(path: str, payload: dict, lang: str = "en"):
+    """Async variant of _call_internal — awaits coroutine endpoints instead of
+    asyncio.run(), which is illegal inside a running event loop."""
+    import inspect
+    from types import SimpleNamespace
+    from ..main import app as _app
+
+    stub = SimpleNamespace(headers={"accept-language": lang})
+    for route in _app.routes:
+        if getattr(route, "path", None) == path and hasattr(route, "endpoint"):
+            kwargs = {}
+            for pname, param in inspect.signature(route.endpoint).parameters.items():
+                if pname == "request":
+                    kwargs[pname] = stub
+                elif hasattr(param.annotation, "model_validate"):
+                    kwargs[pname] = param.annotation.model_validate(payload)
+            result = route.endpoint(**kwargs)
+            if inspect.iscoroutine(result):
+                result = await result
             return _sanitize(result)
     return None
 
