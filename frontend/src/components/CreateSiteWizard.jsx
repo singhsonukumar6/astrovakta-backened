@@ -157,7 +157,7 @@ function CreateSiteWizard({ onCreated }) {
             style={{ ...cardStyle, padding: 32 }}>
             <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Choose your web address</h2>
             <p style={{ color: '#475569', fontSize: 14, marginBottom: 28, lineHeight: 1.6 }}>
-              This becomes your free website address. You can connect your own domain (like astrovakra.com) anytime after.
+              This becomes your free website address. You can connect your own domain (like yourname.com) anytime after.
             </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 10 }}>
               <input value={slugClean} onChange={(e) => setSlug(e.target.value)} placeholder="pandit-rajesh" autoFocus

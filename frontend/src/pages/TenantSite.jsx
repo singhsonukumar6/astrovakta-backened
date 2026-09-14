@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Star, Calendar, Clock, Check, Sparkles, Moon, ArrowRight,
-  ChevronLeft, ChevronRight, ChevronDown, Globe, BadgeCheck, Sparkle, Send,
+  ChevronLeft, ChevronRight, Globe, BadgeCheck, Sparkle, Send,
   MapPin, Mail, Phone, ShoppingCart, Plus, Minus, ShoppingCart as CartIcon,
   ShieldCheck, HeartHandshake, Lock, UserCheck, Package, ShoppingBag, ScrollText, Heart,
 } from 'lucide-react'
@@ -27,7 +27,7 @@ import {
   publicHoroscopeTool, publicPlaceOrder, getTenantSession,
 } from '../lib/api.js'
 import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
-import { KundliPage, MatchingPage, TenantSignIn, TenantAccount, ShopPage, ProductPage, HoroscopePage, NumerologyPage, GemstonePage, MuhuratPage, LuckyPage, AboutPage, ServicesPage, ContactPage } from './TenantTools.jsx'
+import { TenantHeader, KundliPage, MatchingPage, TenantSignIn, TenantAccount, ShopPage, ProductPage, HoroscopePage, NumerologyPage, GemstonePage, MuhuratPage, LuckyPage, AboutPage, ServicesPage, ContactPage } from './TenantTools.jsx'
 import { tenantSiteUrl, tenantSubdomainLabel, tenantAuthReturnKey, tenantBookingDraftKey, tenantCartKey } from '../lib/tenant.js'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -854,77 +854,6 @@ function StoreSection({ site, resolve, theme, COLORS }) {
 // Resolves either by slug (/s/:slug route or tenant subdomain) or by custom
 // domain (when the App shell renders it for a foreign hostname).
 
-// Visitor account chip (per-tenant session lives in localStorage under tenantAuth_<slug>)
-function VisitorBadge({ slug, COLORS, theme }) {
-  const [session, setSession] = useState(() => getTenantSession(slug))
-  if (!session) {
-    return <a href="#/signin" style={{ textDecoration: 'none', fontSize: 14, fontWeight: 600, color: COLORS.textDim, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-      Sign in
-    </a>
-  }
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, color: COLORS.text }}>
-      <a href="#/account" title="My account — consultations & orders"
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: COLORS.text }}>
-        <span style={{ width: 26, height: 26, borderRadius: '50%', background: theme.primaryColor, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800 }}>
-          {(session.user?.name || session.user?.email || '?').trim().charAt(0).toUpperCase()}
-        </span>
-        <span style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session.user?.name || session.user?.email}</span>
-      </a>
-      <button onClick={() => { localStorage.removeItem(`tenantAuth_${slug}`); setSession(null) }}
-        style={{ background: 'none', border: 'none', color: COLORS.textDim, cursor: 'pointer', fontSize: 12.5, textDecoration: 'underline', padding: 0 }}>
-        Sign out
-      </button>
-    </span>
-  )
-}
-
-// "Tools" dropdown in the tenant nav — keeps the header light while every
-// free tool stays one click away. Opens on hover (desktop) or tap.
-function NavToolsMenu({ COLORS, theme }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [])
-
-  const items = [
-    ['#/horoscope', 'Horoscope', 'Daily to yearly forecasts'],
-    ['#/muhurat', 'Muhurat', 'Auspicious timings'],
-    ['#/numerology', 'Numerology', 'Numbers & name analysis'],
-    ['#/gemstone', 'Gemstone', 'Stone recommendations'],
-    ['#/lucky', 'Lucky Today', 'Numbers, colours & days'],
-  ]
-
-  return (
-    <div ref={ref} style={{ position: 'relative' }}
-      onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
-      <button type="button" onClick={() => setOpen((o) => !o)}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 14, fontWeight: 600, color: COLORS.textDim }}>
-        Tools <ChevronDown size={14} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-      </button>
-      {open && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 10px)', left: 0, zIndex: 60, minWidth: 230,
-          background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14,
-          boxShadow: '0 16px 40px rgba(0,0,0,0.18)', padding: 8, overflow: 'hidden',
-        }}>
-          {items.map(([href, label, hint]) => (
-            <a key={href} href={href} onClick={() => setOpen(false)}
-              style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '9px 12px', borderRadius: 10, textDecoration: 'none' }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: COLORS.text }}>{label}</span>
-              <span style={{ fontSize: 11.5, color: COLORS.textDim }}>{hint}</span>
-            </a>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export default function TenantSite({ slug: slugProp, domain: domainProp }) {
   const { slug: slugParam } = useParams()
   const slug = slugProp || slugParam
@@ -987,33 +916,32 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
     : { bg: '#0a0a1a', surface: 'rgba(255,255,255,0.04)', text: '#f1f0ff', textDim: 'rgba(241,240,255,0.6)', border: 'rgba(255,255,255,0.1)', heroOverlay: 'rgba(10,10,26,0.6)' }
 
   const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+  const showStoreEarly = settings.showStore && (site._products || []).length > 0
 
   // Tool pages live on their own hash routes so the landing page stays clean.
-  if (route.startsWith('#/kundli')) return <KundliPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
-  if (route.startsWith('#/matching')) return <MatchingPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
-  if (route.startsWith('#/horoscope')) return <HoroscopePage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
-  if (route.startsWith('#/numerology')) return <NumerologyPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
-  if (route.startsWith('#/gemstone')) return <GemstonePage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
-  if (route.startsWith('#/muhurat')) return <MuhuratPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
-  if (route.startsWith('#/lucky')) return <LuckyPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
-  if (route.startsWith('#/about')) return <AboutPage site={site} pages={bundle?.pages} theme={theme} COLORS={COLORS} slug={slug} />
-  if (route.startsWith('#/services')) return <ServicesPage site={site} services={services} theme={theme} COLORS={COLORS} resolve={resolve} />
-  if (route.startsWith('#/contact')) return <ContactPage site={site} theme={theme} COLORS={COLORS} />
-  if (route.startsWith('#/signin')) return <TenantSignIn site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
-  if (route.startsWith('#/account')) return <TenantAccount site={site} resolve={resolve} theme={theme} COLORS={COLORS} slug={slug} services={services} />
+  if (route.startsWith('#/kundli')) return <KundliPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} showStore={showStoreEarly} />
+  if (route.startsWith('#/matching')) return <MatchingPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} showStore={showStoreEarly} />
+  if (route.startsWith('#/horoscope')) return <HoroscopePage site={site} resolve={resolve} theme={theme} COLORS={COLORS} showStore={showStoreEarly} />
+  if (route.startsWith('#/numerology')) return <NumerologyPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} showStore={showStoreEarly} />
+  if (route.startsWith('#/gemstone')) return <GemstonePage site={site} resolve={resolve} theme={theme} COLORS={COLORS} showStore={showStoreEarly} />
+  if (route.startsWith('#/muhurat')) return <MuhuratPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} showStore={showStoreEarly} />
+  if (route.startsWith('#/lucky')) return <LuckyPage site={site} resolve={resolve} theme={theme} COLORS={COLORS} showStore={showStoreEarly} />
+  if (route.startsWith('#/about')) return <AboutPage site={site} pages={bundle?.pages} theme={theme} COLORS={COLORS} showStore={showStoreEarly} slug={slug} />
+  if (route.startsWith('#/services')) return <ServicesPage site={site} services={services} theme={theme} COLORS={COLORS} showStore={showStoreEarly} resolve={resolve} />
+  if (route.startsWith('#/contact')) return <ContactPage site={site} theme={theme} COLORS={COLORS} showStore={showStoreEarly} />
+  if (route.startsWith('#/signin')) return <TenantSignIn site={site} resolve={resolve} theme={theme} COLORS={COLORS} showStore={showStoreEarly} />
+  if (route.startsWith('#/account')) return <TenantAccount site={site} resolve={resolve} theme={theme} COLORS={COLORS} showStore={showStoreEarly} slug={slug} services={services} />
   const shopHome = (bundle?.pages?.home?.content) || {}
   const shopProducts = (bundle?.products) || []
   const shopIdMatch = route.match(/^#\/shop\/(\d+)$/)
   if (route.startsWith('#/shop/')) {
     if (!bundle) return null
-    return <ProductPage site={{ ...bundle.site, _products: shopProducts }} resolve={resolve} theme={theme} COLORS={COLORS} productId={shopIdMatch[1]} />
+    return <ProductPage site={{ ...bundle.site, _products: shopProducts }} resolve={resolve} theme={theme} COLORS={COLORS} showStore={showStoreEarly} productId={shopIdMatch[1]} />
   }
   if (route.startsWith('#/shop')) {
     if (!bundle) return null
-    return <ShopPage site={{ ...bundle.site, _products: shopProducts }} resolve={resolve} theme={theme} COLORS={COLORS} />
+    return <ShopPage site={{ ...bundle.site, _products: shopProducts }} resolve={resolve} theme={theme} COLORS={COLORS} showStore={showStoreEarly} />
   }
-  if (route.startsWith('#/signin')) return <TenantSignIn site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
-  if (route.startsWith('#/account')) return <TenantAccount site={site} resolve={resolve} theme={theme} COLORS={COLORS} slug={slug} services={services} />
 
   const sectionStyle = { maxWidth: 1000, margin: '0 auto', padding: '72px 20px' }
   const h2Style = { fontSize: 32, fontWeight: 800, marginBottom: 12, color: COLORS.text, textAlign: 'center' }
@@ -1044,39 +972,8 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
         ? `.tenant-site h1, .tenant-site h2, .tenant-site h3, .tenant-site .tenant-font { font-family: ${theme.fontHeading}; }`
           : ''}</style>
 
-      {/* ─── header ─── */}
-      <header style={{
-        position: 'sticky', top: 0, zIndex: 50,
-        background: light ? 'rgba(255,255,255,0.85)' : 'rgba(10,10,26,0.85)',
-        backdropFilter: 'blur(12px)', borderBottom: `1px solid ${COLORS.border}`,
-      }}>
-        <div style={{ maxWidth: 1000, margin: '0 auto', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <a href="#top" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: COLORS.text }}>
-            {site.logo_url
-              ? <img src={site.logo_url} alt={site.name} style={{ width: 38, height: 38, borderRadius: 12, objectFit: 'cover', border: `1px solid ${COLORS.border}` }} />
-              : <div style={{ width: 38, height: 38, borderRadius: 12, background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 16 }}>
-                  {(site.name || 'A').charAt(0)}
-                </div>}
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 16 }}>{site.name}</div>
-              {site.tagline && <div style={{ fontSize: 11, opacity: 0.6 }}>{site.tagline}</div>}
-            </div>
-          </a>
-          <nav style={{ display: 'flex', gap: 18, alignItems: 'center', fontSize: 14, fontWeight: 600, flexWrap: 'wrap' }}>
-            <a href="#/about" style={{ color: COLORS.textDim, textDecoration: 'none' }}>About</a>
-            <a href="#/services" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Services</a>
-            {showStore && <a href="#/shop" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Shop</a>}
-            <a href="#/kundli" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Free Kundli</a>
-            <a href="#/matching" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Match Making</a>
-            <NavToolsMenu COLORS={COLORS} theme={theme} />
-            <VisitorBadge slug={slug} COLORS={COLORS} theme={theme} />
-            <a href="#book" style={{
-              padding: '9px 20px', borderRadius: 10, background: gradient, color: '#fff', textDecoration: 'none',
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}><Calendar size={15} /> Book Now</a>
-          </nav>
-        </div>
-      </header>
+      {/* ─── header (shared across every public page) ─── */}
+      <TenantHeader site={site} theme={theme} COLORS={COLORS} showStore={showStore} />
 
       {/* ─── hero ─── */}
       <section id="top" style={{

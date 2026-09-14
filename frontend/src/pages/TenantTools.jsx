@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
-import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight, Gem, Hash, Heart, LogOut, Moon, ScrollText, ShoppingBag, Sparkles, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
+import { CalendarDays, ChevronDown, ChevronRight, Gem, Hash, Heart, LogOut, Moon, ScrollText, ShoppingBag, Sparkles, AlertTriangle, CheckCircle2, Loader2, Menu as MenuIcon, X as XIcon, Calendar as CalendarIcon } from 'lucide-react'
 import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
 import { signUpWithEmailAndVerify } from '../lib/firebase.js'
 import {
@@ -12,6 +12,185 @@ import {
 } from '../lib/api.js'
 import { tenantAuthReturnKey } from '../lib/tenant.js'
 
+// ─────────── shared header for EVERY public tenant page ───────────
+// The astrologer's brand bar: logo, nav links, Tools dropdown (click to
+// open, click again or outside to close), Book Now, and the visitor chip.
+// Below 840px the links collapse into a hamburger sheet.
+
+const HEADER_TOOLS = [
+  ['#/horoscope', 'Horoscope', 'Daily to yearly forecasts'],
+  ['#/muhurat', 'Muhurat', 'Auspicious timings'],
+  ['#/numerology', 'Numerology', 'Numbers & name analysis'],
+  ['#/gemstone', 'Gemstone', 'Stone recommendations'],
+  ['#/lucky', 'Lucky Today', 'Numbers, colours & days'],
+]
+
+export function TenantHeader({ site, theme, COLORS, showStore, active }) {
+  const [toolsOpen, setToolsOpen] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const toolsRef = useRef(null)
+  const navRef = useRef(null)
+  const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (toolsRef.current && !toolsRef.current.contains(e.target)) setToolsOpen(false)
+      if (navRef.current && !navRef.current.contains(e.target)) setMobileOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [])
+
+  const goHash = () => { setToolsOpen(false); setMobileOpen(false) }
+
+  const linkStyle = (href) => ({
+    color: active && href === active ? COLORS.text : COLORS.textDim,
+    textDecoration: 'none', fontSize: 14, fontWeight: 600,
+  })
+
+  const navLinks = (
+    <>
+      <a href="#/about" style={linkStyle('#/about')}>About</a>
+      <a href="#/services" style={linkStyle('#/services')}>Services</a>
+      {showStore && <a href="#/shop" style={linkStyle('#/shop')}>Shop</a>}
+      <a href="#/kundli" style={linkStyle('#/kundli')}>Free Kundli</a>
+      <a href="#/matching" style={linkStyle('#/matching')}>Match Making</a>
+      <div ref={toolsRef} style={{ position: 'relative' }}>
+        <button type="button" onClick={() => setToolsOpen((o) => !o)}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 14, fontWeight: 600, color: COLORS.textDim }}>
+          Tools
+          <ChevronDown size={14} style={{ transform: toolsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+        </button>
+        {toolsOpen && (
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 10px)', left: 0, zIndex: 100, minWidth: 230,
+            background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14,
+            boxShadow: '0 16px 40px rgba(0,0,0,0.18)', padding: 8, overflow: 'hidden',
+          }}>
+            {HEADER_TOOLS.map(([href, label, hint]) => (
+              <a key={href} href={href} onClick={goHash}
+                style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '9px 12px', borderRadius: 10, textDecoration: 'none' }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: COLORS.text }}>{label}</span>
+                <span style={{ fontSize: 11.5, color: COLORS.textDim }}>{hint}</span>
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+      <VisitorChip site={site} COLORS={COLORS} theme={theme} />
+      <a href="#book" onClick={goHash} style={{
+        padding: '9px 20px', borderRadius: 10, background: gradient, color: '#fff', textDecoration: 'none',
+        display: 'flex', alignItems: 'center', gap: 6,
+      }}><CalendarIcon size={15} /> Book Now</a>
+    </>
+  )
+
+  return (
+    <header style={{
+      position: 'sticky', top: 0, zIndex: 90,
+      background: theme.bgStyle === 'light' ? 'rgba(255,255,255,0.85)' : 'rgba(10,10,26,0.85)',
+      backdropFilter: 'blur(12px)', borderBottom: `1px solid ${COLORS.border}`,
+    }}>
+      {/* hamburger — screens narrower than the full nav */}
+      <div className="tenant-header-hamburger" style={{ display: 'none', padding: '12px 16px', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <a href="#top" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: COLORS.text }}>
+          <BrandMark site={site} gradient={gradient} />
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 15 }}>{site?.name}</div>
+            {site?.tagline && <div style={{ fontSize: 10.5, opacity: 0.6 }}>{site.tagline}</div>}
+          </div>
+        </a>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <a href="#book" onClick={goHash} style={{ padding: '8px 14px', borderRadius: 9, background: gradient, color: '#fff', textDecoration: 'none', fontWeight: 700, fontSize: 13 }}>
+            Book Now
+          </a>
+          <button type="button" onClick={() => setMobileOpen((o) => !o)} aria-label="Menu"
+            style={{ background: 'none', border: `1px solid ${COLORS.border}`, borderRadius: 9, padding: 7, cursor: 'pointer', color: COLORS.text, display: 'flex' }}>
+            {mobileOpen ? <XIcon size={18} /> : <MenuIcon size={18} />}
+          </button>
+        </div>
+      </div>
+
+      {/* desktop bar */}
+      <div className="tenant-header-desktop" style={{ maxWidth: 1000, margin: '0 auto', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+        <a href="#top" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: COLORS.text }}>
+          <BrandMark site={site} gradient={gradient} />
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 16 }}>{site?.name}</div>
+            {site?.tagline && <div style={{ fontSize: 11, opacity: 0.6 }}>{site.tagline}</div>}
+          </div>
+        </a>
+        <nav style={{ display: 'flex', gap: 18, alignItems: 'center', fontSize: 14, fontWeight: 600 }}>
+          {navLinks}
+        </nav>
+      </div>
+
+      {/* mobile sheet */}
+      {mobileOpen && (
+        <div ref={navRef} style={{
+          padding: '10px 16px 18px', display: 'flex', flexDirection: 'column', gap: 4,
+          borderTop: `1px solid ${COLORS.border}`, background: theme.bgStyle === 'light' ? 'rgba(255,255,255,0.97)' : 'rgba(10,10,26,0.97)',
+        }}>
+          {[['#/about', 'About'], ['#/services', 'Services'], ...(showStore ? [['#/shop', 'Shop']] : []), ['#/kundli', 'Free Kundli'], ['#/matching', 'Match Making']].map(([href, label]) => (
+            <a key={href} href={href} onClick={goHash} style={{ ...linkStyle(href), padding: '10px 4px', borderBottom: `1px solid ${COLORS.border}` }}>{label}</a>
+          ))}
+          <div style={{ padding: '10px 4px 2px', fontWeight: 800, fontSize: 12, letterSpacing: 0.6, color: COLORS.textDim }}>TOOLS</div>
+          {HEADER_TOOLS.map(([href, label]) => (
+            <a key={href} href={href} onClick={goHash} style={{ ...linkStyle(href), padding: '10px 4px', borderBottom: `1px solid ${COLORS.border}` }}>{label}</a>
+          ))}
+          <div style={{ padding: '12px 4px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <VisitorChip site={site} COLORS={COLORS} theme={theme} />
+            <a href="#book" onClick={goHash} style={{
+              padding: '9px 20px', borderRadius: 10, background: gradient, color: '#fff', textDecoration: 'none',
+              display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 14,
+            }}><CalendarIcon size={15} /> Book Now</a>
+          </div>
+        </div>
+      )}
+      <style>{`@media (max-width: 840px) {
+        .tenant-header-desktop { display: none !important; }
+        .tenant-header-hamburger { display: flex !important; }
+      }`}</style>
+    </header>
+  )
+}
+
+function BrandMark({ site, gradient }) {
+  if (site?.logo_url) {
+    return <img src={site.logo_url} alt={site.name} style={{ width: 38, height: 38, borderRadius: 12, objectFit: 'cover' }} />
+  }
+  return (
+    <div style={{ width: 38, height: 38, borderRadius: 12, background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 16 }}>
+      {(site?.name || 'A').charAt(0)}
+    </div>
+  )
+}
+
+// Visitor sign-in chip / avatar in the header (shared across all pages).
+function VisitorChip({ site, COLORS, theme }) {
+  const slug = site?.slug
+  const [session, setSession] = useState(() => getTenantSession(slug))
+  if (!slug) return null
+  if (!session) {
+    return <a href="#/signin" style={{ textDecoration: 'none', fontSize: 14, fontWeight: 600, color: COLORS.textDim }}>Sign in</a>
+  }
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, color: COLORS.text }}>
+      <a href="#/account" title="My account — consultations & orders"
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: COLORS.text }}>
+        <span style={{ width: 26, height: 26, borderRadius: '50%', background: theme.primaryColor, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800 }}>
+          {(session.user?.name || session.user?.email || '?').trim().charAt(0).toUpperCase()}
+        </span>
+        <span style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session.user?.name || session.user?.email}</span>
+      </a>
+      <button onClick={() => { localStorage.removeItem(`tenantAuth_${slug}`); setSession(null) }}
+        style={{ background: 'none', border: 'none', color: COLORS.textDim, cursor: 'pointer', fontSize: 12.5, textDecoration: 'underline', padding: 0 }}>
+        Sign out
+      </button>
+    </span>
+  )
+}
+
 // ─────────── shared bits for tenant tool pages ───────────
 const errText = (e) => {
   const d = e?.response?.data
@@ -19,17 +198,10 @@ const errText = (e) => {
   return (typeof msg === 'string' && msg) || 'Something went wrong — please try again'
 }
 
-function ToolShell({ site, COLORS, gradient, title, subtitle, icon: Icon, children }) {
+function ToolShell({ site, COLORS, gradient, theme, showStore, active, title, subtitle, icon: Icon, children }) {
   return (
     <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text }}>
-      <header style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <a href="#/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: COLORS.text, fontWeight: 800, fontSize: 15 }}>
-          <ArrowLeft size={16} /> {site?.name || 'Home'}
-        </a>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontWeight: 700, fontSize: 14 }}>
-          <Icon size={16} color={theme_color(gradient)} /> {title}
-        </span>
-      </header>
+      <TenantHeader site={site} theme={theme} COLORS={COLORS} showStore={showStore} active={active} />
       <main style={{ maxWidth: 900, margin: '0 auto', padding: '36px 18px 90px' }}>
         <div style={{ textAlign: 'center', marginBottom: 30 }}>
           <h1 style={{ fontSize: 32, fontWeight: 900, letterSpacing: '-0.5px', margin: '0 0 10px' }}>{title}</h1>
@@ -239,7 +411,7 @@ export function KundliPage({ site, resolve, theme, COLORS }) {
   }
 
   return (
-    <ToolShell site={site} COLORS={COLORS} gradient={gradient} icon={ScrollText}
+    <ToolShell site={site} COLORS={COLORS} gradient={gradient} theme={theme} active="#/kundli" icon={ScrollText}
       title="Free Kundli" subtitle={`Complete Vedic birth chart with lagna, planets, dasha and dosha analysis — computed on a professional Swiss-ephemeris engine, presented by ${site?.name || 'our astrologer'}.`}>
       {!result ? (
         <motion.form onSubmit={submit} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -955,7 +1127,7 @@ export function MatchingPage({ site, resolve, theme, COLORS }) {
   const scorePct = result ? Math.round((result.summary?.totalScore || 0) / 36 * 100) : 0
 
   return (
-    <ToolShell site={site} COLORS={COLORS} gradient={gradient} icon={Heart}
+    <ToolShell site={site} COLORS={COLORS} gradient={gradient} theme={theme} active="#/matching" icon={Heart}
       title="Match Making (Gun Milan)" subtitle={`Ashtakoota compatibility across all 36 gunas, with manglik analysis for both partners — presented by ${site?.name || 'our astrologer'}.`}>
       {!result ? (
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1103,7 +1275,7 @@ export function TenantSignIn({ site, resolve, theme, COLORS }) {
   }
 
   return (
-    <ToolShell site={site} COLORS={COLORS} gradient={gradient} icon={Heart}
+    <ToolShell site={site} COLORS={COLORS} gradient={gradient} theme={theme} active="#/signin" icon={Heart}
       title={mode === 'signin' ? `Sign in to ${site.name}` : `Create your ${site.name} account`}
       subtitle="Save your kundlis, track bookings and manage your readings — your account is private to this site.">
       <form onSubmit={submit} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 28, display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 460, margin: '0 auto' }}>
@@ -1225,7 +1397,7 @@ export function TenantAccount({ site, resolve, theme, COLORS, slug, services = [
 
   if (!session?.token) {
     return (
-      <ToolShell site={site} COLORS={COLORS} gradient={gradient} icon={Heart}
+      <ToolShell site={site} COLORS={COLORS} gradient={gradient} theme={theme} active="#/account" icon={Heart}
         title={`My Account — ${site.name}`}
         subtitle="Sign in to see your consultations and orders.">
         <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 30, textAlign: 'center', maxWidth: 460, margin: '0 auto' }}>
@@ -1267,7 +1439,7 @@ export function TenantAccount({ site, resolve, theme, COLORS, slug, services = [
   const smallBtn = { background: 'transparent', border: '1px solid rgba(220,38,38,0.45)', color: '#dc2626', borderRadius: 9, padding: '7px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }
 
   return (
-    <ToolShell site={site} COLORS={COLORS} gradient={gradient} icon={Heart}
+    <ToolShell site={site} COLORS={COLORS} gradient={gradient} theme={theme} active="#/account" icon={Heart}
       title={`My Account — ${site.name}`}
       subtitle="Track your consultations and orders, all in one place.">
       {/* profile strip */}
@@ -1418,14 +1590,12 @@ export function ShopPage({ site, resolve, theme, COLORS }) {
 
   return (
     <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text }}>
-      <header style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 40 }}>
-        <a href="#/" style={{ textDecoration: 'none', color: COLORS.text, fontWeight: 800, fontSize: 15 }}>← {site.name}</a>
-        <div style={{ display: 'flex', gap: 8, flex: 1, maxWidth: 420 }}>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products…"
-            style={{ flex: 1, padding: '9px 14px', borderRadius: 999, border: `1px solid ${COLORS.border}`, background: COLORS.surface, color: COLORS.text, fontSize: 13.5, outline: 'none' }} />
-        </div>
-        <a href="#/signin" style={{ fontSize: 13, fontWeight: 700, color: COLORS.textDim, textDecoration: 'none', whiteSpace: 'nowrap' }}>Sign in</a>
-      </header>
+      <TenantHeader site={site} theme={theme} COLORS={COLORS} showStore active="#/shop" />
+      {/* search strip */}
+      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '14px 18px 0' }}>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products…"
+          style={{ width: '100%', maxWidth: 420, padding: '9px 14px', borderRadius: 999, border: `1px solid ${COLORS.border}`, background: COLORS.surface, color: COLORS.text, fontSize: 13.5, outline: 'none' }} />
+      </div>
 
       {/* banner */}
       <div style={{ background: gradient, color: '#fff', padding: '42px 20px', textAlign: 'center' }}>
@@ -1521,10 +1691,7 @@ export function ProductPage({ site, resolve, theme, COLORS, productId }) {
 
   return (
     <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text }}>
-      <header style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: '14px 20px', display: 'flex', justifyContent: 'space-between' }}>
-        <a href="#/shop" style={{ textDecoration: 'none', color: COLORS.text, fontWeight: 800, fontSize: 15 }}>← Shop</a>
-        <span style={{ fontWeight: 800, fontSize: 15 }}>{site.name}</span>
-      </header>
+      <TenantHeader site={site} theme={theme} COLORS={COLORS} showStore active="#/shop" />
       <main style={{ maxWidth: 1000, margin: '0 auto', padding: '30px 18px 90px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 30 }}>
           {/* gallery */}
@@ -1651,7 +1818,7 @@ export function HoroscopePage({ site, resolve, theme, COLORS }) {
   const sections = ['career', 'love', 'finance', 'health'].filter((s) => h[s])
 
   return (
-    <ToolShell site={site} COLORS={COLORS} gradient={gradient} icon={Moon}
+    <ToolShell site={site} COLORS={COLORS} gradient={gradient} theme={theme} active="#/horoscope" icon={Moon}
       title="Personal Horoscope" subtitle={`Your own ${form.period === 'daily' ? 'daily' : form.period} forecast computed from your birth chart — not a generic sun-sign column. Presented by ${site?.name || 'our astrologer'}.`}>
       {!result ? (
         <motion.form onSubmit={submit} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -1759,7 +1926,7 @@ export function NumerologyPage({ site, resolve, theme, COLORS }) {
   const lp = unwrap(result?.lifePath), dn = unwrap(result?.destiny), sl = unwrap(result?.soul), mb = unwrap(result?.mobile)
 
   return (
-    <ToolShell site={site} COLORS={COLORS} gradient={gradient} icon={Hash}
+    <ToolShell site={site} COLORS={COLORS} gradient={gradient} theme={theme} active="#/numerology" icon={Hash}
       title="Numerology" subtitle={`Your life path, destiny and soul numbers — and what your mobile number says about you. Presented by ${site?.name || 'our astrologer'}.`}>
       {!result ? (
         <motion.form onSubmit={submit} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -1821,7 +1988,7 @@ export function GemstonePage({ site, resolve, theme, COLORS }) {
   const KV = ([k, v]) => v ? <div key={k} style={{ padding: '10px 14px', borderBottom: `1px solid ${COLORS.border}` }}><span style={{ color: COLORS.textDim, fontSize: 12.5, display: 'block' }}>{k}</span><span style={{ fontWeight: 700, fontSize: 14 }}>{String(v)}</span></div> : null
 
   return (
-    <ToolShell site={site} COLORS={COLORS} gradient={gradient} icon={Gem}
+    <ToolShell site={site} COLORS={COLORS} gradient={gradient} theme={theme} active="#/gemstone" icon={Gem}
       title="Gemstone Recommendation" subtitle={`Which gemstone suits your chart — computed from your ascendant and current dasha, not guesswork. Presented by ${site?.name || 'our astrologer'}.`}>
       {!result ? (
         <motion.form onSubmit={submit} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -1917,7 +2084,7 @@ export function MuhuratPage({ site, resolve, theme, COLORS }) {
   const panchang = m.panchang || {}
 
   return (
-    <ToolShell site={site} COLORS={COLORS} gradient={gradient} icon={CalendarDays}
+    <ToolShell site={site} COLORS={COLORS} gradient={gradient} theme={theme} active="#/muhurat" icon={CalendarDays}
       title="Shubh Muhurat" subtitle={`Find the auspicious time for weddings, griha pravesh, business openings and more — checked against tithi, nakshatra, rahu kaal and choghadiya. Presented by ${site?.name || 'our astrologer'}.`}>
       {!result ? (
         <motion.form onSubmit={submit} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -2014,7 +2181,7 @@ export function LuckyPage({ site, resolve, theme, COLORS }) {
   const first = (v) => Array.isArray(v) ? v[0] : v
 
   return (
-    <ToolShell site={site} COLORS={COLORS} gradient={gradient} icon={Sparkles}
+    <ToolShell site={site} COLORS={COLORS} gradient={gradient} theme={theme} active="#/lucky" icon={Sparkles}
       title="Lucky Numbers & Colours" subtitle={`Your lucky numbers, colours, days and metals from numerology — quick guidance for important days. Presented by ${site?.name || 'our astrologer'}.`}>
       {!result ? (
         <motion.form onSubmit={submit} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -2057,12 +2224,7 @@ export function AboutPage({ site, pages, theme, COLORS, slug }) {
   const socials = site?.settings || {}
   return (
     <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text }}>
-      <header style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 40 }}>
-        <a href="#/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: COLORS.text, fontWeight: 800, fontSize: 15 }}>
-          <ArrowLeft size={16} /> {site?.name || 'Home'}
-        </a>
-        <span style={{ fontWeight: 700, fontSize: 14 }}>About</span>
-      </header>
+      <TenantHeader site={site} theme={theme} COLORS={COLORS} showStore active="#/about" />
       <main style={{ maxWidth: 760, margin: '0 auto', padding: '48px 20px 90px' }}>
         <div style={{ textAlign: 'center', marginBottom: 30 }}>
           <div style={{ width: 84, height: 84, borderRadius: 26, background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: 34, margin: '0 auto 18px' }}>
@@ -2096,12 +2258,7 @@ export function ServicesPage({ site, services, theme, COLORS, resolve }) {
   const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
   return (
     <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text }}>
-      <header style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 40 }}>
-        <a href="#/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: COLORS.text, fontWeight: 800, fontSize: 15 }}>
-          <ArrowLeft size={16} /> {site?.name || 'Home'}
-        </a>
-        <span style={{ fontWeight: 700, fontSize: 14 }}>Services</span>
-      </header>
+      <TenantHeader site={site} theme={theme} COLORS={COLORS} showStore active="#/services" />
       <main style={{ maxWidth: 900, margin: '0 auto', padding: '48px 20px 90px' }}>
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
           <h1 style={{ fontSize: 32, fontWeight: 900, margin: '0 0 10px' }}>Services & Consultations</h1>
@@ -2142,12 +2299,7 @@ export function ContactPage({ site, theme, COLORS }) {
   ].filter(([, v]) => !!v)
   return (
     <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text }}>
-      <header style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 40 }}>
-        <a href="#/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: COLORS.text, fontWeight: 800, fontSize: 15 }}>
-          <ArrowLeft size={16} /> {site?.name || 'Home'}
-        </a>
-        <span style={{ fontWeight: 700, fontSize: 14 }}>Contact</span>
-      </header>
+      <TenantHeader site={site} theme={theme} COLORS={COLORS} showStore active="#/contact" />
       <main style={{ maxWidth: 640, margin: '0 auto', padding: '48px 20px 90px' }}>
         <div style={{ textAlign: 'center', marginBottom: 34 }}>
           <h1 style={{ fontSize: 32, fontWeight: 900, margin: '0 0 10px' }}>Get in Touch</h1>
