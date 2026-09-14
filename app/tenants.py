@@ -973,7 +973,7 @@ def products_with_category(site_id: int) -> list:
         "SELECT sp.*, mc.name AS category FROM site_products sp "
         "LEFT JOIN master_products mp ON mp.id = sp.master_product_id "
         "LEFT JOIN master_categories mc ON mc.id = mp.category_id "
-        "WHERE sp.site_id = ? AND sp.is_active = 1 ORDER BY mc.sort_order, sp.sort_order, sp.id"
+        "WHERE sp.site_id = ? AND sp.is_active = TRUE ORDER BY mc.sort_order, sp.sort_order, sp.id"
     ), (site_id,)).fetchall()
     import json as _json
     out = []
@@ -1061,7 +1061,7 @@ def list_master_products(category_id=None, active_only=False) -> list:
     if category_id:
         conds.append("mp.category_id = ?"); params.append(category_id)
     if active_only:
-        conds.append("mp.active = 1")
+        conds.append("mp.active = TRUE")
     if conds:
         sql += " WHERE " + " AND ".join(conds)
     sql += " ORDER BY mc.sort_order, mp.name"

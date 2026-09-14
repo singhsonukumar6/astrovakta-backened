@@ -965,7 +965,7 @@ def verify_password_reset_token(token: str) -> Optional[dict]:
         row = db.execute(
             "SELECT pr.*, u.id as uid, u.email, u.name "
             "FROM password_resets pr JOIN users u ON pr.user_id = u.id "
-            "WHERE pr.token = ? AND pr.used = 0 AND pr.expires_at > ?",
+            "WHERE pr.token = ? AND pr.used = FALSE AND pr.expires_at > ?",
             (token, now),
         ).fetchone()
     return _to_dict(row) if row else None
