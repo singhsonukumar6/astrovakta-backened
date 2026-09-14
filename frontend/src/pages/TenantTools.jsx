@@ -79,40 +79,56 @@ function Sel({ value, onChange, placeholder, options, style }) {
   )
 }
 
+// Dropdowns fire one part at a time, so keep the chosen parts in local state
+// and only push the composed value up once the date is complete; resetting
+// on every partial change made the selects snap back to their placeholder.
 function DateSelector({ value, onChange }) {
-  const [y, m, d] = value ? value.split('-').map(Number) : [null, null, null]
+  const parse = (v) => {
+    const [y, m, d] = v ? v.split('-').map(Number) : [null, null, null]
+    return { y: y || null, m: m || null, d: d || null }
+  }
+  const [parts, setParts] = useState(parse(value))
+  useEffect(() => { setParts(parse(value)) }, [value])
   const thisYear = new Date().getFullYear()
   const years = []
   for (let v = thisYear; v >= 1900; v--) years.push(v)
-  const maxDay = y && m ? new Date(y, m, 0).getDate() : 31
-  const set = (ny, nm, nd) => {
-    if (!ny || !nm || !nd) return onChange('')
-    const day = Math.min(nd, new Date(ny, nm, 0).getDate())
-    onChange(`${ny}-${String(nm).padStart(2, '0')}-${String(day).padStart(2, '0')}`)
+  const maxDay = parts.y && parts.m ? new Date(parts.y, parts.m, 0).getDate() : 31
+  const set = (y, m, d) => {
+    const p = { y: y || null, m: m || null, d: d || null }
+    if (p.y && p.m && p.d) p.d = Math.min(p.d, new Date(p.y, p.m, 0).getDate())
+    setParts(p)
+    onChange(p.y && p.m && p.d ? `${p.y}-${String(p.m).padStart(2, '0')}-${String(p.d).padStart(2, '0')}` : '')
   }
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr 1.1fr', gap: 8 }}>
-      <Sel placeholder="Day" value={d || ''} options={Array.from({ length: maxDay }, (_, i) => ({ value: i + 1, label: i + 1 }))} onChange={(v) => set(y, m, Number(v))} />
-      <Sel placeholder="Month" value={m || ''} options={MONTHS_FULL.map((nm, i) => ({ value: i + 1, label: nm }))} onChange={(v) => set(y, Number(v), d)} />
-      <Sel placeholder="Year" value={y || ''} options={years.map((v) => ({ value: v, label: v }))} onChange={(v) => set(Number(v), m, d)} />
+      <Sel placeholder="Day" value={parts.d || ''} options={Array.from({ length: maxDay }, (_, i) => ({ value: i + 1, label: i + 1 }))} onChange={(v) => set(parts.y, parts.m, v === '' ? null : Number(v))} />
+      <Sel placeholder="Month" value={parts.m || ''} options={MONTHS_FULL.map((nm, i) => ({ value: i + 1, label: nm }))} onChange={(v) => set(parts.y, v === '' ? null : Number(v), parts.d)} />
+      <Sel placeholder="Year" value={parts.y || ''} options={years.map((v) => ({ value: v, label: v }))} onChange={(v) => set(v === '' ? null : Number(v), parts.m, parts.d)} />
     </div>
   )
 }
 
 function TimeSelector({ value, onChange }) {
-  const [h24, mn] = value ? value.split(':').map(Number) : [null, null]
-  const h12 = h24 == null ? null : (h24 % 12 || 12)
-  const ap = h24 == null ? '' : (h24 < 12 ? 'AM' : 'PM')
-  const set = (nh, nm, nap) => {
-    if (nh == null || nm == null || !nap) return onChange('')
-    const h = nap === 'PM' ? (nh % 12) + 12 : nh % 12
-    onChange(`${String(h).padStart(2, '0')}:${String(nm).padStart(2, '0')}`)
+  const parse = (v) => {
+    if (!v) return { h: null, m: null, ap: '' }
+    const [H, M] = v.split(':').map(Number)
+    return { h: H % 12 || 12, m: M, ap: H < 12 ? 'AM' : 'PM' }
+  }
+  const [parts, setParts] = useState(parse(value))
+  useEffect(() => { setParts(parse(value)) }, [value])
+  const set = (h, m, ap) => {
+    const p = { h: h || null, m, ap: ap || '' }
+    setParts(p)
+    if (p.h && p.m != null && p.ap) {
+      const H = p.ap === 'PM' ? (p.h % 12) + 12 : p.h % 12
+      onChange(`${String(H).padStart(2, '0')}:${String(p.m).padStart(2, '0')}`)
+    } else onChange('')
   }
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.1fr', gap: 8 }}>
-      <Sel placeholder="Hour" value={h12 || ''} options={Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: String(i + 1).padStart(2, '0') }))} onChange={(v) => set(Number(v), mn, ap || 'AM')} />
-      <Sel placeholder="Min" value={mn == null ? '' : mn} options={Array.from({ length: 60 }, (_, i) => ({ value: i, label: String(i).padStart(2, '0') }))} onChange={(v) => set(h12, Number(v), ap || 'AM')} />
-      <Sel placeholder="AM/PM" value={ap} options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]} onChange={(v) => set(h12, mn, v)} />
+      <Sel placeholder="Hour" value={parts.h || ''} options={Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: String(i + 1).padStart(2, '0') }))} onChange={(v) => set(v === '' ? null : Number(v), parts.m, parts.ap)} />
+      <Sel placeholder="Min" value={parts.m == null ? '' : parts.m} options={Array.from({ length: 60 }, (_, i) => ({ value: i, label: String(i).padStart(2, '0') }))} onChange={(v) => set(parts.h, v === '' ? null : Number(v), parts.ap)} />
+      <Sel placeholder="AM/PM" value={parts.ap} options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]} onChange={(v) => set(parts.h, parts.m, v)} />
     </div>
   )
 }
