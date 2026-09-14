@@ -14,9 +14,20 @@ export default function MasterCatalogAdmin() {
   const [editing, setEditing] = useState(null) // null | product object being created/edited
   const [busy, setBusy] = useState(false)
 
+  const [loadError, setLoadError] = useState(null)
   const load = () => {
-    api.get('/sites/admin/master/categories').then((r) => setCategories(r.data?.categories ?? r.data?.data?.categories ?? []))
-    api.get('/sites/admin/master/products').then((r) => setProducts(r.data?.products ?? r.data?.data?.products ?? []))
+    setLoadError(null)
+    Promise.all([
+      api.get('/sites/admin/master/categories'),
+      api.get('/sites/admin/master/products'),
+    ]).then(([c, pr]) => {
+      setCategories(c.data?.categories ?? c.data?.data?.categories ?? [])
+      setProducts(pr.data?.products ?? pr.data?.data?.products ?? [])
+    }).catch((e) => {
+      setLoadError(e.response?.status === 403
+        ? 'Admin access required — your account is not marked as an admin.'
+        : e.response?.data?.detail || 'Could not load the catalog')
+    })
   }
   useEffect(() => { load() }, [])
 
@@ -61,6 +72,15 @@ export default function MasterCatalogAdmin() {
     const reader = new FileReader()
     reader.onload = () => setEditing((ed) => ({ ...ed, images: [...ed.images, reader.result] }))
     reader.readAsDataURL(file)
+  }
+
+  if (loadError) {
+    return (
+      <div style={{ background: '#fff', border: '1px solid #fecaca', borderRadius: 14, padding: 28 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 800, color: '#dc2626', marginBottom: 6 }}>Catalog unavailable</h3>
+        <div style={{ fontSize: 14, color: '#64748b' }}>{loadError}</div>
+      </div>
+    )
   }
 
   return (

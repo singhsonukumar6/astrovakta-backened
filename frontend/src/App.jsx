@@ -67,7 +67,7 @@ export default function App() {
   // Tenant sites are standalone brands — no platform navbar/footer/starfield.
   const isTenantSite = pathname.startsWith('/s/')
   // The builder dashboard is a full app surface with its own fixed header + sidebar.
-  const isDashboard = pathname.startsWith('/mysite') || pathname === '/onboarding' || pathname.startsWith('/admin')
+  const isDashboard = pathname.startsWith('/mysite') || pathname === '/onboarding'
 
   if (isTenantSite || isDashboard) {
     return (
