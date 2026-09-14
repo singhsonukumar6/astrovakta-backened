@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Shield,
@@ -1832,12 +1832,15 @@ function AdminProfileTab({ user, onUserUpdate }) {
 // ──────────── MAIN ADMIN PAGE ────────────
 export default function Admin() {
   const { user, isAuthenticated, loading: authLoading } = useAuth()
-  const [activeTab, setActiveTab] = useState('overview')
+  const { tab: tabParam } = useParams()
+  const VALID_TABS = tabs.map((t) => t.id)
+  const activeTab = VALID_TABS.includes(tabParam) ? tabParam : 'overview'
+  const navigate = useNavigate()
+  const goToTab = (t) => navigate(`/admin/${t}`)
   const [stats, setStats] = useState(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [localUser, setLocalUser] = useState(null)
-  const navigate = useNavigate()
-
+  
   useEffect(() => { setLocalUser(user) }, [user])
 
   useEffect(() => {
@@ -1892,7 +1895,7 @@ export default function Admin() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => goToTab(tab.id)}
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                 padding: '10px 14px', borderRadius: 10, border: 'none',

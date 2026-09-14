@@ -35,10 +35,12 @@ function AppRoutes() {
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/dashboard" element={<Navigate to="/mysite" replace />} />
       <Route path="/mysite" element={<MySite />} />
+      <Route path="/mysite/:tab" element={<MySite />} />
       <Route path="/onboarding" element={<Onboarding />} />
       {/* Public tenant site (astrologer's branded website) */}
       <Route path="/s/:slug" element={<TenantSite />} />
       <Route path="/admin" element={<Admin />} />
+      <Route path="/admin/:tab" element={<Admin />} />
       <Route path="/sandbox" element={<Sandbox />} />
       <Route path="/docs" element={<Docs />} />
       <Route path="/kundali-report" element={<KundaliReport />} />
@@ -65,7 +67,7 @@ export default function App() {
   // Tenant sites are standalone brands — no platform navbar/footer/starfield.
   const isTenantSite = pathname.startsWith('/s/')
   // The builder dashboard is a full app surface with its own fixed header + sidebar.
-  const isDashboard = pathname === '/mysite' || pathname === '/onboarding'
+  const isDashboard = pathname.startsWith('/mysite') || pathname === '/onboarding' || pathname.startsWith('/admin')
 
   if (isTenantSite || isDashboard) {
     return (

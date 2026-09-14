@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Globe, Plus, Trash2, ExternalLink, Check, X, Palette, FileText, Calendar,
@@ -1742,7 +1742,11 @@ export default function MySite() {
   const { user, isAuthenticated, loading: authLoading, logout } = useAuth()
   const [sites, setSites] = useState(null)
   const [site, setSite] = useState(null)
-  const [tab, setTab] = useState('overview')
+  const { tab: tabParam } = useParams()
+  const VALID_TABS = [...TABS, ...DEV_TABS, ...ACCOUNT_TABS].map((t) => t.id)
+  const tab = VALID_TABS.includes(tabParam) ? tabParam : 'overview'
+  const navigate = useNavigate()
+  const goToTab = (t) => navigate(`/mysite/${t}`)
   const [pubBusy, setPubBusy] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('av-sidebar-collapsed') === '1')
@@ -1750,8 +1754,7 @@ export default function MySite() {
   const [keys, setKeys] = useState([])
   const [displayUser, setDisplayUser] = useState(null)
   const avatarRef = useRef(null)
-  const navigate = useNavigate()
-
+  
   useEffect(() => { setDisplayUser(user) }, [user])
 
   useEffect(() => {
@@ -1781,6 +1784,10 @@ export default function MySite() {
       }
     }).catch(() => setSites([]))
   }, [isAuthenticated])
+
+  useEffect(() => {
+    if (tabParam !== tab) navigate(`/mysite/${tab}`, { replace: true })
+  }, [tabParam, tab, navigate])
 
   // No website yet → first-run onboarding (wizard lives at /onboarding)
   useEffect(() => {
@@ -1924,7 +1931,7 @@ export default function MySite() {
             transition: 'width 0.2s ease', overflowX: 'hidden', overflowY: 'auto',
           }}>
             {TABS.map((t) => (
-              <button key={t.id} onClick={() => setTab(t.id)} title={sidebarCollapsed ? t.label : undefined}
+              <button key={t.id} onClick={() => goToTab(t.id)} title={sidebarCollapsed ? t.label : undefined}
                 className={tab === t.id ? 'mysite-tab-active' : ''}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', gap: 11,
@@ -1942,7 +1949,7 @@ export default function MySite() {
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, color: '#94a3b8', padding: '2px 12px 6px', flexShrink: 0 }}>DEVELOPER</div>
             )}
             {DEV_TABS.map((t) => (
-              <button key={t.id} onClick={() => setTab(t.id)} title={sidebarCollapsed ? t.label : undefined}
+              <button key={t.id} onClick={() => goToTab(t.id)} title={sidebarCollapsed ? t.label : undefined}
                 className={tab === t.id ? 'mysite-tab-active' : ''}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', gap: 11,
@@ -1960,7 +1967,7 @@ export default function MySite() {
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, color: '#94a3b8', padding: '2px 12px 6px', flexShrink: 0 }}>ACCOUNT</div>
             )}
             {ACCOUNT_TABS.map((t) => (
-              <button key={t.id} onClick={() => setTab(t.id)} title={sidebarCollapsed ? t.label : undefined}
+              <button key={t.id} onClick={() => goToTab(t.id)} title={sidebarCollapsed ? t.label : undefined}
                 className={tab === t.id ? 'mysite-tab-active' : ''}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', gap: 11,
@@ -2018,7 +2025,7 @@ export default function MySite() {
                     </button>
                   </div>
                   {TABS.map((t) => (
-                    <button key={t.id} onClick={() => { setTab(t.id); setMobileNavOpen(false) }}
+                    <button key={t.id} onClick={() => { goToTab(t.id); setMobileNavOpen(false) }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 11, padding: '11px 12px', borderRadius: 10,
                         fontSize: 14, fontWeight: tab === t.id ? 700 : 500, cursor: 'pointer',
@@ -2030,7 +2037,7 @@ export default function MySite() {
                   ))}
                   <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, color: '#94a3b8', padding: '12px 12px 4px' }}>DEVELOPER</div>
                   {DEV_TABS.map((t) => (
-                    <button key={t.id} onClick={() => { setTab(t.id); setMobileNavOpen(false) }}
+                    <button key={t.id} onClick={() => { goToTab(t.id); setMobileNavOpen(false) }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 11, padding: '11px 12px', borderRadius: 10,
                         fontSize: 14, fontWeight: tab === t.id ? 700 : 500, cursor: 'pointer',
@@ -2042,7 +2049,7 @@ export default function MySite() {
                   ))}
                   <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, color: '#94a3b8', padding: '12px 12px 4px' }}>ACCOUNT</div>
                   {ACCOUNT_TABS.map((t) => (
-                    <button key={t.id} onClick={() => { setTab(t.id); setMobileNavOpen(false) }}
+                    <button key={t.id} onClick={() => { goToTab(t.id); setMobileNavOpen(false) }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 11, padding: '11px 12px', borderRadius: 10,
                         fontSize: 14, fontWeight: tab === t.id ? 700 : 500, cursor: 'pointer',
