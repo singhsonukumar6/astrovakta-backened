@@ -1000,6 +1000,10 @@ def public_site_bundle(site: dict) -> dict:
             "template": site["template"],
             "theme": site["theme"],
             "custom_domain": site.get("custom_domain"),
+            # Renderers show the custom domain only once it's verified &
+            # serving (domain_status 'active') — until then the free
+            # subdomain is the site's real address.
+            "domain_status": site.get("domain_status") or "none",
             "logo_url": site.get("logo_url"),
             "hero_image": site.get("hero_image"),
             "settings": site.get("settings"),

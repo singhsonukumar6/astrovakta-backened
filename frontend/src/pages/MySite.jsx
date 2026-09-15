@@ -607,6 +607,30 @@ function StoreTab({ site, reload }) {
   const [connForm, setConnForm] = useState({ provider: 'woocommerce', shop_domain: '', api_key: '', api_secret: '', access_token: '' })
   const [wooKey, setWooKey] = useState(null)
   const [wooSteps, setWooSteps] = useState([])
+  const [banners, setBanners] = useState((site.settings?.storeBanners) || [])
+  const [sections, setSections] = useState((site.settings?.storeSections) || [])
+  useEffect(() => {
+    setBanners(site.settings?.storeBanners || [])
+    setSections(site.settings?.storeSections || [])
+  }, [site.id, site.updated_at]) // eslint-disable-line
+
+  const addBannerFile = (file) => {
+    if (!file) return
+    if (file.size > 900_000) return toast.error('Banner too large — use an image under 900 KB')
+    const reader = new FileReader()
+    reader.onload = () => setBanners((b) => [...b, { image: reader.result, title: '', subtitle: '', link: '#/shop' }])
+    reader.readAsDataURL(file)
+  }
+
+  const saveLayout = async () => {
+    setBusy(true)
+    try {
+      await setMySiteSettings(site.id, { store_banners: banners, store_sections: sections })
+      toast.success('Store layout saved — refresh your site to see it')
+      reload()
+    } catch (e) { toast.error(errDetail(e, 'Could not save layout')) }
+    finally { setBusy(false) }
+  }
   const [oauthResult, setOauthResult] = useState(null) // {status, message} from the provider redirect
   const [pushSel, setPushSel] = useState([])
   const [products, setProducts] = useState(null)
@@ -639,7 +663,7 @@ function StoreTab({ site, reload }) {
     getMyIntegrations(site.id).then((d) => { setIntegrations(d.integrations || []) }).catch(() => setIntegrations([]))
     getIntegrationProviders(site.id).then(setProviders).catch(() => setProviders(null))
   }
-  useEffect(() => { if (sub === 'integrations') { loadIntegrations(); loadProducts() } }, [sub, site.id]) // eslint-disable-line
+  useEffect(() => { if (sub === 'integrations' || sub === 'layout') { loadIntegrations(); loadProducts() } }, [sub, site.id]) // eslint-disable-line
 
   // After a successful OAuth redirect, refresh the integration list — the
   // connection was created by the backend callback, not by this tab.
@@ -787,7 +811,7 @@ function StoreTab({ site, reload }) {
       </div>
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-        {[['products', 'Products', Package], ['catalog', 'Import catalog', ShoppingBag], ['integrations', 'Integrations', Link2], ['orders', 'Orders', ShoppingBag]].map(([id, label, Icon]) => (
+        {[['products', 'Products', Package], ['layout', 'Store layout', Palette], ['catalog', 'Import catalog', ShoppingBag], ['integrations', 'Integrations', Link2], ['orders', 'Orders', ShoppingBag]].map(([id, label, Icon]) => (
           <button key={id} onClick={() => setSub(id)} style={{
             ...ghostBtn, padding: '8px 18px', fontSize: 13,
             background: sub === id ? 'rgba(79,70,229,0.1)' : 'transparent',
@@ -962,6 +986,71 @@ function StoreTab({ site, reload }) {
                 ))}
               </div>
             )}
+          </div>
+        )}
+        {sub === 'layout' && (
+          <div style={{ ...cardStyle, marginBottom: 20 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Storefront layout</h3>
+            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 14, lineHeight: 1.6 }}>
+              Control your shop's home page: a rotating banner carousel and curated sections (best selling, top products, trending). Changes appear on your live store immediately.
+            </p>
+
+            {/* banners */}
+            <div style={{ fontSize: 13.5, fontWeight: 800, margin: '14px 0 8px' }}>Banner carousel</div>
+            {!banners.length && <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 8 }}>No banners — add the first one below.</div>}
+            {banners.map((b, i) => (
+              <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f1f5f9', flexWrap: 'wrap' }}>
+                <img src={b.image} alt="" style={{ width: 72, height: 40, borderRadius: 8, objectFit: 'cover' }} />
+                <input value={b.title} onChange={(e) => setBanners(banners.map((x, j) => j === i ? { ...x, title: e.target.value } : x))} placeholder="Title (Navratri Sale)" style={{ ...inputStyle, flex: 1, minWidth: 120 }} />
+                <input value={b.subtitle} onChange={(e) => setBanners(banners.map((x, j) => j === i ? { ...x, subtitle: e.target.value } : x))} placeholder="Subtitle (Up to 20% off)" style={{ ...inputStyle, flex: 1.4, minWidth: 140 }} />
+                <button onClick={() => setBanners(banners.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}><Trash2 size={15} /></button>
+              </div>
+            ))}
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 14px', borderRadius: 10, border: '1.5px dashed #cbd5e1', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#475569', marginTop: 8 }}>
+              <Plus size={14} /> Add banner image
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => addBannerFile(e.target.files?.[0])} />
+            </label>
+
+            {/* sections */}
+            <div style={{ fontSize: 13.5, fontWeight: 800, margin: '20px 0 8px' }}>Sections</div>
+            {!sections.length && <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 8 }}>No sections — add Best Selling, Top Products or Trending below.</div>}
+            {sections.map((sec, i) => (
+              <div key={i} style={{ padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 12, marginBottom: 10 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
+                  <input value={sec.title} onChange={(e) => setSections(sections.map((x, j) => j === i ? { ...x, title: e.target.value } : x))} placeholder="Section title" style={{ ...inputStyle, flex: 1, minWidth: 140 }} />
+                  <select value={sec.kind} onChange={(e) => setSections(sections.map((x, j) => j === i ? { ...x, kind: e.target.value } : x))} style={{ ...inputStyle, width: 160 }}>
+                    <option value="manual">Chosen products</option>
+                    <option value="bestselling">Best selling (auto)</option>
+                    <option value="top">Top products (auto)</option>
+                    <option value="trending">Trending (auto)</option>
+                  </select>
+                  <button onClick={() => setSections(sections.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}><Trash2 size={15} /></button>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {(products || []).map((p) => {
+                    const on = (sec.product_ids || []).includes(p.id)
+                    return (
+                      <button key={p.id} onClick={() => setSections(sections.map((x, j) => j === i ? { ...x, product_ids: on ? x.product_ids.filter((id) => id !== p.id) : [...(x.product_ids || []), p.id] } : x))}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                          border: `1.5px solid ${on ? '#4f46e5' : '#e2e8f0'}`, background: on ? 'rgba(79,70,229,0.08)' : '#fff', color: on ? '#4f46e5' : '#475569' }}>
+                        {on ? '✓ ' : ''}{p.name.slice(0, 24)} · ₹{p.price}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              {['Best Selling', 'Top Products', 'Trending'].map((t) => (
+                <button key={t} onClick={() => setSections([...sections, { title: t, kind: t.toLowerCase().includes('best') ? 'bestselling' : t.toLowerCase().includes('top') ? 'top' : 'trending', product_ids: [] }])}
+                  style={{ ...ghostBtn, padding: '8px 12px', fontSize: 12.5 }}>+ {t}</button>
+              ))}
+              <button onClick={() => setSections([...sections, { title: '', kind: 'manual', product_ids: [] }])} style={{ ...ghostBtn, padding: '8px 12px', fontSize: 12.5 }}>+ Custom section</button>
+            </div>
+
+            <button onClick={saveLayout} disabled={busy} className="btn-primary" style={{ ...primaryBtn, opacity: busy ? 0.6 : 1 }}>
+              <Save size={15} /> {busy ? 'Saving…' : 'Save store layout'}
+            </button>
           </div>
         )}
 {sub === 'catalog' && (

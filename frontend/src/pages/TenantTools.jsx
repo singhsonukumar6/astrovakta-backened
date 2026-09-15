@@ -8,7 +8,7 @@ import {
   publicKundliTool, publicKundliFull, publicMatchingTool, publicDoshaTool,
   publicPersonalHoroscope, publicNumerologyTool, publicGemstoneTool, publicMuhuratTool, publicLuckyTool,
   getTenantSession, getMyTenantBookings, getMyTenantOrders,
-  cancelMyTenantBooking, cancelMyTenantOrder,
+  cancelMyTenantBooking, cancelMyTenantOrder, publicPlaceOrder,
 } from '../lib/api.js'
 import { tenantAuthReturnKey } from '../lib/tenant.js'
 
@@ -1647,9 +1647,8 @@ function ShopHeader({ site, slug, cart, COLORS, theme, onCart }) {
 }
 
 function CartDrawer({ open, onClose, cart, products, COLORS, theme, site, resolve, slug }) {
-  if (!open) return null
-  const rows = cart.items.map((i) => ({ ...i, p: products.find((x) => x.id === i.id) })).filter((r) => r.p)
-  const subtotal = rows.reduce((s, r) => s + r.p.price * r.qty, 0)
+  // Hooks must run unconditionally (rules of hooks) — the null return for a
+  // closed drawer comes after them.
   const [stage, setStage] = useState('cart') // cart | address | pay | done
   const [form, setForm] = useState(() => {
     try {
@@ -1683,6 +1682,10 @@ function CartDrawer({ open, onClose, cart, products, COLORS, theme, site, resolv
     // place the order first with 'online' note, then show payment options.
     place()
   }
+
+  if (!open) return null
+  const rows = cart.items.map((i) => ({ ...i, p: products.find((x) => x.id === i.id) })).filter((r) => r.p)
+  const subtotal = rows.reduce((s, r) => s + r.p.price * r.qty, 0)
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -1808,6 +1811,49 @@ function CartDrawer({ open, onClose, cart, products, COLORS, theme, site, resolv
   )
 }
 
+
+function BannerCarousel({ banners }) {
+  const [idx, setIdx] = useState(0)
+  useEffect(() => {
+    if (banners.length < 2) return
+    const t = setInterval(() => setIdx((i) => (i + 1) % banners.length), 4500)
+    return () => clearInterval(t)
+  }, [banners.length])
+  const b = banners[idx] || banners[0]
+  return (
+    <div style={{ position: 'relative', height: 'min(300px, 38vw)', minHeight: 180, background: '#0f172a' }}>
+      {banners.map((bn, i) => (
+        <img key={i} src={bn.image} alt="" style={{
+          position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
+          opacity: i === idx ? 1 : 0, transition: 'opacity 0.6s ease',
+        }} />
+      ))}
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.55))', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: '26px 22px' }}>
+        {b.title && <div style={{ color: '#fff', fontWeight: 900, fontSize: 'clamp(20px, 4vw, 34px)', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}>{b.title}</div>}
+        {b.subtitle && <div style={{ color: 'rgba(255,255,255,0.92)', fontSize: 'clamp(13px, 2.2vw, 16px)', marginTop: 4, textShadow: '0 1px 8px rgba(0,0,0,0.5)' }}>{b.subtitle}</div>}
+        <a href={b.link || '#/shop'} style={{ marginTop: 12, alignSelf: 'flex-start', background: '#fff', color: '#0f172a', fontWeight: 800, fontSize: 14, borderRadius: 999, padding: '10px 20px', textDecoration: 'none' }}>Shop now →</a>
+      </div>
+      {banners.length > 1 && (
+        <div style={{ position: 'absolute', bottom: 12, right: 16, display: 'flex', gap: 6 }}>
+          {banners.map((_, i) => (
+            <button key={i} onClick={() => setIdx(i)} style={{ width: i === idx ? 22 : 8, height: 8, borderRadius: 999, border: 'none', cursor: 'pointer', background: i === idx ? '#fff' : 'rgba(255,255,255,0.5)', transition: 'width 0.3s' }} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function sectionProducts(sec, products) {
+  if (sec.kind === 'manual' || (sec.product_ids || []).length) {
+    return (sec.product_ids || []).map((id) => products.find((p) => p.id === id)).filter(Boolean)
+  }
+  const day = Math.floor(Date.now() / 86400000)
+  if (sec.kind === 'bestselling') return products.slice(0, 8)
+  if (sec.kind === 'top') return [...products].sort((a, b) => b.price - a.price).slice(0, 8)
+  return [...products].sort((a, b) => ((a.id * day) % 100) - ((b.id * day) % 100)).slice(0, 8)
+}
+
 export function ShopPage({ site, resolve, theme, COLORS, slug }) {
   const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
   const products = (site._products || [])
@@ -1828,14 +1874,16 @@ export function ShopPage({ site, resolve, theme, COLORS, slug }) {
       <ShopHeader site={site} slug={slug} cart={cart} COLORS={COLORS} theme={theme} onCart={() => setCartOpen(true)} />
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} cart={cart} products={products} COLORS={COLORS} theme={theme} site={site} resolve={resolve} slug={slug || site.slug} />
 
-      {/* hero banner */}
-      <div style={{ background: gradient, color: '#fff', padding: '46px 20px', textAlign: 'center' }}>
-        <h1 style={{ fontSize: 33, fontWeight: 900, margin: '0 0 8px', letterSpacing: '-0.5px' }}>{site.name} Store</h1>
-        <p style={{ margin: 0, fontSize: 15, opacity: 0.92 }}>Certified gemstones, rudraksha, bracelets & healing puja kits · Energised before dispatch · Free delivery</p>
-        <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap', fontSize: 13, fontWeight: 700 }}>
-          <span>🚚 Free shipping</span><span>💵 Cash on delivery</span><span>✅ 100% authentic</span>
+      {/* banner carousel (tenant-controlled) or default hero */}
+      {(site.settings?.storeBanners || []).length > 0 ? <BannerCarousel banners={site.settings.storeBanners} /> : (
+        <div style={{ background: gradient, color: '#fff', padding: '46px 20px', textAlign: 'center' }}>
+          <h1 style={{ fontSize: 33, fontWeight: 900, margin: '0 0 8px', letterSpacing: '-0.5px' }}>{site.name} Store</h1>
+          <p style={{ margin: 0, fontSize: 15, opacity: 0.92 }}>Certified gemstones, rudraksha, bracelets & healing puja kits · Energised before dispatch · Free delivery</p>
+          <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap', fontSize: 13, fontWeight: 700 }}>
+            <span>🚚 Free shipping</span><span>💵 Cash on delivery</span><span>✅ 100% authentic</span>
+          </div>
         </div>
-      </div>
+      )}
 
       <main style={{ maxWidth: 1100, margin: '0 auto', padding: '22px 16px 90px' }}>
         {/* search + filters */}
@@ -1850,6 +1898,37 @@ export function ShopPage({ site, resolve, theme, COLORS, slug }) {
           <button onClick={() => setCat('all')} style={pill('all', cat, theme)}>All</button>
           {cats.map((c) => <button key={c} onClick={() => setCat(c)} style={pill(c, cat, theme)}>{c}</button>)}
         </div>
+
+        {/* tenant-curated sections */}
+        {(site.settings?.storeSections || []).map((sec, si) => {
+          const secProducts = sectionProducts(sec, products)
+          if (!secProducts.length) return null
+          return (
+            <div key={si} style={{ marginBottom: 26 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>
+                  {sec.kind === 'bestselling' ? '🏆 ' : sec.kind === 'trending' ? '📈 ' : sec.kind === 'top' ? '⭐ ' : ''}{sec.title || 'Products'}
+                </h2>
+                <a href="#/shop" style={{ fontSize: 12.5, fontWeight: 700, color: theme.primaryColor, textDecoration: 'none' }}>View all →</a>
+              </div>
+              <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 6, scrollSnapType: 'x mandatory' }}>
+                {secProducts.map((p) => (
+                  <a key={p.id} href={`#/shop/${p.id}`} style={{ textDecoration: 'none', color: 'inherit', flex: '0 0 170px', scrollSnapAlign: 'start' }}>
+                    <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, overflow: 'hidden', height: '100%' }}>
+                      {p.images?.[0] && !isVideoSrc(p.images[0])
+                        ? <img src={p.images[0]} alt="" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block', background: '#fff' }} />
+                        : <div style={{ width: '100%', aspectRatio: '1/1', background: '#f1f5f9' }} />}
+                      <div style={{ padding: 10 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, lineHeight: 1.35, marginBottom: 4 }}>{p.name}</div>
+                        <div style={{ fontWeight: 900, fontSize: 14 }}>₹{Number(p.price).toLocaleString('en-IN')}</div>
+                      </div>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )
+        })}
 
         {!list.length ? (
           <div style={{ textAlign: 'center', color: COLORS.textDim, padding: 60 }}>No products match — try another search.</div>
@@ -1887,6 +1966,7 @@ export function ShopPage({ site, resolve, theme, COLORS, slug }) {
           </div>
         )}
       </main>
+      <WhatsAppFab site={site} />
     </div>
   )
 }
@@ -2013,6 +2093,7 @@ export function ProductPage({ site, resolve, theme, COLORS, productId, slug }) {
           </div>
         )}
       </main>
+      <WhatsAppFab site={site} />
     </div>
   )
 }
@@ -2482,6 +2563,7 @@ export function AboutPage({ site, pages, theme, COLORS, slug }) {
           <a href="#services"><button style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, background: gradient, color: '#fff', border: 'none', padding: '13px 26px' }}>Explore services</button></a>
         </div>
       </main>
+      <WhatsAppFab site={site} />
     </div>
   )
 }
@@ -2516,6 +2598,7 @@ export function ServicesPage({ site, services, theme, COLORS, resolve }) {
           </div>
         )}
       </main>
+      <WhatsAppFab site={site} />
     </div>
   )
 }
@@ -2555,6 +2638,7 @@ export function ContactPage({ site, theme, COLORS }) {
           <a href="#services"><button style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, background: gradient, color: '#fff', border: 'none', padding: '13px 26px' }}>Book a consultation</button></a>
         </div>
       </main>
+      <WhatsAppFab site={site} />
     </div>
   )
 }

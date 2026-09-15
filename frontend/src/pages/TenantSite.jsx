@@ -27,8 +27,8 @@ import {
   publicHoroscopeTool, publicPlaceOrder, getTenantSession,
 } from '../lib/api.js'
 import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
-import { TenantHeader, KundliPage, MatchingPage, TenantSignIn, TenantAccount, ShopPage, ProductPage, HoroscopePage, NumerologyPage, GemstonePage, MuhuratPage, LuckyPage, AboutPage, ServicesPage, ContactPage } from './TenantTools.jsx'
-import { tenantSiteUrl, tenantSubdomainLabel, tenantAuthReturnKey, tenantBookingDraftKey, tenantCartKey } from '../lib/tenant.js'
+import { TenantHeader, KundliPage, MatchingPage, TenantSignIn, TenantAccount, ShopPage, ProductPage, HoroscopePage, NumerologyPage, GemstonePage, MuhuratPage, LuckyPage, AboutPage, ServicesPage, ContactPage, WhatsAppFab } from './TenantTools.jsx'
+import { tenantSiteUrl, tenantSubdomainLabel, tenantAuthReturnKey, tenantBookingDraftKey, tenantCartKey, parseYouTubeId } from '../lib/tenant.js'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']

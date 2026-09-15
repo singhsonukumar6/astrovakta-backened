@@ -418,6 +418,8 @@ class SettingsBody(BaseModel):
     upi_id: Optional[str] = Field(None, max_length=120)
     razorpay_key_id: Optional[str] = Field(None, max_length=120)
     social_auto_daily: Optional[bool] = None
+    store_banners: Optional[list] = None
+    store_sections: Optional[list] = None
 
 
 @router.put("/my/{site_id}/settings")
@@ -474,6 +476,33 @@ def update_my_site_settings(site_id: int, body: SettingsBody, user: dict = Depen
         settings["razorpayKeyId"] = body.razorpay_key_id.strip()
     if body.social_auto_daily is not None:
         settings["socialAutoDaily"] = body.social_auto_daily
+    # storefront merchandising: carousel banners + curated sections
+    if body.store_banners is not None:
+        import json as _jsonb
+        cleaned = []
+        for b in body.store_banners[:6]:
+            if not isinstance(b, dict) or not b.get("image"):
+                continue
+            cleaned.append({
+                "image": str(b["image"])[:500000],
+                "title": str(b.get("title", ""))[:120],
+                "subtitle": str(b.get("subtitle", ""))[:200],
+                "link": str(b.get("link", "#/shop"))[:200],
+            })
+        settings["storeBanners"] = cleaned
+    if body.store_sections is not None:
+        import json as _jsons
+        cleaned = []
+        for sec in body.store_sections[:8]:
+            if not isinstance(sec, dict) or not sec.get("title"):
+                continue
+            kind = sec.get("kind") if sec.get("kind") in ("bestselling", "top", "trending", "manual") else "manual"
+            cleaned.append({
+                "title": str(sec["title"])[:80],
+                "kind": kind,
+                "product_ids": [int(x) for x in (sec.get("product_ids") or [])[:12] if str(x).isdigit()][:12],
+            })
+        settings["storeSections"] = cleaned
     return update_site(site_id, {"settings": settings})
 
 
