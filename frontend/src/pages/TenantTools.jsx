@@ -12,6 +12,34 @@ import {
 } from '../lib/api.js'
 import { tenantAuthReturnKey } from '../lib/tenant.js'
 
+// ─────────── floating WhatsApp chat button (every public tenant page) ───────────
+// Opens a wa.me chat with the astrologer's own number and a starter message.
+export function WhatsAppFab({ site, message }) {
+  const raw = String(site?.settings?.whatsappNumber || '').replace(/[^\d]/g, '')
+  if (!raw) return null
+  const href = `https://wa.me/${raw}?text=${encodeURIComponent(message || `Namaste ${site.name || ''}, I want to book a consultation.`.trim())}`
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" title="Chat on WhatsApp" aria-label="Chat on WhatsApp"
+      style={{ position: 'fixed', bottom: 22, right: 22, zIndex: 80, textDecoration: 'none' }}>
+      {/* pulse ring */}
+      <motion.span
+        initial={{ opacity: 0 }} animate={{ opacity: [0.55, 0, 0] }} transition={{ duration: 2.2, repeat: Infinity, ease: 'easeOut' }}
+        style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: '#16a34a' }} />
+      <motion.span
+        initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 260, damping: 16, delay: 0.4 }}
+        whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.92 }}
+        style={{
+          position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 54, height: 54, borderRadius: '50%', background: '#16a34a', color: '#fff',
+          boxShadow: '0 8px 24px rgba(22,163,74,0.4)',
+        }}>
+        <svg width="27" height="27" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+      </motion.span>
+    </a>
+  )
+}
+
+
 // ─────────── shared header for EVERY public tenant page ───────────
 // The astrologer's brand bar: logo, nav links, Tools dropdown (click to
 // open, click again or outside to close), Book Now, and the visitor chip.
@@ -209,6 +237,7 @@ function ToolShell({ site, COLORS, gradient, theme, showStore, active, title, su
         </div>
         {children}
       </main>
+      <WhatsAppFab site={site} />
     </div>
   )
 }
@@ -1575,13 +1604,219 @@ function PriceBlock({ p, COLORS, big }) {
   )
 }
 
-export function ShopPage({ site, resolve, theme, COLORS }) {
+// ═══════════════ MODERN STORE (cart + COD/online checkout) ═══════════════
+
+const CART_KEY = (slug) => `cart_${slug}`
+
+function useCart(slug) {
+  const [cart, setCart] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(CART_KEY(slug)) || '{}') } catch { return {} }
+  })
+  useEffect(() => { localStorage.setItem(CART_KEY(slug), JSON.stringify(cart)) }, [cart])
+  const items = Object.entries(cart).map(([id, q]) => ({ id: Number(id), qty: q }))
+  return {
+    cart, items, count: items.reduce((s, i) => s + i.qty, 0),
+    add: (id, qty = 1) => setCart((c) => ({ ...c, [id]: Math.min(9, (c[id] || 0) + qty) })),
+    setQty: (id, qty) => setCart((c) => { const n = { ...c }; if (qty <= 0) delete n[id]; else n[id] = Math.min(9, qty); return n }),
+    remove: (id) => setCart((c) => { const n = { ...c }; delete n[id]; return n }),
+    clear: () => setCart({}),
+  }
+}
+
+const money = (n) => '₹' + Number(n || 0).toLocaleString('en-IN')
+const isVideoSrc = (src) => /\.(mp4|webm|mov)(\?|$)/i.test(src || '') || (src || '').startsWith('data:video')
+
+function ShopHeader({ site, slug, cart, COLORS, theme, onCart }) {
+  return (
+    <header style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: '12px 18px', position: 'sticky', top: 0, zIndex: 40, display: 'flex', alignItems: 'center', gap: 12 }}>
+      <a href="#/" style={{ textDecoration: 'none', color: COLORS.text, fontWeight: 800, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+        {site.logo_url && <img src={site.logo_url} alt="" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'cover' }} />}
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{site.name}</span>
+      </a>
+      <a href="#/shop" style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.textDim, textDecoration: 'none' }}>Shop</a>
+      <div style={{ flex: 1 }} />
+      <a href="#/signin" style={{ fontSize: 13, fontWeight: 700, color: COLORS.textDim, textDecoration: 'none', whiteSpace: 'nowrap' }}>Sign in</a>
+      <button onClick={onCart} style={{ position: 'relative', background: 'none', border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: '7px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: COLORS.text, fontWeight: 700, fontSize: 13.5 }}>
+        🛒 Cart
+        {cart.count > 0 && (
+          <span style={{ position: 'absolute', top: -7, right: -7, background: '#dc2626', color: '#fff', borderRadius: 999, minWidth: 18, height: 18, fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{cart.count}</span>
+        )}
+      </button>
+    </header>
+  )
+}
+
+function CartDrawer({ open, onClose, cart, products, COLORS, theme, site, resolve, slug }) {
+  if (!open) return null
+  const rows = cart.items.map((i) => ({ ...i, p: products.find((x) => x.id === i.id) })).filter((r) => r.p)
+  const subtotal = rows.reduce((s, r) => s + r.p.price * r.qty, 0)
+  const [stage, setStage] = useState('cart') // cart | address | pay | done
+  const [form, setForm] = useState(() => {
+    try {
+      const s2 = JSON.parse(localStorage.getItem(`tenantAuth_${slug}`) || 'null')
+      return { name: s2?.user?.name || '', phone: s2?.user?.phone || s2?.user?.email || '', address: '', pincode: '', city: '' }
+    } catch { return { name: '', phone: '', address: '', pincode: '', city: '' } }
+  })
+  const [payMode, setPayMode] = useState('cod')
+  const [placed, setPlaced] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const wa = String(site.settings?.whatsappNumber || '').replace(/[^\d]/g, '')
+  const inp = { width: '100%', padding: '11px 13px', borderRadius: 10, border: `1px solid ${COLORS.border}`, background: COLORS.bg, color: COLORS.text, fontSize: 14, outline: 'none' }
+
+  const place = async () => {
+    setBusy(true); setError(null)
+    try {
+      const res = await publicPlaceOrder(resolve, {
+        items: rows.map((r) => ({ product_id: r.p.id, name: r.p.name, qty: r.qty, price: r.p.price })),
+        client_name: form.name, client_phone: form.phone,
+        address: [form.address, form.city, form.pincode].filter(Boolean).join(', '),
+        notes: payMode === 'cod' ? 'Cash on delivery' : 'Online payment',
+      })
+      setPlaced(res); setStage('done'); cart.clear()
+    } catch (e) { setError(e.response?.data?.detail || 'Could not place the order') }
+    finally { setBusy(false) }
+  }
+
+  const payOnline = () => {
+    // UPI intent / Razorpay happen after the order exists; simplest reliable path:
+    // place the order first with 'online' note, then show payment options.
+    place()
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 'min(420px, 100%)', background: COLORS.surface, borderLeft: `1px solid ${COLORS.border}`, display: 'flex', flexDirection: 'column', animation: 'cartIn 0.22s ease' }}>
+        <style>{`@keyframes cartIn { from { transform: translateX(30px); opacity: 0.4 } to { transform: none; opacity: 1 } }`}</style>
+        <div style={{ padding: '16px 18px', borderBottom: `1px solid ${COLORS.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontWeight: 800, fontSize: 16 }}>
+            {stage === 'cart' ? `Your cart (${cart.count})` : stage === 'address' ? 'Delivery details' : stage === 'pay' ? 'Payment' : 'Order placed'}
+          </span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: COLORS.textDim, cursor: 'pointer', fontSize: 20 }}>×</button>
+        </div>
+
+        {stage === 'cart' && (
+          <>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
+              {rows.length === 0 ? (
+                <div style={{ textAlign: 'center', color: COLORS.textDim, padding: 50, fontSize: 14.5 }}>Your cart is empty.<br /><a href="#/shop" onClick={onClose} style={{ color: theme.primaryColor, fontWeight: 700, textDecoration: 'none' }}>Browse products →</a></div>
+              ) : rows.map((r) => (
+                <div key={r.p.id} style={{ display: 'flex', gap: 10, padding: '10px 0', borderBottom: `1px solid ${COLORS.border}` }}>
+                  {r.p.images?.[0]
+                    ? (isVideoSrc(r.p.images[0]) ? <video src={r.p.images[0]} muted style={{ width: 54, height: 54, borderRadius: 10, objectFit: 'cover' }} /> : <img src={r.p.images[0]} alt="" style={{ width: 54, height: 54, borderRadius: 10, objectFit: 'cover' }} />)
+                    : <div style={{ width: 54, height: 54, borderRadius: 10, background: 'rgba(127,127,127,0.1)' }} />}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13.5, lineHeight: 1.3 }}>{r.p.name}</div>
+                    <div style={{ color: COLORS.textDim, fontSize: 12.5, margin: '3px 0 6px' }}>{money(r.p.price)}</div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: '2px 8px' }}>
+                      <button onClick={() => cart.setQty(r.p.id, r.qty - 1)} style={{ background: 'none', border: 'none', color: COLORS.text, cursor: 'pointer', fontWeight: 800 }}>−</button>
+                      <span style={{ fontWeight: 800, fontSize: 13 }}>{r.qty}</span>
+                      <button onClick={() => cart.setQty(r.p.id, r.qty + 1)} style={{ background: 'none', border: 'none', color: COLORS.text, cursor: 'pointer', fontWeight: 800 }}>+</button>
+                    </div>
+                  </div>
+                  <button onClick={() => cart.remove(r.p.id)} style={{ background: 'none', border: 'none', color: COLORS.textDim, cursor: 'pointer', fontSize: 16 }}>🗑</button>
+                </div>
+              ))}
+            </div>
+            {rows.length > 0 && (
+              <div style={{ padding: '14px 16px', borderTop: `1px solid ${COLORS.border}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 4 }}><span style={{ color: COLORS.textDim }}>Subtotal</span><b>{money(subtotal)}</b></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: COLORS.textDim, marginBottom: 10 }}><span>Delivery</span><span style={{ color: '#16a34a', fontWeight: 700 }}>FREE</span></div>
+                <button onClick={() => setStage('address')} style={{ width: '100%', padding: 14, borderRadius: 12, border: 'none', background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`, color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
+                  Checkout — {money(subtotal)}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {stage === 'address' && (
+          <>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Full name *" style={inp} />
+              <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone (WhatsApp) *" style={inp} />
+              <textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Full address (house, street, area) *" rows={3} style={{ ...inp, resize: 'vertical' }} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="City *" style={inp} />
+                <input value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value })} placeholder="Pincode *" style={inp} />
+              </div>
+              {error && <div style={{ color: '#dc2626', fontSize: 13 }}>{error}</div>}
+            </div>
+            <div style={{ padding: '14px 16px', borderTop: `1px solid ${COLORS.border}`, display: 'flex', gap: 8 }}>
+              <button onClick={() => setStage('cart')} style={{ padding: 13, borderRadius: 12, border: `1px solid ${COLORS.border}`, background: 'transparent', color: COLORS.text, fontWeight: 700, cursor: 'pointer' }}>←</button>
+              <button onClick={() => { if (!form.name.trim() || !form.phone.trim() || !form.address.trim()) { setError('Name, phone and address are required'); return } setError(null); setStage('pay') }}
+                style={{ flex: 1, padding: 13, borderRadius: 12, border: 'none', background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`, color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
+                Continue to payment
+              </button>
+            </div>
+          </>
+        )}
+
+        {stage === 'pay' && (
+          <>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px' }}>
+              <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(127,127,127,0.06)', marginBottom: 14, fontSize: 13, color: COLORS.textDim, lineHeight: 1.6 }}>
+                Deliver to <b style={{ color: COLORS.text }}>{form.name}</b> · {form.address}{form.city ? `, ${form.city}` : ''} {form.pincode} · {form.phone}
+              </div>
+              {[
+                { id: 'cod', icon: '💵', title: 'Cash on Delivery', desc: 'Pay when your order arrives. Most popular.' },
+                { id: 'online', icon: '⚡', title: 'Pay online (UPI)', desc: 'GPay, PhonePe, Paytm — pay now, faster dispatch.' },
+              ].map((m) => (
+                <button key={m.id} onClick={() => setPayMode(m.id)} style={{
+                  width: '100%', textAlign: 'left', display: 'flex', gap: 12, alignItems: 'flex-start', padding: 14, borderRadius: 12, cursor: 'pointer', marginBottom: 10,
+                  border: `2px solid ${payMode === m.id ? theme.primaryColor : COLORS.border}`,
+                  background: payMode === m.id ? `color-mix(in srgb, ${theme.primaryColor} 8%, transparent)` : 'transparent',
+                }}>
+                  <span style={{ fontSize: 22 }}>{m.icon}</span>
+                  <span>
+                    <span style={{ display: 'block', fontWeight: 800, fontSize: 14.5 }}>{m.title}</span>
+                    <span style={{ display: 'block', fontSize: 12.5, color: COLORS.textDim, marginTop: 2 }}>{m.desc}</span>
+                  </span>
+                </button>
+              ))}
+              {error && <div style={{ color: '#dc2626', fontSize: 13 }}>{error}</div>}
+            </div>
+            <div style={{ padding: '14px 16px', borderTop: `1px solid ${COLORS.border}`, display: 'flex', gap: 8 }}>
+              <button onClick={() => setStage('address')} style={{ padding: 13, borderRadius: 12, border: `1px solid ${COLORS.border}`, background: 'transparent', color: COLORS.text, fontWeight: 700, cursor: 'pointer' }}>←</button>
+              <button onClick={payMode === 'online' ? payOnline : place} disabled={busy}
+                style={{ flex: 1, padding: 13, borderRadius: 12, border: 'none', background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`, color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer', opacity: busy ? 0.7 : 1 }}>
+                {busy ? 'Placing…' : payMode === 'cod' ? `Place order — ${money(subtotal)}` : `Pay & order — ${money(subtotal)}`}
+              </button>
+            </div>
+          </>
+        )}
+
+        {stage === 'done' && placed && (
+          <div style={{ flex: 1, overflowY: 'auto', padding: '28px 18px', textAlign: 'center' }}>
+            <div style={{ fontSize: 46, marginBottom: 8 }}>🎉</div>
+            <div style={{ fontWeight: 900, fontSize: 20, marginBottom: 6 }}>Order #{placed.id} confirmed!</div>
+            <div style={{ color: COLORS.textDim, fontSize: 13.5, lineHeight: 1.7, marginBottom: 18 }}>
+              {site.name} will contact you on {form.phone} to confirm delivery.<br />
+              {payMode === 'cod' ? 'Keep the amount ready at delivery.' : 'Complete payment on the link sent to you for faster dispatch.'}
+            </div>
+            {wa && (
+              <a href={`https://wa.me/${wa}?text=${encodeURIComponent(`Namaste, I placed order #${placed.id}.`)}`} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'inline-block', background: '#16a34a', color: '#fff', fontWeight: 700, fontSize: 13.5, borderRadius: 10, padding: '11px 18px', textDecoration: 'none', marginBottom: 14 }}>
+                Confirm on WhatsApp
+              </a>
+            )}
+            <div><button onClick={onClose} style={{ padding: '11px 22px', borderRadius: 10, border: `1px solid ${COLORS.border}`, background: 'transparent', color: COLORS.text, fontWeight: 700, cursor: 'pointer' }}>Continue shopping</button></div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export function ShopPage({ site, resolve, theme, COLORS, slug }) {
   const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
   const products = (site._products || [])
   const cats = [...new Set(products.map((p) => p.category).filter(Boolean))]
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('all')
   const [sort, setSort] = useState('featured')
+  const [cartOpen, setCartOpen] = useState(false)
+  const cart = useCart(slug || site.slug)
 
   let list = products.filter((p) => (cat === 'all' || p.category === cat) &&
     (!q.trim() || (p.name + ' ' + (p.description || '')).toLowerCase().includes(q.trim().toLowerCase())))
@@ -1590,52 +1825,191 @@ export function ShopPage({ site, resolve, theme, COLORS }) {
 
   return (
     <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text }}>
-      <TenantHeader site={site} theme={theme} COLORS={COLORS} showStore active="#/shop" />
-      {/* search strip */}
-      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '14px 18px 0' }}>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products…"
-          style={{ width: '100%', maxWidth: 420, padding: '9px 14px', borderRadius: 999, border: `1px solid ${COLORS.border}`, background: COLORS.surface, color: COLORS.text, fontSize: 13.5, outline: 'none' }} />
+      <ShopHeader site={site} slug={slug} cart={cart} COLORS={COLORS} theme={theme} onCart={() => setCartOpen(true)} />
+      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} cart={cart} products={products} COLORS={COLORS} theme={theme} site={site} resolve={resolve} slug={slug || site.slug} />
+
+      {/* hero banner */}
+      <div style={{ background: gradient, color: '#fff', padding: '46px 20px', textAlign: 'center' }}>
+        <h1 style={{ fontSize: 33, fontWeight: 900, margin: '0 0 8px', letterSpacing: '-0.5px' }}>{site.name} Store</h1>
+        <p style={{ margin: 0, fontSize: 15, opacity: 0.92 }}>Certified gemstones, rudraksha, bracelets & healing puja kits · Energised before dispatch · Free delivery</p>
+        <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap', fontSize: 13, fontWeight: 700 }}>
+          <span>🚚 Free shipping</span><span>💵 Cash on delivery</span><span>✅ 100% authentic</span>
+        </div>
       </div>
 
-      {/* banner */}
-      <div style={{ background: gradient, color: '#fff', padding: '42px 20px', textAlign: 'center' }}>
-        <h1 style={{ fontSize: 32, fontWeight: 900, margin: '0 0 8px', letterSpacing: '-0.5px' }}>{site.name} — Remedies Store</h1>
-        <p style={{ margin: 0, fontSize: 15, opacity: 0.9 }}>Certified gemstones, rudraksha, bracelets & healing puja kits — energised before dispatch.</p>
-      </div>
-
-      <main style={{ maxWidth: 1080, margin: '0 auto', padding: '24px 18px 90px' }}>
-        {/* category pills + sort */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 20 }}>
+      <main style={{ maxWidth: 1100, margin: '0 auto', padding: '22px 16px 90px' }}>
+        {/* search + filters */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search gemstones, rudraksha…"
+            style={{ flex: 1, minWidth: 200, padding: '11px 16px', borderRadius: 999, border: `1px solid ${COLORS.border}`, background: COLORS.surface, color: COLORS.text, fontSize: 14, outline: 'none' }} />
+          <select value={sort} onChange={(e) => setSort(e.target.value)} style={{ padding: '10px 14px', borderRadius: 999, border: `1px solid ${COLORS.border}`, background: COLORS.surface, color: COLORS.text, fontSize: 13 }}>
+            <option value="featured">Featured</option><option value="low">Price: low → high</option><option value="high">Price: high → low</option>
+          </select>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 22 }}>
           <button onClick={() => setCat('all')} style={pill('all', cat, theme)}>All</button>
           {cats.map((c) => <button key={c} onClick={() => setCat(c)} style={pill(c, cat, theme)}>{c}</button>)}
-          <select value={sort} onChange={(e) => setSort(e.target.value)} style={{ marginLeft: 'auto', padding: '8px 12px', borderRadius: 999, border: `1px solid ${COLORS.border}`, background: COLORS.surface, color: COLORS.text, fontSize: 13 }}>
-            <option value="featured">Featured</option>
-            <option value="low">Price: low → high</option>
-            <option value="high">Price: high → low</option>
-          </select>
         </div>
 
         {!list.length ? (
           <div style={{ textAlign: 'center', color: COLORS.textDim, padding: 60 }}>No products match — try another search.</div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 18 }}>
-            {list.map((p, i) => (
-              <a key={p.id} href={`#/shop/${p.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, overflow: 'hidden', height: '100%', transition: 'transform 0.15s', position: 'relative' }}>
-                  <div style={{ position: 'relative', background: '#fff' }}>
-                    <img src={p.images?.[0] || p.image || 'data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22230%22 height=%22230%22><rect fill=%22%23f1f5f9%22 width=%22230%22 height=%22230%22/></svg>'}
-                      alt={p.name} style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block' }} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(225px, 1fr))', gap: 16 }}>
+            {list.map((p, i) => {
+              const save = p.mrp && p.mrp > p.price ? Math.round((1 - p.price / p.mrp) * 100) : 0
+              return (
+                <div key={p.id} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                  <a href={`#/shop/${p.id}`} style={{ textDecoration: 'none', color: 'inherit', position: 'relative', display: 'block', background: '#fff' }}>
+                    {p.images?.[0]
+                      ? (isVideoSrc(p.images[0])
+                          ? <video src={p.images[0]} muted style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block' }} />
+                          : <img src={p.images[0]} alt={p.name} style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block' }} />)
+                      : <div style={{ width: '100%', aspectRatio: '1/1', background: '#f1f5f9' }} />}
                     {i < 2 && <span style={{ position: 'absolute', top: 10, left: 10, background: '#dc2626', color: '#fff', fontWeight: 800, fontSize: 10.5, borderRadius: 8, padding: '3px 8px' }}>🔥 BESTSELLER</span>}
-                  </div>
-                  <div style={{ padding: 14 }}>
+                    {!!save && <span style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(34,197,94,0.95)', color: '#fff', fontWeight: 800, fontSize: 11, borderRadius: 8, padding: '3px 8px' }}>{save}% OFF</span>}
+                  </a>
+                  <div style={{ padding: 13, display: 'flex', flexDirection: 'column', flex: 1 }}>
                     {p.category && <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6, color: COLORS.textDim, textTransform: 'uppercase', marginBottom: 4 }}>{p.category}</div>}
-                    <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6, lineHeight: 1.4 }}>{p.name}</div>
+                    <a href={`#/shop/${p.id}`} style={{ textDecoration: 'none', color: 'inherit', fontWeight: 700, fontSize: 14, lineHeight: 1.4, marginBottom: 6 }}>{p.name}</a>
                     <Stars id={p.id} COLORS={COLORS} />
-                    <div style={{ marginTop: 8 }}><PriceBlock p={p} COLORS={COLORS} /></div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginTop: 8 }}>
+                      <span style={{ fontWeight: 900, fontSize: 17 }}>₹{Number(p.price).toLocaleString('en-IN')}</span>
+                      {!!save && <span style={{ color: COLORS.textDim, textDecoration: 'line-through', fontSize: 12.5 }}>₹{p.mrp}</span>}
+                    </div>
+                    <button onClick={() => { cart.add(p.id); setCartOpen(true) }}
+                      style={{ marginTop: 10, width: '100%', padding: '10px 8px', borderRadius: 10, border: 'none', background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`, color: '#fff', fontWeight: 800, fontSize: 13.5, cursor: 'pointer' }}>
+                      Add to Cart
+                    </button>
                   </div>
                 </div>
-              </a>
-            ))}
+              )
+            })}
+          </div>
+        )}
+      </main>
+    </div>
+  )
+}
+
+export function ProductPage({ site, resolve, theme, COLORS, productId, slug }) {
+  const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+  const products = site._products || []
+  const p = products.find((x) => String(x.id) === String(productId))
+  const [img, setImg] = useState(0)
+  const [cartOpen, setCartOpen] = useState(false)
+  const [buyNow, setBuyNow] = useState(false)
+  const cart = useCart(slug || site.slug)
+
+  if (!p) {
+    return <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 14 }}>
+      <p>Product not found.</p><a href="#/shop" style={{ color: theme.primaryColor, fontWeight: 700 }}>← Back to shop</a>
+    </div>
+  }
+
+  const images = (p.images?.length ? p.images : [p.image]).filter(Boolean)
+  const related = products.filter((x) => x.id !== p.id && x.category && x.category === p.category).slice(0, 4)
+  const save = p.mrp && p.mrp > p.price ? Math.round((1 - p.price / p.mrp) * 100) : 0
+
+  return (
+    <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text }}>
+      <ShopHeader site={site} slug={slug} cart={cart} COLORS={COLORS} theme={theme} onCart={() => setCartOpen(true)} />
+      <CartDrawer open={cartOpen} onClose={() => { setCartOpen(false); setBuyNow(false) }} cart={buyNow ? cart : cart} products={products} COLORS={COLORS} theme={theme} site={site} resolve={resolve} slug={slug || site.slug} />
+      <main style={{ maxWidth: 1000, margin: '0 auto', padding: '26px 16px 90px' }}>
+        <div style={{ fontSize: 12.5, color: COLORS.textDim, marginBottom: 16 }}>
+          <a href="#/" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Home</a> / <a href="#/shop" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Shop</a>{p.category ? <> / <span>{p.category}</span></> : null} / <span style={{ color: COLORS.text }}>{p.name}</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }}>
+          <div>
+            <div style={{ background: '#fff', borderRadius: 18, border: `1px solid ${COLORS.border}`, overflow: 'hidden' }}>
+              {images[img] && (isVideoSrc(images[img])
+                ? <video src={images[img]} controls style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block', background: '#0f172a' }} />
+                : <img src={images[img]} alt={p.name} style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block' }} />)}
+            </div>
+            {images.length > 1 && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                {images.map((im, i) => (
+                  <div key={i} onClick={() => setImg(i)} style={{ borderRadius: 10, cursor: 'pointer', border: i === img ? `2.5px solid ${theme.primaryColor}` : `1px solid ${COLORS.border}`, opacity: i === img ? 1 : 0.75 }}>
+                    {isVideoSrc(im)
+                      ? <video src={im} muted style={{ width: 62, height: 62, objectFit: 'cover', borderRadius: 8, display: 'block' }} />
+                      : <img src={im} alt="" style={{ width: 62, height: 62, objectFit: 'cover', borderRadius: 8, display: 'block' }} />}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            {p.category && <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: COLORS.textDim, marginBottom: 6 }}>{p.category}</div>}
+            <h1 style={{ fontSize: 26, fontWeight: 900, margin: '0 0 10px', lineHeight: 1.25 }}>{p.name}</h1>
+            <Stars id={p.id} COLORS={COLORS} />
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, margin: '14px 0 4px', flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 900, fontSize: 30 }}>₹{Number(p.price).toLocaleString('en-IN')}</span>
+              {!!save && <span style={{ color: COLORS.textDim, textDecoration: 'line-through', fontSize: 16 }}>MRP ₹{p.mrp}</span>}
+              {!!save && <span style={{ background: 'rgba(34,197,94,0.12)', color: '#16a34a', fontWeight: 800, fontSize: 14, borderRadius: 8, padding: '3px 10px' }}>SAVE {save}%</span>}
+            </div>
+            <div style={{ fontSize: 12, color: COLORS.textDim, marginBottom: 14 }}>Inclusive of all taxes · Free delivery</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#dc2626' }}>🔥 {VIEWERS(p.id)} people viewed this in the last 24 hours</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#d97706' }}>⚡ {SOLD(p.id)}+ sold this month</div>
+              <div style={{ fontSize: 13, color: COLORS.textDim }}>✓ Energised & blessed before dispatch · ✓ Authenticity certificate included</div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+              <button onClick={() => { cart.add(p.id); setCartOpen(true) }}
+                style={{ flex: 1, padding: 14, borderRadius: 12, border: `1.5px solid ${theme.primaryColor}`, background: 'transparent', color: theme.primaryColor, fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
+                Add to Cart
+              </button>
+              <button onClick={() => { cart.add(p.id); setCartOpen(true) }}
+                style={{ flex: 1, padding: 14, borderRadius: 12, border: 'none', background: gradient, color: '#fff', fontWeight: 900, fontSize: 15, cursor: 'pointer' }}>
+                Buy Now
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12, color: COLORS.textDim, background: 'rgba(127,127,127,0.05)', borderRadius: 12, padding: 12 }}>
+              <span>💵 Cash on delivery available</span><span>⚡ UPI / online payment</span>
+              <span>🚚 Free shipping in India</span><span>↩️ 7-day easy returns</span>
+            </div>
+          </div>
+        </div>
+
+        {p.description && (
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 22, marginTop: 26 }}>
+            <h3 style={{ margin: '0 0 10px', fontSize: 15, fontWeight: 800 }}>About this product</h3>
+            <div style={{ fontSize: 14, lineHeight: 1.8, color: COLORS.textDim, whiteSpace: 'pre-wrap' }}>{p.description}</div>
+          </div>
+        )}
+
+        {!!(p.attributes?.length) && (
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 22, marginTop: 16 }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800 }}>Specifications</h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
+              <tbody>
+                {p.attributes.map((a, i) => (
+                  <tr key={i}>
+                    <td style={{ padding: '8px 10px', color: COLORS.textDim, borderBottom: `1px solid ${COLORS.border}`, width: '40%' }}>{a.name}</td>
+                    <td style={{ padding: '8px 10px', fontWeight: 700, borderBottom: `1px solid ${COLORS.border}` }}>{a.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {related.length > 0 && (
+          <div style={{ marginTop: 26 }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 800 }}>You may also like</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(155px, 1fr))', gap: 12 }}>
+              {related.map((r2) => (
+                <a key={r2.id} href={`#/shop/${r2.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, overflow: 'hidden' }}>
+                    {r2.images?.[0] && !isVideoSrc(r2.images[0])
+                      ? <img src={r2.images[0]} alt="" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block', background: '#fff' }} />
+                      : <div style={{ width: '100%', aspectRatio: '1/1', background: '#f1f5f9' }} />}
+                    <div style={{ padding: 10 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, lineHeight: 1.35 }}>{r2.name}</div>
+                      <div style={{ fontWeight: 900, fontSize: 14, marginTop: 4 }}>₹{Number(r2.price).toLocaleString('en-IN')}</div>
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
           </div>
         )}
       </main>
@@ -1649,148 +2023,6 @@ const pill = (c, active, theme) => ({
   color: active === c ? '#fff' : 'inherit',
 })
 
-// ─────────── PRODUCT DETAIL (#/shop/:id) ───────────
-export function ProductPage({ site, resolve, theme, COLORS, productId }) {
-  const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
-  const products = site._products || []
-  const p = products.find((x) => String(x.id) === String(productId))
-  const [img, setImg] = useState(0)
-  const [qty, setQty] = useState(1)
-  const [order, setOrder] = useState(null)
-  const [form, setForm] = useState(() => {
-    try {
-      const s = JSON.parse(localStorage.getItem(`tenantAuth_${site.slug}`) || 'null')
-      return { name: s?.user?.name || '', phone: s?.user?.phone || s?.user?.email || '', address: '' }
-    } catch { return { name: '', phone: '', address: '' } }
-  })
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
-
-  if (!p) {
-    return <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 14 }}>
-      <p>Product not found.</p><a href="#/shop" style={{ color: theme.primaryColor, fontWeight: 700 }}>← Back to shop</a>
-    </div>
-  }
-
-  const images = (p.images?.length ? p.images : [p.image]).filter(Boolean)
-  const related = products.filter((x) => x.id !== p.id && x.category && x.category === p.category).slice(0, 4)
-  const wa = String(site.settings?.whatsappNumber || '').replace(/[^\d]/g, '')
-
-  const buy = async (e) => {
-    e.preventDefault()
-    if (!form.name.trim() || !form.phone.trim()) { setError('Name and phone are required'); return }
-    setBusy(true); setError(null)
-    try {
-      const res = await publicPlaceOrder(resolve, {
-        items: [{ product_id: p.id, name: p.name, qty, price: p.price }],
-        client_name: form.name, client_phone: form.phone, address: form.address,
-      })
-      setOrder(res)
-    } catch (err) { setError(err.response?.data?.detail || 'Could not place the order') } finally { setBusy(false) }
-  }
-
-  return (
-    <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text }}>
-      <TenantHeader site={site} theme={theme} COLORS={COLORS} showStore active="#/shop" />
-      <main style={{ maxWidth: 1000, margin: '0 auto', padding: '30px 18px 90px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 30 }}>
-          {/* gallery */}
-          <div>
-            <div style={{ background: '#fff', borderRadius: 18, border: `1px solid ${COLORS.border}`, overflow: 'hidden' }}>
-              <img src={images[img] || images[0]} alt={p.name} style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block' }} />
-            </div>
-            {images.length > 1 && (
-              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                {images.map((im, i) => (
-                  <img key={i} src={im} onClick={() => setImg(i)}
-                    style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, cursor: 'pointer', border: i === img ? `2.5px solid ${theme.primaryColor}` : `1px solid ${COLORS.border}`, opacity: i === img ? 1 : 0.75 }} />
-                ))}
-              </div>
-            )}
-          </div>
-          {/* info */}
-          <div>
-            {p.category && <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: COLORS.textDim, marginBottom: 6 }}>{p.category}</div>}
-            <h1 style={{ fontSize: 27, fontWeight: 900, margin: '0 0 10px', lineHeight: 1.25 }}>{p.name}</h1>
-            <Stars id={p.id} COLORS={COLORS} />
-            <div style={{ margin: '14px 0' }}><PriceBlock p={p} COLORS={COLORS} big /></div>
-            {/* FOMO */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#dc2626' }}>🔥 {VIEWERS(p.id)} people viewed this in the last 24 hours</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#d97706' }}>⚡ {SOLD(p.id)}+ sold this month</div>
-              <div style={{ fontSize: 13, color: COLORS.textDim }}>✓ Energised & blessed before dispatch · ✓ Authenticity certificate included</div>
-            </div>
-            {order ? (
-              <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 14, padding: 20 }}>
-                <div style={{ fontWeight: 900, fontSize: 17, color: '#16a34a', marginBottom: 6 }}>Order #{order.id} placed!</div>
-                <div style={{ fontSize: 13.5, color: COLORS.textDim, lineHeight: 1.6, marginBottom: 12 }}>
-                  {site.name} will contact you to confirm payment and delivery.
-                </div>
-                {wa && <a href={`https://wa.me/${wa}?text=${encodeURIComponent(`Namaste, I placed order #${order.id} (${p.name}).`)}`} target="_blank" rel="noopener noreferrer"
-                  style={{ display: 'inline-block', background: '#16a34a', color: '#fff', fontWeight: 700, fontSize: 13.5, borderRadius: 10, padding: '10px 16px', textDecoration: 'none' }}>Confirm on WhatsApp</a>}
-              </div>
-            ) : (
-              <form onSubmit={buy} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span style={{ fontSize: 13.5, fontWeight: 700 }}>Qty</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <button type="button" onClick={() => setQty((q2) => Math.max(1, q2 - 1))} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${COLORS.border}`, background: COLORS.surface, color: COLORS.text, fontWeight: 800, cursor: 'pointer' }}>−</button>
-                    <span style={{ fontWeight: 800, fontSize: 16, minWidth: 20, textAlign: 'center' }}>{qty}</span>
-                    <button type="button" onClick={() => setQty((q2) => Math.min(9, q2 + 1))} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${COLORS.border}`, background: COLORS.surface, color: COLORS.text, fontWeight: 800, cursor: 'pointer' }}>+</button>
-                  </div>
-                  <span style={{ marginLeft: 'auto', fontWeight: 800, fontSize: 17 }}>₹{p.price * qty}</span>
-                </div>
-                <div style={{ fontSize: 12.5, color: COLORS.textDim }}>
-                  {form.name ? `Ordering as ${form.name} (signed in) — or change the details below.` : 'Order as guest — no account needed. Create an account to track your readings.'} <a href="#/signin" style={{ color: theme.primaryColor, fontWeight: 700 }}>Sign in</a>
-                </div>
-                <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Your name *" style={{ ...inputStyle, color: COLORS.text }} />
-                <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone (WhatsApp) *" style={{ ...inputStyle, color: COLORS.text }} />
-                <textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Delivery address" rows={2} style={{ ...inputStyle, resize: 'vertical', color: COLORS.text }} />
-                {error && <div style={{ color: '#dc2626', fontSize: 13 }}>{error}</div>}
-                <button type="submit" disabled={busy}
-                  style={{ padding: 14, borderRadius: 12, border: 'none', background: gradient, color: '#fff', fontWeight: 900, fontSize: 16, cursor: 'pointer', opacity: busy ? 0.7 : 1 }}>
-                  {busy ? 'Placing order…' : `Buy Now — ₹${p.price * qty}`}
-                </button>
-                <div style={{ fontSize: 11.5, color: COLORS.textDim, textAlign: 'center' }}>Pay on delivery or via UPI after confirmation · Free shipping within India</div>
-              </form>
-            )}
-          </div>
-        </div>
-
-        {/* description */}
-        {p.description && (
-          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 22, marginTop: 26 }}>
-            <h3 style={{ margin: '0 0 10px', fontSize: 15, fontWeight: 800 }}>About this product</h3>
-            <div style={{ fontSize: 14, lineHeight: 1.8, color: COLORS.textDim, whiteSpace: 'pre-wrap' }}>{p.description}</div>
-          </div>
-        )}
-
-        {/* related */}
-        {related.length > 0 && (
-          <div style={{ marginTop: 26 }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 800 }}>You may also like</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
-              {related.map((r2) => (
-                <a key={r2.id} href={`#/shop/${r2.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                  <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, overflow: 'hidden' }}>
-                    <img src={r2.images?.[0] || r2.image} alt="" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block', background: '#fff' }} />
-                    <div style={{ padding: 10 }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 700, lineHeight: 1.35 }}>{r2.name}</div>
-                      <div style={{ fontWeight: 900, fontSize: 14, marginTop: 4 }}>₹{r2.price}</div>
-                    </div>
-                  </div>
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
-      </main>
-    </div>
-  )
-}
-
-// ─────────── PERSONAL HOROSCOPE PAGE (#/horoscope) ───────────
-const HORO_PERIODS = [['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['yearly', 'Yearly']]
 
 export function HoroscopePage({ site, resolve, theme, COLORS }) {
   const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`

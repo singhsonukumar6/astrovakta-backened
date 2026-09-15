@@ -60,6 +60,17 @@ export function tenantSubdomainLabel(slug) {
   return `${slug}.astrovakta.com`
 }
 
+// Extract a YouTube video id from the shapes people actually paste:
+// https://www.youtube.com/watch?v=ID, youtu.be/ID, /embed/ID, /shorts/ID,
+// or a bare 11-char id. Returns null when it doesn't look like YouTube.
+export function parseYouTubeId(input) {
+  const s = String(input || '').trim()
+  if (!s) return null
+  if (/^[\w-]{11}$/.test(s)) return s
+  const m = s.match(/(?:youtube\.com|youtu\.be)\/(?:watch\?v=|embed\/|shorts\/|live\/|v\/)?([\w-]{11})/)
+  return m ? m[1] : null
+}
+
 // ─── visitor session / flow helpers (per-site keys in browser storage) ───
 // Where to land after TenantSignIn succeeds ('' → site home).
 export const tenantAuthReturnKey = (slug) => `tenantAuthReturn_${slug}`
