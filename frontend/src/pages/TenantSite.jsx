@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Star, Calendar, Clock, Check, Sparkles, Moon, ArrowRight,
-  ChevronLeft, ChevronRight, Globe, BadgeCheck, Sparkle, Send,
+  ChevronLeft, ChevronRight, Globe, BadgeCheck, Send,
   MapPin, Mail, Phone, ShoppingCart, Plus, Minus, ShoppingCart as CartIcon,
   ShieldCheck, HeartHandshake, Lock, UserCheck, Package, ShoppingBag, ScrollText, Heart,
 } from 'lucide-react'
@@ -35,6 +35,44 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const ZODIAC = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces']
 
 const WHY_ICONS = [ShieldCheck, HeartHandshake, Lock, UserCheck]
+
+// Deterministic star positions (module-level so re-renders don't reshuffle
+// the sky) for the dark-theme hero twinkle.
+const HERO_STARS = Array.from({ length: 42 }, (_, i) => ({
+  left: (i * 37.7) % 100, top: (i * 53.3) % 62,
+  size: 1 + ((i * 7) % 3) * 0.8, dur: 2.4 + ((i * 13) % 30) / 10, delay: ((i * 11) % 40) / 10,
+}))
+
+// Click-to-play YouTube card — the light iframe loads only when the visitor
+// actually taps play (fast first paint, no YouTube JS until then).
+function YouTubeCard({ vid, COLORS }) {
+  const [playing, setPlaying] = useState(false)
+  const title = vid.title || 'Video'
+  return (
+    <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, overflow: 'hidden' }}>
+      <div style={{ position: 'relative', aspectRatio: '16/9', background: '#000' }}>
+        {playing ? (
+          <iframe src={`https://www.youtube-nocookie.com/embed/${vid.id}?autoplay=1&rel=0`} title={title}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen />
+        ) : (
+          <button type="button" onClick={() => setPlaying(true)} aria-label={`Play ${title}`}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', cursor: 'pointer', padding: 0 }}>
+            <img src={`https://i.ytimg.com/vi/${vid.id}/hqdefault.jpg`} alt={title} loading="lazy"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.28)' }}>
+              <span style={{ width: 54, height: 54, borderRadius: '50%', background: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(220,38,38,0.5)' }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
+              </span>
+            </span>
+          </button>
+        )}
+      </div>
+      {vid.title && <div style={{ padding: '12px 14px', fontWeight: 700, fontSize: 14, lineHeight: 1.5 }}>{vid.title}</div>}
+    </div>
+  )
+}
 
 // Tenant sites own their SEO (they're the astrologer's brand, not AstroVakta
 // pages) — the platform SeoManager skips /s/ paths, so set meta directly.
@@ -869,6 +907,11 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
+  // analytics beacon: one pageview per route change
+  useEffect(() => {
+    if (bundle) sendSiteEvent(resolve, 'pageview', window.location.hash || '#/')
+  }, [route, bundle]) // eslint-disable-line
+
   useEffect(() => {
     setBundle(null); setError(null)
     getPublicSite(resolve)
@@ -963,6 +1006,30 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
 
   const hasContact = settings.email || settings.phone || settings.city
 
+  // Hero CTAs — tenant-defined (Content tab) with the classic defaults.
+  const heroCtas = (() => {
+    const custom = (Array.isArray(home.heroButtons) ? home.heroButtons : [])
+      .filter((b) => b && b.label && b.href).slice(0, 3)
+    if (custom.length) return custom
+    return [
+      { label: 'Book a Consultation', href: '#book', variant: 'primary' },
+      { label: 'Free Kundli', href: '#tools', variant: 'outline' },
+      ...(showStore ? [{ label: 'Shop Remedies', href: '#/shop', variant: 'outline' }] : []),
+    ]
+  })()
+
+  // YouTube videos (tenant-managed in the Content tab).
+  const videos = (Array.isArray(home.videos) ? home.videos : [])
+    .map((v) => ({ ...v, id: parseYouTubeId(v.url || v.id) })).filter((v) => v.id).slice(0, 6)
+
+  // Linktree-style rows: the tenant's social profiles + any custom links.
+  const SOCIAL_LABELS = { instagram: 'Instagram', youtube: 'YouTube', facebook: 'Facebook', twitter: 'X (Twitter)', linkedin: 'LinkedIn', telegram: 'Telegram', website: 'Website' }
+  const socialRows = socials.map(([key, Icon, href]) => ({ key, Icon, href, label: SOCIAL_LABELS[key] || key }))
+  const customLinkRows = (Array.isArray(home.links) ? home.links : [])
+    .filter((l) => l && l.label && l.url).slice(0, 8)
+    .map((l, i) => ({ key: `custom-${i}`, Icon: Globe, href: /^https?:\/\//i.test(l.url) ? l.url : `https://${l.url}`, label: l.label }))
+  const linkRows = [...socialRows, ...customLinkRows]
+
   return (
     <div className="tenant-site" style={{ background: COLORS.bg, color: COLORS.text, minHeight: '100vh', fontFamily: "'Inter', system-ui, sans-serif" }}>
       <TenantHead site={site} home={home} />
@@ -975,65 +1042,107 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
       {/* ─── header (shared across every public page) ─── */}
       <TenantHeader site={site} theme={theme} COLORS={COLORS} showStore={showStore} />
 
-      {/* ─── hero ─── */}
+      {/* ─── hero (framer-motion animated, fully tenant-customizable) ─── */}
       <section id="top" style={{
         position: 'relative', overflow: 'hidden',
         background: `radial-gradient(ellipse 80% 60% at 50% -10%, color-mix(in srgb, ${theme.primaryColor} 30%, transparent), transparent), ${COLORS.bg}`,
       }}>
-        {/* stars for dark theme */}
+        {/* floating gradient orbs */}
+        <motion.div aria-hidden
+          animate={{ y: [0, -22, 0], x: [0, 12, 0] }} transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+          style={{ position: 'absolute', width: 360, height: 360, borderRadius: '50%', top: -110, left: -120, background: theme.primaryColor, filter: 'blur(95px)', opacity: light ? 0.14 : 0.24, pointerEvents: 'none' }} />
+        <motion.div aria-hidden
+          animate={{ y: [0, 18, 0], x: [0, -14, 0] }} transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut', delay: 1.2 }}
+          style={{ position: 'absolute', width: 300, height: 300, borderRadius: '50%', bottom: -130, right: -90, background: theme.accentColor, filter: 'blur(95px)', opacity: light ? 0.12 : 0.2, pointerEvents: 'none' }} />
+
+        {/* twinkling stars for dark theme */}
         {!light && (
           <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-            {Array.from({ length: 36 }).map((_, i) => (
-              <Sparkle key={i} size={Math.random() * 2 + 1} color={theme.accentColor} opacity={Math.random() * 0.5 + 0.2}
-                style={{ position: 'absolute', left: `${Math.random() * 100}%`, top: `${Math.random() * 60}%` }} />
+            {HERO_STARS.map((s, i) => (
+              <motion.span key={i}
+                animate={{ opacity: [0.15, 0.85, 0.15], scale: [1, 1.35, 1] }}
+                transition={{ duration: s.dur, repeat: Infinity, delay: s.delay, ease: 'easeInOut' }}
+                style={{
+                  position: 'absolute', left: `${s.left}%`, top: `${s.top}%`,
+                  width: s.size, height: s.size, borderRadius: '50%',
+                  background: i % 5 === 0 ? theme.primaryColor : theme.accentColor,
+                  boxShadow: `0 0 ${s.size * 3}px ${theme.accentColor}`,
+                }} />
             ))}
           </div>
         )}
         <div style={{ ...sectionStyle, paddingTop: 72, paddingBottom: 72, position: 'relative' }}>
           <div style={{ display: 'grid', gridTemplateColumns: site.hero_image ? '1.15fr 0.85fr' : '1fr', gap: 48, alignItems: 'center' }}>
-            <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderRadius: 20,
-                border: `1px solid ${COLORS.border}`, fontSize: 13, fontWeight: 600, color: COLORS.textDim, marginBottom: 24,
-              }}>
-                <Moon size={14} color={theme.accentColor} /> {site.tagline || 'Vedic Astrologer'}
-              </div>
+            <div>
+              {/* badge */}
+              <motion.div
+                initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderRadius: 20,
+                  border: `1px solid ${COLORS.border}`, fontSize: 13, fontWeight: 600, color: COLORS.textDim, marginBottom: 24,
+                }}>
+                <Moon size={14} color={theme.accentColor} /> {home.heroBadge || site.tagline || 'Vedic Astrologer'}
+              </motion.div>
+              {/* headline — word-by-word reveal */}
               <h1 style={{
                 fontSize: 'clamp(32px, 5.4vw, 52px)', fontWeight: 900, lineHeight: 1.15, marginBottom: 20,
                 background: `linear-gradient(135deg, ${COLORS.text}, ${theme.primaryColor})`,
                 WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
               }}>
-                {home.heroTitle || `Consult ${site.name}`}
+                {(home.heroTitle || `Consult ${site.name}`).split(' ').map((w, i) => (
+                  <motion.span key={i}
+                    initial={{ opacity: 0, y: 28, rotateX: -45 }}
+                    animate={{ opacity: 1, y: 0, rotateX: 0 }}
+                    transition={{ delay: 0.15 + i * 0.07, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                    style={{ display: 'inline-block', marginRight: '0.28em', transformOrigin: '50% 100%' }}>
+                    {w}
+                  </motion.span>
+                ))}
               </h1>
-              <p style={{ fontSize: 'clamp(15px, 2.2vw, 18px)', color: COLORS.textDim, maxWidth: 560, marginBottom: 32, lineHeight: 1.7 }}>
+              <motion.p
+                initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45, duration: 0.55 }}
+                style={{ fontSize: 'clamp(15px, 2.2vw, 18px)', color: COLORS.textDim, maxWidth: 560, marginBottom: 32, lineHeight: 1.7 }}>
                 {home.heroSubtitle || 'Book a personal Vedic astrology consultation — kundli reading, career, marriage & remedies.'}
-              </p>
-              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-                <a href="#book" style={{
-                  padding: '14px 32px', borderRadius: 12, background: gradient, color: '#fff', fontWeight: 700,
-                  fontSize: 16, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8,
-                }}><Calendar size={18} /> Book a Consultation</a>
-                <a href="#tools" style={{
-                  padding: '14px 32px', borderRadius: 12, border: `1.5px solid ${COLORS.border}`, color: COLORS.text,
-                  fontWeight: 700, fontSize: 16, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8,
-                }}><Sparkles size={18} color={theme.accentColor} /> Free Kundli</a>
-                {showStore && (
-                  <a href="#/shop" style={{
-                    padding: '14px 32px', borderRadius: 12, border: `1.5px solid ${COLORS.border}`, color: COLORS.text,
-                    fontWeight: 700, fontSize: 16, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8,
-                  }}><ShoppingBag size={18} /> Shop Remedies</a>
-                )}
-              </div>
-            </motion.div>
+              </motion.p>
+              {/* CTAs — tenant-defined (Content tab) with sensible defaults */}
+              <motion.div
+                initial="hidden" animate="show"
+                variants={{ hidden: {}, show: { transition: { staggerChildren: 0.12, delayChildren: 0.6 } } }}
+                style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                {heroCtas.map((b) => {
+                  const external = /^https?:\/\//i.test(b.href)
+                  const Icon = b.href === '#book' ? Calendar : b.href === '#/shop' ? ShoppingBag : (b.href === '#tools' || b.href === '#/kundli') ? Sparkles : ArrowRight
+                  return (
+                    <motion.a key={b.label + b.href} href={b.href} {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                      variants={{ hidden: { opacity: 0, y: 18, scale: 0.94 }, show: { opacity: 1, y: 0, scale: 1 } }}
+                      whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.97 }}
+                      style={{
+                        padding: '14px 32px', borderRadius: 12, fontWeight: 700, fontSize: 16, textDecoration: 'none',
+                        display: 'inline-flex', alignItems: 'center', gap: 8,
+                        ...(b.variant === 'primary'
+                          ? { background: gradient, color: '#fff', boxShadow: `0 10px 28px color-mix(in srgb, ${theme.primaryColor} 38%, transparent)` }
+                          : { border: `1.5px solid ${COLORS.border}`, color: COLORS.text }),
+                      }}>
+                      <Icon size={18} /> {b.label}
+                    </motion.a>
+                  )
+                })}
+              </motion.div>
+            </div>
             {site.hero_image && (
-              <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.6, delay: 0.15 }}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.7, delay: 0.25 }}
                 style={{ position: 'relative', maxWidth: 380, justifySelf: 'center', width: '100%' }}>
-                <div style={{
-                  position: 'absolute', inset: -14, borderRadius: 28, opacity: 0.35,
-                  background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`, filter: 'blur(28px)',
-                }} />
-                <img src={site.hero_image} alt={site.name}
-                  style={{ position: 'relative', width: '100%', aspectRatio: '4/4.6', objectFit: 'cover', objectPosition: 'top', borderRadius: 24, border: `1px solid ${COLORS.border}` }} />
+                <motion.div aria-hidden
+                  animate={{ y: [0, -12, 0] }} transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+                  style={{ position: 'relative' }}>
+                  <div style={{
+                    position: 'absolute', inset: -14, borderRadius: 28, opacity: 0.35,
+                    background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`, filter: 'blur(28px)',
+                  }} />
+                  <img src={site.hero_image} alt={site.name}
+                    style={{ position: 'relative', width: '100%', aspectRatio: '4/4.6', objectFit: 'cover', objectPosition: 'top', borderRadius: 24, border: `1px solid ${COLORS.border}` }} />
+                </motion.div>
               </motion.div>
             )}
           </div>
@@ -1098,6 +1207,21 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
         </section>
       )}
 
+      {/* ─── YouTube videos (tenant-managed) ─── */}
+      {videos.length > 0 && (
+        <section id="videos">
+          <div style={sectionStyle}>
+            <h2 style={h2Style}>{home.videosTitle || 'Watch & Learn'}</h2>
+            <p style={subStyle}>
+              {home.videosSubtitle || `${site.name} on video — kundli explainers, remedies and session highlights.`}
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, maxWidth: 900, margin: '0 auto' }}>
+              {videos.map((v) => <YouTubeCard key={v.id} vid={v} COLORS={COLORS} />)}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ─── services ─── */}
       <section id="services">
         <div style={sectionStyle}>
@@ -1141,6 +1265,38 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
                   <p style={{ fontSize: 14, lineHeight: 1.7, color: COLORS.textDim, marginBottom: 14 }}>"{t.text}"</p>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>— {t.name}</div>
                 </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ─── linktree — socials + custom links ─── */}
+      {linkRows.length > 1 && (
+        <section id="links">
+          <div style={sectionStyle}>
+            <h2 style={h2Style}>{home.linksTitle || 'Find Me Online'}</h2>
+            <p style={subStyle}>All of {site.name}'s profiles and links — in one place.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 440, margin: '0 auto' }}>
+              {linkRows.map((row, i) => (
+                <motion.a key={row.key} href={row.href} target="_blank" rel="noopener noreferrer"
+                  initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                  transition={{ delay: i * 0.05 }}
+                  whileHover={{ x: 5 }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 14, padding: '13px 18px', textDecoration: 'none',
+                    background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14,
+                    color: COLORS.text, fontWeight: 700, fontSize: 14.5,
+                  }}>
+                  <span style={{
+                    width: 36, height: 36, borderRadius: 11, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: `color-mix(in srgb, ${theme.primaryColor} 13%, transparent)`, color: theme.primaryColor,
+                  }}>
+                    <row.Icon size={17} />
+                  </span>
+                  <span style={{ flex: 1 }}>{row.label}</span>
+                  <ArrowRight size={16} style={{ color: COLORS.textDim }} />
+                </motion.a>
               ))}
             </div>
           </div>
@@ -1250,7 +1406,9 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
             <span style={{ fontWeight: 700 }}>{site.name}</span>
           </div>
           <div style={{ fontSize: 13, color: COLORS.textDim, marginBottom: 18, textAlign: 'center' }}>
-            {site.custom_domain || tenantSubdomainLabel(site.slug)}
+            {/* Only show the custom domain once it's verified & serving — until
+                then the free subdomain is the site's real address. */}
+            {site.custom_domain && site.domain_status === 'active' ? site.custom_domain : tenantSubdomainLabel(site.slug)}
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 24, fontSize: 13 }}>
             {[
@@ -1282,18 +1440,8 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
         </div>
       </footer>
 
-      {/* ─── WhatsApp chat button (astrologer's number) ─── */}
-      {settings.whatsappNumber && (
-        <a href={`https://wa.me/${String(settings.whatsappNumber).replace(/[^\d]/g, '')}?text=${encodeURIComponent(`Namaste ${site.name}, I want to book a consultation.`)}`}
-          target="_blank" rel="noopener noreferrer" title="Chat on WhatsApp"
-          style={{
-            position: 'fixed', bottom: 22, right: 22, zIndex: 60, width: 54, height: 54, borderRadius: '50%',
-            background: '#16a34a', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 8px 24px rgba(22,163,74,0.4)',
-          }}>
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
-        </a>
-      )}
+      {/* ─── floating WhatsApp chat (tenant's number, every page) ─── */}
+      <WhatsAppFab site={site} />
     </div>
   )
 }

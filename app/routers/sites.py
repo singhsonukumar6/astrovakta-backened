@@ -27,6 +27,7 @@ from ..tenants import (
     list_master_categories, create_master_category, update_master_category, delete_master_category,
     list_master_products, get_master_product, create_master_product, update_master_product, delete_master_product,
     import_master_product,
+    site_credit_balance, adjust_site_credits, site_credit_history, site_analytics, record_site_event,
     list_store_connections, get_store_connection, create_store_connection, delete_store_connection,
     record_integration_product, get_integration_product_map, get_order, create_order,
     create_oauth_state, get_oauth_state, delete_oauth_state, delete_oauth_state_for_site,
@@ -1507,3 +1508,65 @@ async def woo_claim(request: Request):
 def _plugin_base():
     import os as _os
     return _os.getenv("PUBLIC_WEB_BASE", _os.getenv("FRONTEND_URL", "https://astrovakta.com"))
+
+
+# ─────────────── credits & analytics ───────────────
+
+CREDIT_PACKS = [
+    {"id": "starter", "credits": 1000, "price": 499},
+    {"id": "growth", "credits": 5000, "price": 1999},
+    {"id": "pro", "credits": 20000, "price": 6999},
+]
+
+
+@router.get("/my/{site_id}/credits")
+def my_credits(site_id: int, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    return {
+        "balance": site_credit_balance(site_id),
+        "history": site_credit_history(site_id),
+        "packs": CREDIT_PACKS,
+        "costs": {
+            "kundli": 2, "kundli_basic": 1, "matching": 3, "dosha": 2,
+            "horoscope": 1, "panchang": 1, "ai_content": 5, "media_render": 2,
+        },
+    }
+
+
+class RechargeBody(BaseModel):
+    pack_id: str
+
+
+@router.post("/my/{site_id}/credits/recharge")
+def recharge_credits(site_id: int, body: RechargeBody, user: dict = Depends(get_current_user)):
+    """Create a Dodo checkout for a credit pack; webhook credits the balance."""
+    _require_owned_site(site_id, user)
+    pack = next((p for p in CREDIT_PACKS if p["id"] == body.pack_id), None)
+    if not pack:
+        raise HTTPException(status_code=400, detail="Unknown pack")
+    if not os.getenv("DODO_API_KEY"):
+        # no gateway configured — credit instantly in dev (flagged in reason)
+        bal = adjust_site_credits(site_id, pack["credits"], f"recharge:{pack['id']}:dev-instant")
+        return {"ok": True, "balance": bal, "devInstant": True}
+    import httpx
+    from ..tenants import get_site_by_id
+    site = get_site_by_id(site_id)
+    r = httpx.post("https://live.dodopayments.com/payments",
+        headers={"Authorization": f"Bearer {os.getenv('DODO_API_KEY')}"},
+        json={
+            "amount": pack["price"] * 100,
+            "currency": "INR",
+            "product_name": f"AstroVakta credits — {pack['credits']}",
+            "customer_name": user.get("name") or "Astrologer",
+            "customer_email": user["email"],
+            "metadata": {"site_id": site_id, "pack_id": pack["id"], "credits": pack["credits"]},
+        }, timeout=20)
+    if r.status_code not in (200, 201):
+        raise HTTPException(status_code=502, detail="Payment gateway error")
+    return {"checkout_url": r.json().get("payment_link") or r.json().get("checkout_url"), "pack": pack}
+
+
+@router.get("/my/{site_id}/analytics")
+def my_analytics(site_id: int, days: int = 30, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    return site_analytics(site_id, days)

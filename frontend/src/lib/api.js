@@ -480,3 +480,15 @@ export const pullStoreOrders = (siteId, id) =>
 
 export const wooOneClickStart = (siteId) =>
   api.get(`/sites/my/${siteId}/integrations/woocommerce/start`).then((r) => r.data?.data ?? r.data)
+
+// ──── SITE CREDITS & ANALYTICS ────
+export const getMyCredits = (siteId) =>
+  api.get(`/sites/my/${siteId}/credits`).then((r) => r.data?.data ?? r.data)
+export const rechargeCredits = (siteId, packId) =>
+  api.post(`/sites/my/${siteId}/credits/recharge`, { pack_id: packId }).then((r) => r.data?.data ?? r.data)
+export const getMyAnalytics = (siteId, days = 30) =>
+  api.get(`/sites/my/${siteId}/analytics`, { params: { days } }).then((r) => r.data?.data ?? r.data)
+export const sendSiteEvent = (resolve, kind, path) => {
+  const qs = new URLSearchParams(resolveParams(resolve)).toString()
+  return fetch(`/sites/site/event?${qs}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, path }) }).catch(() => {})
+}

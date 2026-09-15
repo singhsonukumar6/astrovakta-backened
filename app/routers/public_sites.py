@@ -15,6 +15,7 @@ from ..tenants import (
     get_booking, update_booking,
     create_lead, list_products, get_product, create_order,
     get_order, update_order, list_orders, adjust_product_stock,
+    charge_site_credits, record_site_event,
 )
 
 router = APIRouter()
@@ -260,6 +261,9 @@ def tenant_kundli_tool(body: KundliToolBody, slug: str = None, domain: str = Non
     the full software view: houses, North-Indian chart SVG and Vimshottari
     dasha. Contact details, when given, become a lead for the astrologer."""
     site = _resolve_site(slug, domain)
+    if not charge_site_credits(site["id"], "kundli" if body.detail else "kundli_basic"):
+        raise HTTPException(status_code=402, detail="This site is out of credits — the astrologer needs to recharge")
+    record_site_event(site["id"], "tool", "kundli")
 
     try:
         d = date.fromisoformat(body.date)
@@ -417,6 +421,9 @@ async def tenant_matching_tool(body: MatchingToolBody, request: Request, slug: s
     same Swiss-ephemeris engine the platform uses."""
     _tool_limit(request)
     site = _resolve_site(slug, domain)
+    if not charge_site_credits(site["id"], "matching"):
+        raise HTTPException(status_code=402, detail="This site is out of credits — the astrologer needs to recharge")
+    record_site_event(site["id"], "tool", "matching")
     from . import compat_standalone as _compat_mod
     from .compat_standalone import CompatRequest, _full_guna_milan
     from .dosha_standalone import DoshaStandaloneRequest
@@ -477,6 +484,9 @@ async def tenant_dosha_tool(body: DoshaToolBody, request: Request, slug: str = N
     """Dosha report (manglik analysis + grahan/shrapit checks) for a birth chart."""
     _tool_limit(request)
     site = _resolve_site(slug, domain)
+    if not charge_site_credits(site["id"], "dosha"):
+        raise HTTPException(status_code=402, detail="This site is out of credits — the astrologer needs to recharge")
+    record_site_event(site["id"], "tool", "dosha")
     from .dosha_standalone import DoshaStandaloneRequest, manglik_detailed, grahan_dosha, shrapit_dosha
 
     dsb = DoshaStandaloneRequest(
@@ -1185,3 +1195,14 @@ async def woocommerce_webhook(connection_id: int, request: Request):
         return {"ok": True, "duplicate": True}
     created = create_order(site_id, order_data)
     return {"ok": True, "order_id": created.get("id")}
+
+
+@router.post("/site/event")
+def tenant_event(body: dict, slug: str = None, domain: str = None):
+    """Lightweight analytics beacon from tenant sites (pageviews)."""
+    kind = str((body or {}).get("kind", "pageview"))[:40]
+    if kind not in ("pageview", "tool"):
+        kind = "pageview"
+    site = _resolve_site(slug, domain)
+    record_site_event(site["id"], kind, str((body or {}).get("path", ""))[:200])
+    return {"ok": True}

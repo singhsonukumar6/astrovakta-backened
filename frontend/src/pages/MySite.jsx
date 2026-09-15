@@ -8,7 +8,7 @@ import {
   Bell, Crown, Loader2, LayoutDashboard, Package, ShoppingBag, Link2,
   Phone, Star, TrendingUp, IndianRupee, Menu, LogOut, PanelLeft, Home,
   Key, Bot, ScrollText, Zap, BarChart3, User,
-  Share2, Copy, Calendar as CalendarIcon, Clock as ClockIcon,
+  Share2, Copy, Calendar as CalendarIcon, Clock as ClockIcon, Video, MousePointerClick, Link as LinkIcon,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth.jsx'
@@ -19,7 +19,7 @@ import {
   primaryBtn, ghostBtn, errDetail,
 } from '../components/CreateSiteWizard.jsx'
 import { APIKeys, AIProvidersTab, ReportsTab, UsagePanel, Profile } from '../components/DevTabs.jsx'
-import { tenantSiteUrl } from '../lib/tenant.js'
+import { tenantSiteUrl, parseYouTubeId } from '../lib/tenant.js'
 import {
   getMySites, createMySite, getMySite, updateMySite, publishMySite, unpublishMySite,
   deleteMySite, saveMySitePage, setMySiteDomain, verifyMySiteDomain, removeMySiteDomain,
@@ -29,6 +29,7 @@ import {
   getMySiteStats, getMyProducts, createMyProduct, updateMyProduct, deleteMyProduct,
   getMyOrders, updateMyOrder, getKeys,
   getMySocial, generateSocialPost, createSocialPost, updateSocialPost, deleteSocialPost, socialPostMedia,
+  getMyCredits, rechargeCredits, getMyAnalytics,
   getMyCatalog, importCatalogProduct,
   getMyIntegrations, getIntegrationProviders, beginStoreConnect, connectStore, disconnectStore, pushToStore, pullStoreOrders, wooOneClickStart,
   aiGenerateSiteContent,
@@ -40,99 +41,201 @@ const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Satur
 // ═══════════════ OVERVIEW TAB ═══════════════
 function OverviewTab({ site, reload }) {
   const [stats, setStats] = useState(null)
+  const [analytics, setAnalytics] = useState(null)
+  const [credits, setCredits] = useState(null)
+  const [leads, setLeads] = useState([])
+  const [orders, setOrders] = useState([])
+  const [recharging, setRecharging] = useState('')
+
   useEffect(() => {
     getMySiteStats(site.id).then(setStats).catch(() => setStats(null))
+    getMyAnalytics(site.id, 30).then(setAnalytics).catch(() => setAnalytics(null))
+    getMyCredits(site.id).then(setCredits).catch(() => setCredits(null))
+    getMyLeads(site.id).then((l) => setLeads((l.leads || []).slice(0, 5))).catch(() => setLeads([]))
+    getMyOrders(site.id).then((o) => setOrders((o.orders || []).slice(0, 5))).catch(() => setOrders([]))
   }, [site.id, site.updated_at]) // eslint-disable-line
 
+  const doRecharge = async (packId) => {
+    setRecharging(packId)
+    try {
+      const res = await rechargeCredits(site.id, packId)
+      if (res.checkout_url) { window.location.href = res.checkout_url; return }
+      toast.success(`Recharged! New balance: ${res.balance} credits`)
+      getMyCredits(site.id).then(setCredits)
+    } catch (e) { toast.error(errDetail(e, 'Recharge failed')) }
+    finally { setRecharging('') }
+  }
+
+  const revenue = stats ? (stats.bookings?.confirmedRevenue || 0) + (stats.bookings?.completedRevenue || 0) + (stats.store?.revenue || 0) : 0
+  const maxViews = Math.max(1, ...(analytics?.daily || []).map((d) => d.views))
+
   const statCards = stats ? [
-    { label: 'Upcoming bookings', value: stats.bookings?.upcoming || 0, icon: Calendar, color: '#4f46e5' },
-    { label: 'Total bookings', value: stats.bookings?.total || 0, icon: LayoutDashboard, color: '#2563eb' },
+    { label: 'Visitors (30d)', value: analytics?.visitors ?? '—', icon: Users, color: '#8b5cf6' },
+    { label: 'Pageviews (30d)', value: analytics?.pageviews ?? '—', icon: TrendingUp, color: '#0ea5e9' },
+    { label: 'Total bookings', value: stats.bookings?.total || 0, icon: Calendar, color: '#4f46e5' },
     { label: 'Leads captured', value: stats.leads?.total || 0, icon: Users, color: '#d97706' },
-    { label: 'Consultation revenue', value: `₹${(stats.bookings?.confirmedRevenue || 0) + (stats.bookings?.completedRevenue || 0)}`, icon: IndianRupee, color: '#16a34a' },
-    { label: 'Active services', value: stats.services?.active || 0, icon: Star, color: '#7c3aed' },
+    { label: 'Earnings', value: `₹${Number(revenue).toLocaleString('en-IN')}`, icon: IndianRupee, color: '#16a34a' },
     { label: 'Store orders', value: stats.store?.ordersTotal || 0, icon: ShoppingBag, color: '#db2777' },
   ] : []
 
   return (
     <div>
-      {stats === null ? (
-        <DashboardLoader label="Reading your stats" />
-      ) : (
-        <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 24 }}>
-            {statCards.map((s) => (
-              <div key={s.label} style={{ ...cardStyle, padding: 18 }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: 10, background: `${s.color}15`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12,
-                }}>
-                  <s.icon size={18} color={s.color} />
-                </div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a' }}>{s.value}</div>
-                <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600, marginTop: 2 }}>{s.label}</div>
+      {/* stat cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
+        {statCards.map((c) => (
+          <div key={c.label} style={{ ...cardStyle, padding: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <div style={{ width: 30, height: 30, borderRadius: 9, background: `${c.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <c.icon size={15} color={c.color} />
               </div>
-            ))}
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: '#64748b' }}>{c.label}</span>
+            </div>
+            <div style={{ fontSize: 24, fontWeight: 900 }}>{c.value}</div>
           </div>
+        ))}
+        {!stats && <div style={{ ...cardStyle, padding: 16, color: '#64748b' }}>Loading…</div>}
+      </div>
 
-          <div style={{ ...cardStyle }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Clock size={16} color="#4f46e5" /> Next appointments
-            </h3>
-            {(stats.upcoming || []).length === 0 ? (
-              <p style={{ color: '#64748b', fontSize: 13, padding: '16px 0' }}>
-                No upcoming bookings yet. Share your site link on WhatsApp and Instagram to get started!
-              </p>
-            ) : (
-              <div style={{ marginTop: 12 }}>
-                {(stats.upcoming || []).map((b) => (
-                  <div key={b.id} style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
-                    padding: '12px 4px', borderBottom: '1px solid #f1f5f9', flexWrap: 'wrap',
-                  }}>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>{b.client_name}</div>
-                      <div style={{ color: '#64748b', fontSize: 12, marginTop: 2 }}>
-                        {b.service_name || 'Consultation'} · {b.date} · {b.start_time}
-                      </div>
-                    </div>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{b.amount ? `₹${b.amount}` : 'Free'}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* setup checklist */}
-          <div style={{ ...cardStyle, marginTop: 20 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <TrendingUp size={16} color="#d97706" /> Grow faster — quick setup
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, marginTop: 14 }}>
-              {[
-                { ok: site.hero_image, text: 'Add your photo (hero image)' },
-                { ok: site.settings?.whatsappNumber, text: 'Set your WhatsApp number' },
-                { ok: site.custom_domain, text: 'Connect your own domain' },
-                { ok: (site.settings?.instagram || site.settings?.youtube || site.settings?.facebook), text: 'Add your social media links' },
-              ].map((c) => (
-                <div key={c.text} style={{
-                  display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 600,
-                  color: c.ok ? '#16a34a' : '#475569', padding: '10px 14px',
-                  background: c.ok ? 'rgba(34,197,94,0.06)' : 'rgba(79,70,229,0.04)', borderRadius: 10,
-                }}>
-                  <div style={{
-                    width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-                    background: c.ok ? '#16a34a' : '#cbd5e1', color: '#fff',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <Check size={12} strokeWidth={3} />
-                  </div>
-                  {c.text}
+      {/* traffic chart + credits */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginTop: 14, alignItems: 'stretch' }}>
+        <div style={cardStyle}>
+          <h3 style={{ fontSize: 14, fontWeight: 800, marginBottom: 2 }}>Visitors & pageviews — last 30 days</h3>
+          <p style={{ fontSize: 12, color: '#94a3b8', margin: '0 0 12px' }}>{analytics?.pageviews ?? 0} views · {analytics?.visitors ?? 0} visitors</p>
+          {!analytics ? <div style={{ color: '#64748b', padding: 20, textAlign: 'center' }}>Loading…</div> : (analytics.daily || []).length === 0 ? (
+            <div style={{ color: '#94a3b8', fontSize: 13, padding: '26px 0', textAlign: 'center' }}>No traffic yet — share your site link to start tracking.</div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 120 }}>
+              {analytics.daily.map((d) => (
+                <div key={d.date} title={`${d.date}: ${d.views} views`} style={{
+                  flex: 1, minWidth: 4, background: 'linear-gradient(180deg, #4f46e5, #818cf8)',
+                  borderRadius: 3, height: `${Math.max(4, (d.views / maxViews) * 100)}%`,
+                }} />
+              ))}
+            </div>
+          )}
+          {!!(analytics?.topTools || []).length && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#64748b', marginBottom: 6 }}>MOST USED TOOLS</div>
+              {analytics.topTools.map((t) => (
+                <div key={t.tool} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, padding: '3px 0' }}>
+                  <span style={{ textTransform: 'capitalize' }}>{t.tool}</span><b>{t.count}</b>
                 </div>
               ))}
             </div>
+          )}
+        </div>
+
+        {/* credits card */}
+        <div style={{ ...cardStyle, borderColor: 'rgba(79,70,229,0.35)', display: 'flex', flexDirection: 'column' }}>
+          <h3 style={{ fontSize: 14, fontWeight: 800, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 7 }}>
+            <Crown size={15} color="#d97706" /> Credits
+          </h3>
+          <div style={{ fontSize: 34, fontWeight: 900, margin: '6px 0 2px' }}>{credits?.balance ?? '—'}</div>
+          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 12 }}>remaining</div>
+          <div style={{ fontSize: 11.5, color: '#64748b', lineHeight: 1.8, marginBottom: 12 }}>
+            Kundli 2 · Matching 3 · Dosha 2<br />Horoscope/Panchang 1 · AI 5
           </div>
-        </>
-      )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 'auto' }}>
+            {(credits?.packs || []).map((p) => (
+              <button key={p.id} onClick={() => doRecharge(p.id)} disabled={!!recharging}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 12px', borderRadius: 10,
+                  border: '1.5px solid rgba(79,70,229,0.3)', background: '#fff', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, opacity: recharging && recharging !== p.id ? 0.5 : 1 }}>
+                <span>{p.credits.toLocaleString('en-IN')} credits</span>
+                <span style={{ color: '#4f46e5' }}>₹{p.price}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* recent activity columns */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12, marginTop: 14 }}>
+        <div style={cardStyle}>
+          <h3 style={{ fontSize: 14, fontWeight: 800, marginBottom: 10 }}>Recent leads</h3>
+          {leads.length === 0 ? <div style={{ color: '#94a3b8', fontSize: 13 }}>No leads yet.</div> : leads.map((l) => (
+            <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid #f8fafc' }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>{l.name || l.email || 'Anonymous'}</div>
+                <div style={{ fontSize: 11.5, color: '#94a3b8' }}>{l.tool} · {String(l.created_at || '').slice(0, 10)}</div>
+              </div>
+              {!!l.phone && <a href={`https://wa.me/${String(l.phone).replace(/[^\d]/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11.5, fontWeight: 700, color: '#16a34a', textDecoration: 'none' }}>WhatsApp →</a>}
+            </div>
+          ))}
+        </div>
+        <div style={cardStyle}>
+          <h3 style={{ fontSize: 14, fontWeight: 800, marginBottom: 10 }}>Recent orders</h3>
+          {orders.length === 0 ? <div style={{ color: '#94a3b8', fontSize: 13 }}>No orders yet.</div> : orders.map((o) => (
+            <div key={o.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid #f8fafc' }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>#{o.id} · {o.client_name}</div>
+                <div style={{ fontSize: 11.5, color: '#94a3b8' }}>{String(o.created_at || '').slice(0, 10)}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontWeight: 800, fontSize: 13 }}>₹{o.amount}</div>
+                <span style={{ fontSize: 10.5, fontWeight: 700, padding: '1px 7px', borderRadius: 8,
+                  background: o.status === 'new' ? 'rgba(245,158,11,0.12)' : o.status === 'cancelled' ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)',
+                  color: o.status === 'new' ? '#d97706' : o.status === 'cancelled' ? '#dc2626' : '#16a34a' }}>{o.status}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={cardStyle}>
+          <h3 style={{ fontSize: 14, fontWeight: 800, marginBottom: 10 }}>Next appointments</h3>
+          {(stats?.bookings?.upcomingList || []).slice(0, 5).map((b) => (
+            <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #f8fafc' }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>{b.client_name}</div>
+                <div style={{ fontSize: 11.5, color: '#94a3b8' }}>{b.service_name || 'Consultation'} · {b.date} {b.start_time}</div>
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>{b.amount ? `₹${b.amount}` : ''}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* earnings report */}
+      <div style={{ ...cardStyle, marginTop: 14 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 800, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 7 }}>
+          <IndianRupee size={15} color="#16a34a" /> Earnings report
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+          {[
+            ['Consultations (confirmed)', stats?.bookings?.confirmedRevenue || 0],
+            ['Consultations (completed)', stats?.bookings?.completedRevenue || 0],
+            ['Store orders (lifetime)', stats?.store?.revenue || 0],
+            ['Total', revenue],
+          ].map(([label, val], i) => (
+            <div key={label} style={{ padding: 12, borderRadius: 10, background: i === 3 ? 'rgba(34,197,94,0.08)' : 'rgba(127,127,127,0.05)', border: i === 3 ? '1px solid rgba(34,197,94,0.3)' : 'none' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: i === 3 ? '#16a34a' : '#64748b' }}>{label.toUpperCase()}</div>
+              <div style={{ fontWeight: 900, fontSize: 19, marginTop: 3 }}>₹{Number(val).toLocaleString('en-IN')}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* setup checklist */}
+      <div style={{ ...cardStyle, marginTop: 14 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 800, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <TrendingUp size={15} color="#d97706" /> Grow faster — quick setup
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, marginTop: 12 }}>
+          {[
+            { ok: site.hero_image, text: 'Add your photo (hero image)' },
+            { ok: site.settings?.whatsappNumber, text: 'Set your WhatsApp number' },
+            { ok: site.custom_domain, text: 'Connect your own domain' },
+            { ok: (site.settings?.instagram || site.settings?.youtube || site.settings?.facebook), text: 'Add your social media links' },
+          ].map((c) => (
+            <div key={c.text} style={{
+              display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 600,
+              color: c.ok ? '#16a34a' : '#475569', padding: '10px 14px',
+              background: c.ok ? 'rgba(34,197,94,0.06)' : 'rgba(79,70,229,0.04)', borderRadius: 10,
+            }}>
+              {c.ok ? <Check size={15} color="#16a34a" /> : <span style={{ width: 15, height: 15, borderRadius: '50%', border: '2px solid #cbd5e1', display: 'inline-block' }} />}
+              {c.text}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
@@ -268,6 +371,46 @@ function ContentTab({ site, reload }) {
               <textarea rows={2} value={content.heroSubtitle || ''} onChange={(e) => set('heroSubtitle', e.target.value)} style={{ ...inputStyle, resize: 'vertical' }} />
             </div>
 
+            <div style={{ marginBottom: 18 }}>
+              <label style={labelStyle}>Hero badge (small line above the headline)</label>
+              <input value={content.heroBadge || ''} onChange={(e) => set('heroBadge', e.target.value)}
+                placeholder="e.g. 15+ years of Vedic astrology (leave blank for your tagline)" style={inputStyle} />
+            </div>
+
+            {/* Hero buttons editor */}
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: 14, padding: 18, marginBottom: 18 }}>
+              <label style={{ ...labelStyle, fontSize: 15, display: 'flex', alignItems: 'center', gap: 7 }}>
+                <MousePointerClick size={15} color="#4f46e5" /> Hero buttons
+              </label>
+              <p style={{ fontSize: 12.5, color: '#94a3b8', margin: '4px 0 12px', lineHeight: 1.5 }}>
+                Up to 3 buttons on your homepage hero. Link to a section (#book, #tools), a page (#/kundli, #/shop, #/about) or any https:// URL.
+                Leave empty for the defaults.
+              </p>
+              {(content.heroButtons || []).map((b, i) => (
+                <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input value={b.label || ''} placeholder="Button text (Book Now)" style={{ ...inputStyle, flex: '1 1 130px' }}
+                    onChange={(e) => set('heroButtons', content.heroButtons.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} />
+                  <input value={b.href || ''} placeholder="#book or https://…" style={{ ...inputStyle, flex: '1.2 1 150px' }}
+                    onChange={(e) => set('heroButtons', content.heroButtons.map((x, j) => (j === i ? { ...x, href: e.target.value } : x)))} />
+                  <select value={b.variant || 'outline'} style={{ ...inputStyle, width: 110, flexShrink: 0 }}
+                    onChange={(e) => set('heroButtons', content.heroButtons.map((x, j) => (j === i ? { ...x, variant: e.target.value } : x)))}>
+                    <option value="primary">Primary</option>
+                    <option value="outline">Outline</option>
+                  </select>
+                  <button onClick={() => set('heroButtons', content.heroButtons.filter((_, j) => j !== i))} title="Remove"
+                    style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 8 }}>
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
+              {(content.heroButtons || []).length < 3 && (
+                <button onClick={() => set('heroButtons', [...(content.heroButtons || []), { label: '', href: '', variant: 'outline' }])}
+                  style={{ ...ghostBtn, padding: '7px 14px', fontSize: 12 }}>
+                  <Plus size={13} /> Add button
+                </button>
+              )}
+            </div>
+
             <div style={{
               display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12,
               padding: 16, background: 'rgba(79,70,229,0.04)', borderRadius: 12, marginBottom: 18,
@@ -312,6 +455,88 @@ function ContentTab({ site, reload }) {
                 style={{ ...ghostBtn, padding: '7px 14px', fontSize: 12 }}>
                 <Plus size={13} /> Add testimonial
               </button>
+            </div>
+
+            {/* YouTube videos manager */}
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: 14, padding: 18, marginBottom: 24 }}>
+              <label style={{ ...labelStyle, fontSize: 15, display: 'flex', alignItems: 'center', gap: 7 }}>
+                <Video size={15} color="#dc2626" /> YouTube videos
+              </label>
+              <p style={{ fontSize: 12.5, color: '#94a3b8', margin: '4px 0 12px', lineHeight: 1.5 }}>
+                Paste links from your channel — they play right on your homepage. Up to 6 videos.
+              </p>
+              {(content.videos || []).map((v, i) => {
+                const vid = parseYouTubeId(v.url || '')
+                const upd = (patch) => set('videos', content.videos.map((x, j) => (j === i ? { ...x, ...patch } : x)))
+                return (
+                  <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {vid
+                      ? <img src={`https://i.ytimg.com/vi/${vid}/default.jpg`} alt="" style={{ width: 64, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                      : <div style={{ width: 64, height: 44, borderRadius: 8, background: '#f1f5f9', flexShrink: 0 }} />}
+                    <input value={v.url || ''} onChange={(e) => upd({ url: e.target.value })}
+                      placeholder="https://www.youtube.com/watch?v=…" style={{ ...inputStyle, flex: '1.4 1 190px' }} />
+                    <input value={v.title || ''} onChange={(e) => upd({ title: e.target.value })}
+                      placeholder="Title (optional)" style={{ ...inputStyle, flex: '1 1 130px' }} />
+                    <button onClick={() => set('videos', content.videos.filter((_, j) => j !== i))} title="Remove"
+                      style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 8 }}>
+                      <Trash2 size={15} />
+                    </button>
+                    {v.url && !vid && <div style={{ width: '100%', fontSize: 12, color: '#d97706' }}>Hmm, that doesn't look like a YouTube link — paste the full URL.</div>}
+                  </div>
+                )
+              })}
+              {(content.videos || []).length < 6 && (
+                <button onClick={() => set('videos', [...(content.videos || []), { url: '', title: '' }])}
+                  style={{ ...ghostBtn, padding: '7px 14px', fontSize: 12 }}>
+                  <Plus size={13} /> Add video
+                </button>
+              )}
+              {(content.videos || []).length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <label style={{ ...labelStyle, fontSize: 12 }}>Videos section title (optional)</label>
+                  <input value={content.videosTitle || ''} onChange={(e) => set('videosTitle', e.target.value)}
+                    placeholder="Watch &amp; Learn" style={{ ...inputStyle, fontSize: 13 }} />
+                </div>
+              )}
+            </div>
+
+            {/* Linktree-style links manager */}
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: 14, padding: 18, marginBottom: 24 }}>
+              <label style={{ ...labelStyle, fontSize: 15, display: 'flex', alignItems: 'center', gap: 7 }}>
+                <LinkIcon size={15} color="#4f46e5" /> My links (Linktree style)
+              </label>
+              <p style={{ fontSize: 12.5, color: '#94a3b8', margin: '4px 0 12px', lineHeight: 1.5 }}>
+                Extra links shown as tap-friendly rows on your homepage — other websites, booking pages, donation pages, anything.
+                Your social profiles (Settings tab) appear here automatically too.
+              </p>
+              {(content.links || []).map((l, i) => {
+                const upd = (patch) => set('links', content.links.map((x, j) => (j === i ? { ...x, ...patch } : x)))
+                return (
+                  <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input value={l.label || ''} onChange={(e) => upd({ label: e.target.value })}
+                      placeholder="Label (My other website)" style={{ ...inputStyle, flex: '1 1 140px' }} />
+                    <input value={l.url || ''} onChange={(e) => upd({ url: e.target.value })}
+                      placeholder="https://…" style={{ ...inputStyle, flex: '1.4 1 190px' }} />
+                    <button onClick={() => set('links', content.links.filter((_, j) => j !== i))} title="Remove"
+                      style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 8 }}>
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                )
+              })}
+              {(content.links || []).length < 8 && (
+                <button onClick={() => set('links', [...(content.links || []), { label: '', url: '' }])}
+                  style={{ ...ghostBtn, padding: '7px 14px', fontSize: 12 }}>
+                  <Plus size={13} /> Add link
+                </button>
+              )}
+              {(content.links || []).length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <label style={{ ...labelStyle, fontSize: 12 }}>Links section title (optional)</label>
+                  <input value={content.linksTitle || ''} onChange={(e) => set('linksTitle', e.target.value)}
+                    placeholder="Find Me Online" style={{ ...inputStyle, fontSize: 13 }} />
+                </div>
+              )}
             </div>
           </>
         )}

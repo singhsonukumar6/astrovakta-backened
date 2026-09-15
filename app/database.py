@@ -410,6 +410,24 @@ CREATE TABLE IF NOT EXISTS tenant_users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (site_id, email)
 );
+CREATE TABLE IF NOT EXISTS site_credits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER NOT NULL,
+    delta INTEGER NOT NULL,
+    balance_after INTEGER NOT NULL,
+    reason TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (site_id) REFERENCES sites(id)
+);
+CREATE TABLE IF NOT EXISTS site_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    path TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (site_id) REFERENCES sites(id)
+);
+
 CREATE TABLE IF NOT EXISTS store_connections (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     site_id INTEGER NOT NULL,
@@ -701,6 +719,24 @@ CREATE TABLE IF NOT EXISTS tenant_users (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (site_id, email)
 );
+CREATE TABLE IF NOT EXISTS site_credits (
+    id SERIAL PRIMARY KEY,
+    site_id INTEGER NOT NULL,
+    delta INTEGER NOT NULL,
+    balance_after INTEGER NOT NULL,
+    reason TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    FOREIGN KEY (site_id) REFERENCES sites(id)
+);
+CREATE TABLE IF NOT EXISTS site_events (
+    id SERIAL PRIMARY KEY,
+    site_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    path TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    FOREIGN KEY (site_id) REFERENCES sites(id)
+);
+
 CREATE TABLE IF NOT EXISTS store_connections (
     id SERIAL PRIMARY KEY,
     site_id INTEGER NOT NULL,

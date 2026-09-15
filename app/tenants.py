@@ -10,7 +10,7 @@ All functions work on both SQLite and PostgreSQL via get_db(), mirroring content
 """
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from .database import get_db, USE_POSTGRES
 
@@ -1241,3 +1241,94 @@ def delete_oauth_state_for_site(site_id: int, provider: str, shop_domain: str):
     db.execute(_convert("DELETE FROM oauth_handshakes WHERE site_id = ? AND provider = ? AND shop_domain = ?"),
                (site_id, provider, shop_domain))
     db.commit()
+
+
+# ═══════════════════════════════════════════════
+#  Site credits (API/tool consumption + recharge)
+# ═══════════════════════════════════════════════
+
+# Credit costs for tenant-facing features. API-key users keep their own
+# plan; these charges apply to the astrologer's own site tools.
+SITE_CREDIT_COSTS = {
+    "kundli": 2,          # full kundli detail (chart svg, dasha, planets)
+    "kundli_basic": 1,
+    "matching": 3,        # gun milan + double manglik
+    "dosha": 2,
+    "horoscope": 1,
+    "panchang": 1,
+    "ai_content": 5,      # AI-generated text (copy, social)
+    "media_render": 2,    # branded image/video render
+}
+
+
+def site_credit_balance(site_id: int) -> int:
+    row = get_db().execute(_convert(
+        "SELECT balance_after FROM site_credits WHERE site_id = ? ORDER BY id DESC LIMIT 1"
+    ), (site_id,)).fetchone()
+    return (row[0] if not isinstance(row, dict) else row["balance_after"]) if row else 0
+
+
+def adjust_site_credits(site_id: int, delta: int, reason: str = "") -> int:
+    """Apply a credit change; returns the new balance (never below 0)."""
+    db = get_db()
+    bal = max(0, site_credit_balance(site_id) + delta)
+    db.execute(_convert(
+        "INSERT INTO site_credits (site_id, delta, balance_after, reason) VALUES (?, ?, ?, ?)"),
+        (site_id, delta, bal, reason[:200]))
+    db.commit()
+    return bal
+
+
+def charge_site_credits(site_id: int, feature: str) -> bool:
+    """Charge the feature cost if affordable. Returns False when out of credits."""
+    cost = SITE_CREDIT_COSTS.get(feature, 0)
+    if cost <= 0:
+        return True
+    bal = site_credit_balance(site_id)
+    if bal < cost:
+        return False
+    adjust_site_credits(site_id, -cost, f"usage:{feature}")
+    return True
+
+
+def site_credit_history(site_id: int, limit: int = 30) -> list:
+    rows = get_db().execute(_convert(
+        "SELECT * FROM site_credits WHERE site_id = ? ORDER BY id DESC LIMIT ?"), (site_id, limit)).fetchall()
+    return [_to_dict(r) for r in rows]
+
+
+# ═══════════════════════════════════════════════
+#  Site analytics events (pageviews / visitors)
+# ═══════════════════════════════════════════════
+
+def record_site_event(site_id: int, kind: str, path: str = None) -> None:
+    db = get_db()
+    db.execute(_convert("INSERT INTO site_events (site_id, kind, path) VALUES (?, ?, ?)"),
+               (site_id, kind[:40], (path or "")[:200]))
+    db.commit()
+
+
+def site_analytics(site_id: int, days: int = 30) -> dict:
+    db = get_db()
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
+    total = db.execute(_convert(
+        "SELECT COUNT(*) FROM site_events WHERE site_id = ? AND kind = 'pageview' AND created_at >= ?"),
+        (site_id, since)).fetchone()[0]
+    # unique-ish visitors: distinct minute-bucketed sessions
+    visitors = db.execute(_convert(
+        "SELECT COUNT(DISTINCT substr(created_at, 1, 16)) FROM site_events "
+        "WHERE site_id = ? AND kind = 'pageview' AND created_at >= ?"), (site_id, since)).fetchone()[0]
+    daily = db.execute(_convert(
+        "SELECT substr(created_at, 1, 10) AS d, COUNT(*) FROM site_events "
+        "WHERE site_id = ? AND kind = 'pageview' AND created_at >= ? GROUP BY d ORDER BY d"),
+        (site_id, since)).fetchall()
+    tools = db.execute(_convert(
+        "SELECT path, COUNT(*) FROM site_events WHERE site_id = ? AND kind = 'tool' "
+        "AND created_at >= ? GROUP BY path ORDER BY COUNT(*) DESC LIMIT 6"), (site_id, since)).fetchall()
+    return {
+        "pageviews": total,
+        "visitors": visitors,
+        "daily": [{"date": r[0], "views": r[1]} for r in daily],
+        "topTools": [{"tool": r[0], "count": r[1]} for r in tools],
+        "days": days,
+    }
