@@ -1001,6 +1001,7 @@ class MasterProductBody(BaseModel):
     description: Optional[str] = Field(None, max_length=2000)
     image: Optional[str] = None
     images: Optional[list[str]] = None
+    attributes: Optional[list[dict]] = None
     mrp: int = Field(0, ge=0)
     margin: int = Field(0, ge=0)
     active: Optional[bool] = None
@@ -1055,6 +1056,12 @@ def admin_create_master_product(body: MasterProductBody, user: dict = Depends(ge
     if data.get("images"):
         import json as _json
         data["images"] = _json.dumps(data["images"][:8])
+    if data.get("attributes"):
+        import json as _json2
+        data["attributes"] = [
+            {"name": str(a.get("name", ""))[:60], "value": str(a.get("value", ""))[:200]}
+            for a in data["attributes"] if a.get("name") and a.get("value") is not None
+        ][:20]
     return create_master_product(data)
 
 
@@ -1067,6 +1074,12 @@ def admin_update_master_product(mid: int, body: MasterProductBody, user: dict = 
     if data.get("images"):
         import json as _json
         data["images"] = _json.dumps(data["images"][:8])
+    if data.get("attributes"):
+        import json as _json2
+        data["attributes"] = [
+            {"name": str(a.get("name", ""))[:60], "value": str(a.get("value", ""))[:200]}
+            for a in data["attributes"] if a.get("name") and a.get("value") is not None
+        ][:20]
     update_master_product(mid, data)
     return get_master_product(mid)
 

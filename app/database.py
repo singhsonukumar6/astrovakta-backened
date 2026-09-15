@@ -308,6 +308,7 @@ CREATE TABLE IF NOT EXISTS site_services (
     master_product_id INTEGER,
     cost_price INTEGER DEFAULT 0,
     images TEXT,
+    attributes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (site_id) REFERENCES sites(id)
 );
@@ -363,6 +364,7 @@ CREATE TABLE IF NOT EXISTS site_products (
     master_product_id INTEGER,
     cost_price INTEGER DEFAULT 0,
     images TEXT,
+    attributes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (site_id) REFERENCES sites(id)
 );
@@ -452,6 +454,7 @@ CREATE TABLE IF NOT EXISTS master_products (
     mrp INTEGER NOT NULL DEFAULT 0,
     margin INTEGER NOT NULL DEFAULT 0,
     images TEXT,
+    attributes TEXT,
     active INTEGER DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (category_id) REFERENCES master_categories(id)
@@ -801,6 +804,7 @@ def init_db() -> None:
                 ("site_products", "cost_price", "INTEGER DEFAULT 0"),
                 ("site_products", "images", "TEXT"),
                 ("master_products", "images", "TEXT"),
+                ("master_products", "attributes", "TEXT"),
             ]:
                 try:
                     row = conn.execute(
@@ -845,6 +849,7 @@ def init_db() -> None:
         _migrate_sqlite(cursor, "site_products", "cost_price", "INTEGER DEFAULT 0")
         _migrate_sqlite(cursor, "site_products", "images", "TEXT")
         _migrate_sqlite(cursor, "master_products", "images", "TEXT")
+        _migrate_sqlite(cursor, "master_products", "attributes", "TEXT")
         _migrate_sqlite(cursor, "usage_logs", "credits_used", "INTEGER DEFAULT 0")
         _migrate_sqlite(cursor, "sites", "logo_url", "TEXT")
         _migrate_sqlite(cursor, "sites", "hero_image", "TEXT")

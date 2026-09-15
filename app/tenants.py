@@ -1042,6 +1042,17 @@ def delete_master_category(cid: int):
     db.commit()
 
 
+def _parse_attributes(row: dict) -> dict:
+    import json as _json
+    raw = row.get("attributes")
+    if raw and isinstance(raw, str):
+        try: row["attributes"] = _json.loads(raw)
+        except Exception: row["attributes"] = []
+    elif not isinstance(raw, list):
+        row["attributes"] = []
+    return row
+
+
 def _parse_images(row: dict) -> dict:
     import json as _json
     if row.get("images") and isinstance(row.get("images"), str):
@@ -1066,23 +1077,25 @@ def list_master_products(category_id=None, active_only=False) -> list:
         sql += " WHERE " + " AND ".join(conds)
     sql += " ORDER BY mc.sort_order, mp.name"
     rows = get_db().execute(_convert(sql), params).fetchall()
-    return [_parse_images(_to_dict(r)) for r in rows]
+    return [_parse_attributes(_parse_images(_to_dict(r))) for r in rows]
 
 
 def get_master_product(mid: int):
     row = get_db().execute(_convert("SELECT * FROM master_products WHERE id = ?"), (mid,)).fetchone()
-    return _parse_images(_to_dict(row))
+    return _parse_attributes(_parse_images(_to_dict(row)))
 
 
 def create_master_product(data: dict) -> dict:
     import json as _json
     images = data.get("images")
+    attrs = data.get("attributes")
     db = get_db()
     cur = db.execute(_convert(
-        "INSERT INTO master_products (category_id, name, description, image, images, mrp, margin, active) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, 1) RETURNING id"),
+        "INSERT INTO master_products (category_id, name, description, image, images, attributes, mrp, margin, active) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1) RETURNING id"),
         (data.get("category_id"), data.get("name"), data.get("description"), data.get("image"),
          _json.dumps(images) if images else None,
+         _json.dumps(attrs) if attrs else None,
          data.get("mrp", 0), data.get("margin", 0)))
     mid = cur.fetchone()[0]
     db.commit()
@@ -1093,12 +1106,15 @@ def update_master_product(mid: int, data: dict):
     db = get_db()
     import json as _json
     images = data.get("images")
+    attrs = data.get("attributes")
     db.execute(_convert(
         "UPDATE master_products SET category_id = COALESCE(?, category_id), name = COALESCE(?, name), "
         "description = COALESCE(?, description), image = COALESCE(?, image), images = COALESCE(?, images), "
-        "mrp = COALESCE(?, mrp), margin = COALESCE(?, margin), active = COALESCE(?, active) WHERE id = ?"),
+        "attributes = COALESCE(?, attributes), mrp = COALESCE(?, mrp), margin = COALESCE(?, margin), "
+        "active = COALESCE(?, active) WHERE id = ?"),
         (data.get("category_id"), data.get("name"), data.get("description"), data.get("image"),
          _json.dumps(images) if images else None,
+         _json.dumps(attrs) if attrs else None,
          data.get("mrp"), data.get("margin"), data.get("active"), mid))
     db.commit()
 
@@ -1116,12 +1132,14 @@ def import_master_product(site_id: int, master_product: dict, price: int):
     cost = max(0, int(master_product.get("mrp", 0)) - int(master_product.get("margin", 0)))
     db = get_db()
     images = master_product.get("images") or ([master_product["image"]] if master_product.get("image") else [])
+    attrs = master_product.get("attributes") or []
     cur = db.execute(_convert(
         "INSERT INTO site_products (site_id, name, description, price, currency, image, stock, is_active, sort_order, "
-        "master_product_id, cost_price, images) VALUES (?, ?, ?, ?, 'INR', ?, -1, 1, 0, ?, ?, ?) RETURNING id"),
+        "master_product_id, cost_price, images, attributes) VALUES (?, ?, ?, ?, 'INR', ?, -1, 1, 0, ?, ?, ?, ?) RETURNING id"),
         (site_id, master_product["name"], master_product.get("description"),
          int(price), images[0] if images else None, master_product["id"], cost,
-         _json.dumps(images[:8]) if images else None))
+         _json.dumps(images[:8]) if images else None,
+         _json.dumps(attrs) if attrs else None))
     pid = cur.fetchone()[0]
     db.commit()
     row = db.execute(_convert("SELECT * FROM site_products WHERE id = ?"), (pid,)).fetchone()
