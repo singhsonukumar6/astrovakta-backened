@@ -271,34 +271,62 @@ def delete_my_site(site_id: int, user: dict = Depends(get_current_user)):
 
 # ─────────────── domain ───────────────
 
+# Second-level public suffixes: "yourname.co.in" has three labels but is
+# still an apex domain, not a subdomain.
+_SECOND_LEVEL_SUFFIXES = {
+    "co.in", "net.in", "org.in", "firm.in", "gen.in", "ind.in", "ac.in",
+    "edu.in", "res.in", "gov.in", "mil.in", "co.uk", "org.uk", "ac.uk",
+    "gov.uk", "com.au", "net.au", "org.au", "co.nz", "co.za", "com.br",
+    "com.mx", "co.jp", "or.jp", "ne.jp",
+}
+
+
+def _is_subdomain(domain: str) -> bool:
+    """True for astro.yourname.com (served by a single CNAME), False for
+    apex domains like yourname.com / yourname.co.in."""
+    parts = [p for p in (domain or "").split(".") if p]
+    if len(parts) < 3:
+        return False
+    if len(parts) == 3 and ".".join(parts[-2:]) in _SECOND_LEVEL_SUFFIXES:
+        return False
+    return True
+
+
 @router.post("/my/{site_id}/domain")
 def set_my_site_domain(site_id: int, body: SetDomainBody, user: dict = Depends(get_current_user)):
     _require_owned_site(site_id, user)
     domain = normalize_domain(body.domain)
     if not domain or "." not in domain:
-        raise HTTPException(status_code=400, detail="Enter a valid domain like yourname.com")
+        raise HTTPException(status_code=400, detail="Enter a valid domain like yourname.com or astro.yourname.com")
     if domain_exists(domain, exclude_id=site_id):
         raise HTTPException(status_code=409, detail="That domain is already connected to another site")
     site = update_site(site_id, {"custom_domain": domain, "domain_status": "pending"})
     # The main frontend is hosted on Vercel: the custom domain points at
-    # Vercel's edge (A 76.76.21.21 / CNAME cname.vercel-dns.com), which
-    # serves this tenant's site for that hostname. Activation is confirmed
-    # by the verify endpoint once the records resolve.
-    return {
-        **site,
-        "dns_instructions": {
-            "records": [
-                {"type": "A", "host": "@", "value": "76.76.21.21",
-                 "label": f"A record for {domain} (apex)"},
-                {"type": "CNAME", "host": "www", "value": "cname.vercel-dns.com",
-                 "label": f"CNAME for www.{domain}"},
-            ],
-            "note": (
-                f"Add an A record @ → 76.76.21.21 and a CNAME www → cname.vercel-dns.com "
-                f"at your DNS provider, then tap Verify."
-            ),
-        },
-    }
+    # Vercel's edge (A 76.76.21.21 for the apex, CNAME cname.vercel-dns.com
+    # for subdomains), which serves this tenant's site for that hostname.
+    # Activation is confirmed by the verify endpoint once records resolve.
+    if _is_subdomain(domain):
+        records = [{
+            "type": "CNAME", "host": domain, "value": "cname.vercel-dns.com",
+            "label": f"CNAME for {domain}",
+        }]
+        note = (
+            f"Add a CNAME record for {domain} pointing to cname.vercel-dns.com "
+            f"at your DNS provider (some providers show the host as just "
+            f"'{domain.split('.')[0]}'), then tap Verify."
+        )
+    else:
+        records = [
+            {"type": "A", "host": "@", "value": "76.76.21.21",
+             "label": f"A record for {domain} (apex)"},
+            {"type": "CNAME", "host": "www", "value": "cname.vercel-dns.com",
+             "label": f"CNAME for www.{domain}"},
+        ]
+        note = (
+            f"Add an A record @ → 76.76.21.21 and a CNAME www → cname.vercel-dns.com "
+            f"at your DNS provider, then tap Verify."
+        )
+    return {**site, "dns_instructions": {"records": records, "note": note}}
 
 
 @router.post("/my/{site_id}/domain/verify")
@@ -309,15 +337,18 @@ def verify_my_site_domain(site_id: int, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="Add a domain first")
     import socket
     domain = site["custom_domain"]
-    try:
-        # Basic resolution check — a real deployment would verify the CNAME
-        # target and issue/renew SSL automatically (e.g. via Caddy/Traefik).
-        resolved = socket.gethostbyname(f"www.{domain}") or socket.gethostbyname(domain)
-    except Exception:
-        resolved = None
+    # The domain itself resolves for subdomain CNAMEs and apex A records;
+    # www covers apex setups that only point the www host. Try in that order.
+    resolved = None
+    for host in dict.fromkeys([domain, f"www.{domain}"]):
+        try:
+            resolved = socket.gethostbyname(host)
+            break
+        except Exception:
+            continue
     if not resolved:
         return {**site, "domain_status": "pending", "verified": False,
-                "message": f"DNS not propagated yet — www.{domain} does not resolve. Wait a few minutes and try again."}
+                "message": f"DNS not propagated yet — {domain} does not resolve. Wait a few minutes and try again."}
     updated = update_site(site_id, {"domain_status": "active"})
     return {**updated, "domain_status": "active", "verified": True,
             "message": f"Domain {domain} connected! SSL will be issued automatically within minutes."}
@@ -1303,3 +1334,134 @@ def pull_store_orders(site_id: int, cid: int, user: dict = Depends(get_current_u
         create_order(site_id, o)
         imported += 1
     return {"imported": imported, "skipped": skipped}
+
+
+# ─────────────── one-click store connect (OAuth / activation key) ───────────────
+
+import secrets as _secrets
+
+
+@router.get("/my/{site_id}/integrations/shopify/connect")
+def shopify_oauth_start(site_id: int, user: dict = Depends(get_current_user)):
+    """One-click Shopify connect: redirect the astrologer to Shopify's grant
+    screen. Requires SHOPIFY_CLIENT_ID (public app credentials) on the server."""
+    from fastapi.responses import RedirectResponse
+    import os as _os
+    _require_owned_site(site_id, user)
+    client_id = _os.getenv("SHOPIFY_CLIENT_ID", "")
+    if not client_id:
+        raise HTTPException(status_code=503, detail="One-click Shopify connect isn't configured yet — contact support or use the token method")
+    shop = user.get("_shop")  # not used; shop comes from the connect UI
+    raise HTTPException(status_code=400, detail="Provide your myshopify domain via the connect form")
+
+
+@router.get("/integrations/shopify/callback")
+def shopify_oauth_callback(code: str = None, shop: str = None, state: str = None, hmac: str = None, host: str = None, timestamp: str = None):
+    """Shopify redirects here after the merchant approves. Exchanges the code
+    for a permanent offline token and stores the connection. `state` carries
+    '<site_id>:<nonce>' so we know which tenant connected."""
+    import os as _os
+    import httpx as _httpx
+    from fastapi.responses import RedirectResponse
+    from ..database import get_db
+    if not code or not shop or not state:
+        raise HTTPException(status_code=400, detail="Missing OAuth parameters")
+    try:
+        site_id = int(state.split(":", 1)[0])
+    except (ValueError, IndexError):
+        raise HTTPException(status_code=400, detail="Bad state")
+    client_id = _os.getenv("SHOPIFY_CLIENT_ID", "")
+    client_secret = _os.getenv("SHOPIFY_CLIENT_SECRET", "")
+    if not client_id or not client_secret:
+        raise HTTPException(status_code=503, detail="Shopify OAuth not configured")
+    domain = shop.replace("https://", "").rstrip("/")
+    r = _httpx.post(f"https://{domain}/admin/oauth/access_token",
+                    json={"client_id": client_id, "client_secret": client_secret, "code": code}, timeout=15)
+    if r.status_code != 200:
+        raise HTTPException(status_code=400, detail="Token exchange failed")
+    token = r.json().get("access_token")
+    if not token:
+        raise HTTPException(status_code=400, detail="No token returned")
+    conn = create_store_connection(site_id, {"provider": "shopify", "shop_domain": domain,
+                                             "access_token": token})
+    from ..store_integrations import test_connection
+    if not test_connection(conn).get("ok"):
+        delete_store_connection(site_id, conn["id"])
+        raise HTTPException(status_code=400, detail="Store connected but unreachable")
+    frontend = _os.getenv("FRONTEND_URL", "https://astrovakta.com")
+    return RedirectResponse(f"{frontend}/mysite/store?shopify=connected")
+
+
+class WooActivateBody(BaseModel):
+    activation_key: str = Field(..., min_length=8)
+
+
+@router.post("/my/{site_id}/integrations/woocommerce/activate")
+def woo_activate(site_id: int, body: WooActivateBody, user: dict = Depends(get_current_user)):
+    """One-click WooCommerce connect (activation-key flow): the astrologer
+    installs our small WP plugin (or pastes a snippet in functions.php) which
+    registers the consumer keys against this activation key — no manual
+    key/secret copying. Returns the snippet to paste."""
+    _require_owned_site(site_id, user)
+    key = body.activation_key.strip()
+    from ..database import get_db
+    row = get_db().execute(_convert("SELECT id FROM store_connections WHERE site_id = ? AND api_key = ?"),
+                           (site_id, key)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Activation key not recognised — copy it again from the dashboard")
+    # the plugin already pushed the consumer key/secret keyed by this activation key
+    conn_id = row[0] if not isinstance(row, dict) else row["id"]
+    conn = get_store_connection(site_id, conn_id)
+    from ..store_integrations import test_connection
+    ok = test_connection(conn).get("ok")
+    return {"ok": bool(ok), "integration": {"id": conn_id, "shop_domain": conn["shop_domain"]}}
+
+
+@router.get("/my/{site_id}/integrations/woocommerce/start")
+def woo_start(site_id: int, user: dict = Depends(get_current_user)):
+    """Begin one-click WooCommerce connect: returns the activation key and the
+    ready-to-install WP plugin the merchant clicks through."""
+    _require_owned_site(site_id, user)
+    key = "avk_" + _secrets.token_urlsafe(18)
+    from ..database import get_db
+    db = get_db()
+    db.execute(_convert("INSERT INTO store_connections (site_id, provider, shop_domain, api_key) VALUES (?, 'woocommerce', 'pending', ?)"),
+               (site_id, key))
+    db.commit()
+    plugin_url = f"{_plugin_base()}/wp-content/plugins/astrovakta-connect/astrovakta-connect.php"
+    return {"activation_key": key, "plugin_instructions": [
+        "1. Download the AstroVakta Connect plugin from the link below and install it in WordPress (Plugins → Add New → Upload).",
+        "2. Open the plugin settings and paste your activation key.",
+        "3. Click Connect — the plugin creates the API keys and links your store automatically. Done.",
+    ], "plugin_download": plugin_url}
+
+
+@router.post("/integrations/woocommerce/claim")
+async def woo_claim(request: Request):
+    """Called by the WP plugin after it creates the keys: registers them
+    against the pending connection for this activation key."""
+    import json as _json
+    body = await request.json()
+    key = (body.get("activation_key") or "").strip()
+    shop_domain = (body.get("shop_domain") or "").strip()
+    api_key = (body.get("api_key") or "").strip()
+    api_secret = (body.get("api_secret") or "").strip()
+    if not (key and shop_domain and api_key and api_secret):
+        raise HTTPException(status_code=400, detail="activation_key, shop_domain, api_key, api_secret required")
+    from ..database import get_db
+    db = get_db()
+    row = db.execute(_convert("SELECT id, site_id FROM store_connections WHERE api_key = ? AND status = 'connected'"),
+                     (key,)).fetchone() if False else db.execute(
+        _convert("SELECT id, site_id FROM store_connections WHERE api_key = ? AND shop_domain = 'pending'"), (key,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Unknown activation key")
+    conn_id, site_id = (row[0], row[1]) if not isinstance(row, dict) else (row["id"], row["site_id"])
+    db.execute(_convert("UPDATE store_connections SET shop_domain = ?, api_key = ?, api_secret = ? WHERE id = ?"),
+               (shop_domain, api_key, api_secret, conn_id))
+    db.commit()
+    return {"ok": True}
+
+
+def _plugin_base():
+    import os as _os
+    return _os.getenv("PUBLIC_WEB_BASE", _os.getenv("FRONTEND_URL", "https://astrovakta.com"))

@@ -1313,7 +1313,21 @@ function BookingsTab({ site }) {
 // ═══════════════ DOMAIN TAB ═══════════════
 // One DNS record row with a copy button — values are the Vercel records the
 // main frontend is hosted on (A 76.76.21.21 for the apex, CNAME
-// cname.vercel-dns.com for www).
+// cname.vercel-dns.com for www / subdomains).
+
+// Second-level suffixes: yourname.co.in has three labels but is an apex.
+const _SECOND_LEVEL_SUFFIXES = new Set([
+  'co.in', 'net.in', 'org.in', 'firm.in', 'gen.in', 'ind.in', 'ac.in', 'edu.in',
+  'res.in', 'gov.in', 'mil.in', 'co.uk', 'org.uk', 'ac.uk', 'gov.uk', 'com.au',
+  'net.au', 'org.au', 'co.nz', 'co.za', 'com.br', 'com.mx', 'co.jp', 'or.jp', 'ne.jp',
+])
+const isSubdomain = (d) => {
+  const parts = (d || '').toLowerCase().split('.').filter(Boolean)
+  if (parts.length < 3) return false
+  if (parts.length === 3 && _SECOND_LEVEL_SUFFIXES.has(parts.slice(-2).join('.'))) return false
+  return true
+}
+
 function DnsRow({ label, cells }) {
   const copyAll = () => {
     const text = cells.map(([k, v]) => `${k}: ${v}`).join('\n')
@@ -1404,11 +1418,11 @@ function DomainTab({ site, reload }) {
       <div style={cardStyle}>
         <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>Your own domain</h3>
         <p style={{ color: '#64748b', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
-          Use your own domain like <strong>yourname.com</strong> or <strong>yournameastrology.in</strong> instead of the free address. Free SSL (the 🔒 padlock) is included automatically.
+          Use your own domain — <strong>yourname.com</strong>, a subdomain like <strong>astro.yourname.com</strong>, anything you own — instead of the free address. Free SSL (the 🔒 padlock) is included automatically.
         </p>
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
-          <input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="yourname.com"
+          <input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="yourname.com or astro.yourname.com"
             disabled={active} style={{ ...inputStyle, flex: 1, minWidth: 220 }} />
           {!site.custom_domain ? (
             <button onClick={connect} disabled={busy} className="btn-primary" style={{ ...primaryBtn, opacity: busy ? 0.6 : 1 }}>
@@ -1445,19 +1459,38 @@ function DomainTab({ site, reload }) {
             background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
             borderRadius: 12, padding: '16px 18px', fontSize: 13, color: '#d97706', lineHeight: 1.8,
           }}>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>
-              DNS setup — add these records at your domain provider (GoDaddy, Namecheap, BigRock…)
-            </div>
-            <p style={{ margin: '0 0 10px', color: '#b45309' }}>
-              Open your domain's DNS settings and add the two records below so <strong>{site.custom_domain}</strong> and <strong>www.{site.custom_domain}</strong> both point to your site:
-            </p>
-            <div style={{ display: 'grid', gap: 8 }}>
-              <DnsRow label="A record (apex)" cells={[['Type', 'A'], ['Name / Host', '@'], ['Value', '76.76.21.21']]} />
-              <DnsRow label="CNAME (www)" cells={[['Type', 'CNAME'], ['Name / Host', 'www'], ['Value', 'cname.vercel-dns.com']]} />
-            </div>
-            <p style={{ margin: '10px 0 0', color: '#b45309' }}>
-              Some providers ask for a full host name — use <code style={{ color: '#1e293b' }}>www.{site.custom_domain}</code> instead of <code style={{ color: '#1e293b' }}>www</code>. Delete any other A/CNAME records for <code style={{ color: '#1e293b' }}>@</code> or <code style={{ color: '#1e293b' }}>www</code> so they don't conflict.
-            </p>
+            {isSubdomain(site.custom_domain) ? (
+              <>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                  DNS setup — add this record at your domain provider (GoDaddy, Namecheap, BigRock…)
+                </div>
+                <p style={{ margin: '0 0 10px', color: '#b45309' }}>
+                  Open your DNS settings and add the CNAME below so <strong>{site.custom_domain}</strong> points to your site:
+                </p>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  <DnsRow label="CNAME (subdomain)" cells={[['Type', 'CNAME'], ['Name / Host', site.custom_domain], ['Value', 'cname.vercel-dns.com']]} />
+                </div>
+                <p style={{ margin: '10px 0 0', color: '#b45309' }}>
+                  Some providers show the host as just <code style={{ color: '#1e293b' }}>{site.custom_domain.split('.')[0]}</code> — that's the same record. Delete any other A/CNAME records for <code style={{ color: '#1e293b' }}>{site.custom_domain}</code> so they don't conflict.
+                </p>
+              </>
+            ) : (
+              <>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                  DNS setup — add these records at your domain provider (GoDaddy, Namecheap, BigRock…)
+                </div>
+                <p style={{ margin: '0 0 10px', color: '#b45309' }}>
+                  Open your domain's DNS settings and add the two records below so <strong>{site.custom_domain}</strong> and <strong>www.{site.custom_domain}</strong> both point to your site:
+                </p>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  <DnsRow label="A record (apex)" cells={[['Type', 'A'], ['Name / Host', '@'], ['Value', '76.76.21.21']]} />
+                  <DnsRow label="CNAME (www)" cells={[['Type', 'CNAME'], ['Name / Host', 'www'], ['Value', 'cname.vercel-dns.com']]} />
+                </div>
+                <p style={{ margin: '10px 0 0', color: '#b45309' }}>
+                  Some providers ask for a full host name — use <code style={{ color: '#1e293b' }}>www.{site.custom_domain}</code> instead of <code style={{ color: '#1e293b' }}>www</code>. Delete any other A/CNAME records for <code style={{ color: '#1e293b' }}>@</code> or <code style={{ color: '#1e293b' }}>www</code> so they don't conflict.
+                </p>
+              </>
+            )}
             <p style={{ margin: '8px 0 0', color: '#b45309' }}>
               Save, then tap <strong>Verify DNS</strong> — DNS changes can take 5 minutes to a few hours to propagate.
             </p>
