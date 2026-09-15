@@ -1998,7 +1998,7 @@ export function ProductPage({ site, resolve, theme, COLORS, productId, slug }) {
         <div style={{ fontSize: 12.5, color: COLORS.textDim, marginBottom: 16 }}>
           <a href="#/" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Home</a> / <a href="#/shop" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Shop</a>{p.category ? <> / <span>{p.category}</span></> : null} / <span style={{ color: COLORS.text }}>{p.name}</span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }}>
+        <div className="tenant-product-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }}>
           <div>
             <div style={{ background: '#fff', borderRadius: 18, border: `1px solid ${COLORS.border}`, overflow: 'hidden' }}>
               {images[img] && (isVideoSrc(images[img])

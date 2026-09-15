@@ -422,3 +422,62 @@ select {
 .spin {
   animation: spin-normal 0.8s linear infinite;
 }
+
+/* ─────────────── Tenant site: mega footer + mobile responsive ───────────────
+   The tenant renderer uses inline styles everywhere; these class-based
+   overrides win with !important only at narrow widths, so desktop stays
+   exactly as the inline styles define it. */
+
+.tenant-footer-link {
+  color: rgba(241, 240, 255, 0.66);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.tenant-footer-link:hover {
+  color: #ffffff;
+}
+
+@media (max-width: 880px) {
+  .tenant-mega-footer-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 28px !important;
+  }
+}
+
+@media (max-width: 840px) {
+  .tenant-hero-grid {
+    grid-template-columns: 1fr !important;
+    gap: 36px !important;
+  }
+  .tenant-product-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+  .tenant-section {
+    padding-top: 48px !important;
+    padding-bottom: 48px !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .tenant-mega-footer-grid {
+    grid-template-columns: 1fr !important;
+    gap: 26px !important;
+  }
+  .tenant-section {
+    padding-top: 38px !important;
+    padding-bottom: 38px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  .tenant-cta {
+    padding: 12px 22px !important;
+    font-size: 14.5px !important;
+  }
+  .tenant-week-grid {
+    gap: 4px !important;
+  }
+  .tenant-hero-photo {
+    max-width: 290px !important;
+  }
+}

@@ -24,7 +24,7 @@ const TelegramIcon = brandIcon('M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0
 import toast from 'react-hot-toast'
 import {
   getPublicSite, getPublicAvailability, publicBook, publicKundliTool, publicPanchangTool,
-  publicHoroscopeTool, publicPlaceOrder, getTenantSession,
+  publicHoroscopeTool, publicPlaceOrder, getTenantSession, sendSiteEvent,
 } from '../lib/api.js'
 import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
 import { TenantHeader, KundliPage, MatchingPage, TenantSignIn, TenantAccount, ShopPage, ProductPage, HoroscopePage, NumerologyPage, GemstonePage, MuhuratPage, LuckyPage, AboutPage, ServicesPage, ContactPage, WhatsAppFab } from './TenantTools.jsx'
@@ -416,7 +416,7 @@ function BookingWidget({ site, resolve, services, theme }) {
           style={{ border: '1px solid var(--border-color)', background: 'none', borderRadius: 8, padding: 6, cursor: 'pointer', color: 'inherit', opacity: weekOffset === 0 ? 0.3 : 1 }}>
           <ChevronLeft size={16} />
         </button>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, flex: 1 }}>
+        <div className="tenant-week-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, flex: 1 }}>
           {visibleDays.map((d) => {
             const dt = new Date(`${d.date}T00:00:00`)
             const open = !!(slotsByDate[d.date] || []).length
@@ -987,7 +987,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
   }
 
   const sectionStyle = { maxWidth: 1000, margin: '0 auto', padding: '72px 20px' }
-  const h2Style = { fontSize: 32, fontWeight: 800, marginBottom: 12, color: COLORS.text, textAlign: 'center' }
+  const h2Style = { fontSize: 'clamp(24px, 5vw, 32px)', fontWeight: 800, marginBottom: 12, color: COLORS.text, textAlign: 'center' }
   const subStyle = { textAlign: 'center', color: COLORS.textDim, fontSize: 15, maxWidth: 620, margin: '0 auto 40px', lineHeight: 1.7 }
 
   const showStore = settings.showStore && (site._products || []).length > 0
@@ -1071,8 +1071,8 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
             ))}
           </div>
         )}
-        <div style={{ ...sectionStyle, paddingTop: 72, paddingBottom: 72, position: 'relative' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: site.hero_image ? '1.15fr 0.85fr' : '1fr', gap: 48, alignItems: 'center' }}>
+        <div className="tenant-section" style={{ ...sectionStyle, paddingTop: 72, paddingBottom: 72, position: 'relative' }}>
+          <div className="tenant-hero-grid" style={{ display: 'grid', gridTemplateColumns: site.hero_image ? '1.15fr 0.85fr' : '1fr', gap: 48, alignItems: 'center' }}>
             <div>
               {/* badge */}
               <motion.div
@@ -1113,7 +1113,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
                   const external = /^https?:\/\//i.test(b.href)
                   const Icon = b.href === '#book' ? Calendar : b.href === '#/shop' ? ShoppingBag : (b.href === '#tools' || b.href === '#/kundli') ? Sparkles : ArrowRight
                   return (
-                    <motion.a key={b.label + b.href} href={b.href} {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                    <motion.a key={b.label + b.href} href={b.href} className="tenant-cta" {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                       variants={{ hidden: { opacity: 0, y: 18, scale: 0.94 }, show: { opacity: 1, y: 0, scale: 1 } }}
                       whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.97 }}
                       style={{
@@ -1132,6 +1132,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
             {site.hero_image && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.7, delay: 0.25 }}
+                className="tenant-hero-photo"
                 style={{ position: 'relative', maxWidth: 380, justifySelf: 'center', width: '100%' }}>
                 <motion.div aria-hidden
                   animate={{ y: [0, -12, 0] }} transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
@@ -1169,7 +1170,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
 
       {/* ─── about ─── */}
       <section id="about">
-        <div style={sectionStyle}>
+        <div className="tenant-section" style={sectionStyle}>
           <h2 style={h2Style}>{home.aboutTitle || about.title || 'About'}</h2>
           <div style={{
             maxWidth: 720, margin: '0 auto', fontSize: 16, lineHeight: 1.8, color: COLORS.textDim, textAlign: 'center',
@@ -1183,7 +1184,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
       {/* ─── why choose me ─── */}
       {whyPoints.length > 0 && (
         <section style={{ background: light ? '#f3f1ec' : 'rgba(255,255,255,0.02)' }}>
-          <div style={sectionStyle}>
+          <div className="tenant-section" style={sectionStyle}>
             <h2 style={h2Style}>{home.whyTitle || 'Why Consult Me'}</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, maxWidth: 860, margin: '0 auto' }}>
               {whyPoints.map((w, i) => {
@@ -1210,7 +1211,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
       {/* ─── YouTube videos (tenant-managed) ─── */}
       {videos.length > 0 && (
         <section id="videos">
-          <div style={sectionStyle}>
+          <div className="tenant-section" style={sectionStyle}>
             <h2 style={h2Style}>{home.videosTitle || 'Watch & Learn'}</h2>
             <p style={subStyle}>
               {home.videosSubtitle || `${site.name} on video — kundli explainers, remedies and session highlights.`}
@@ -1224,7 +1225,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
 
       {/* ─── services ─── */}
       <section id="services">
-        <div style={sectionStyle}>
+        <div className="tenant-section" style={sectionStyle}>
           <h2 style={h2Style}>Consultation Services</h2>
           <p style={subStyle}>Choose a reading — every consultation is done personally by {site.name}.</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
@@ -1251,7 +1252,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
       {/* ─── testimonials ─── */}
       {showTestimonials && (
         <section style={{ background: light ? '#f3f1ec' : 'rgba(255,255,255,0.02)' }}>
-          <div style={sectionStyle}>
+          <div className="tenant-section" style={sectionStyle}>
             <h2 style={h2Style}>{home.testimonialsTitle || 'What Clients Say'}</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, maxWidth: 860, margin: '0 auto' }}>
               {home.testimonials.map((t, i) => (
@@ -1274,7 +1275,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
       {/* ─── linktree — socials + custom links ─── */}
       {linkRows.length > 1 && (
         <section id="links">
-          <div style={sectionStyle}>
+          <div className="tenant-section" style={sectionStyle}>
             <h2 style={h2Style}>{home.linksTitle || 'Find Me Online'}</h2>
             <p style={subStyle}>All of {site.name}'s profiles and links — in one place.</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 440, margin: '0 auto' }}>
@@ -1306,7 +1307,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
       {/* ─── shop CTA (full shop lives at #/shop) ─── */}
       {showStore && (
         <section style={{ background: light ? '#f3f1ec' : 'rgba(255,255,255,0.02)' }}>
-          <div style={{ ...sectionStyle, textAlign: 'center', padding: '52px 20px' }}>
+          <div style={{ ...sectionStyle, textAlign: 'center', padding: '52px 20px' }} className="tenant-section">
             <h2 style={{ ...h2Style, marginBottom: 10 }}>Remedies & Products</h2>
             <p style={{ ...subStyle, marginBottom: 24 }}>
               Gemstones, rudraksha, bracelets and healing puja items — recommended personally by {site.name}.
@@ -1320,7 +1321,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
 
       {/* ─── free tools (full kundli software + horoscope + panchang) ─── */}
       <section id="tools" style={{ background: light ? '#f3f1ec' : 'rgba(255,255,255,0.02)' }}>
-        <div style={sectionStyle}>
+        <div className="tenant-section" style={sectionStyle}>
           <h2 style={h2Style}>Free Astrology Tools</h2>
           <p style={subStyle}>
             A complete kundli, today's rashifal and daily panchang — free for every visitor, powered by a professional Vedic engine.
@@ -1356,7 +1357,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
 
       {/* ─── booking ─── */}
       <section id="book">
-        <div style={sectionStyle}>
+        <div className="tenant-section" style={sectionStyle}>
           <h2 style={h2Style}>Book Your Appointment</h2>
           <p style={subStyle}>Pick a service, choose an open slot — confirmation is instant.</p>
           <div style={{
@@ -1373,7 +1374,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
       {/* ─── contact ─── */}
       {hasContact && (
         <section id="contact" style={{ background: light ? '#f3f1ec' : 'rgba(255,255,255,0.02)' }}>
-          <div style={sectionStyle}>
+          <div className="tenant-section" style={sectionStyle}>
             <h2 style={h2Style}>Get in Touch</h2>
             <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
               {[
@@ -1394,48 +1395,122 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
         </section>
       )}
 
-      {/* ─── footer ─── */}
-      <footer style={{ borderTop: `1px solid ${COLORS.border}`, padding: '48px 20px 32px' }}>
-        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 10 }}>
-            {site.logo_url
-              ? <img src={site.logo_url} alt={site.name} style={{ width: 30, height: 30, borderRadius: 9, objectFit: 'cover' }} />
-              : <div style={{ width: 30, height: 30, borderRadius: 9, background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 13 }}>
-                  {(site.name || 'A').charAt(0)}
-                </div>}
-            <span style={{ fontWeight: 700 }}>{site.name}</span>
-          </div>
-          <div style={{ fontSize: 13, color: COLORS.textDim, marginBottom: 18, textAlign: 'center' }}>
-            {/* Only show the custom domain once it's verified & serving — until
-                then the free subdomain is the site's real address. */}
-            {site.custom_domain && site.domain_status === 'active' ? site.custom_domain : tenantSubdomainLabel(site.slug)}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 24, fontSize: 13 }}>
-            {[
-              ['#/', 'Home'], ['#/about', 'About'], ['#/services', 'Services & Booking'],
-              ...(showStore ? [['#/shop', 'Shop']] : []),
-              ['#/kundli', 'Free Kundli'], ['#/matching', 'Match Making'], ['#/horoscope', 'Horoscope'],
-              ['#/muhurat', 'Muhurat'], ['#/numerology', 'Numerology'], ['#/gemstone', 'Gemstone'],
-              ['#/lucky', 'Lucky Finder'], ['#/contact', 'Contact'],
-            ].map(([href, label]) => (
-              <a key={href} href={href} style={{ color: COLORS.textDim, textDecoration: 'none', padding: '4px 10px' }}>{label}</a>
-            ))}
-          </div>
-          {socials.length > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 22 }}>
-              {socials.map(([key, Icon, href]) => (
-                <a key={key} href={href} target="_blank" rel="noopener noreferrer" title={key}
-                  style={{
-                    width: 38, height: 38, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: `1px solid ${COLORS.border}`, color: COLORS.textDim, textDecoration: 'none',
-                  }}>
-                  <Icon size={17} />
-                </a>
+      {/* ─── mega footer (dark, 4 sections) ─── */}
+      <footer style={{
+        background: `radial-gradient(ellipse 80% 90% at 50% 0%, color-mix(in srgb, ${theme.primaryColor} 14%, #0a0a1a), #0a0a1a 70%), #0a0a1a`,
+        color: '#f1f0ff', padding: '56px 20px 0', marginTop: '0',
+        borderTop: `3px solid ${theme.primaryColor}`,
+      }}>
+        <div style={{ maxWidth: 1080, margin: '0 auto' }}>
+          <div className="tenant-mega-footer-grid" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1.2fr', gap: 36, paddingBottom: 44 }}>
+
+            {/* 1 · brand */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                {site.logo_url
+                  ? <img src={site.logo_url} alt={site.name} style={{ width: 40, height: 40, borderRadius: 12, objectFit: 'cover' }} />
+                  : <div style={{ width: 40, height: 40, borderRadius: 12, background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 17 }}>
+                      {(site.name || 'A').charAt(0)}
+                    </div>}
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 17 }}>{site.name}</div>
+                  {site.tagline && <div style={{ fontSize: 12, color: 'rgba(241,240,255,0.55)' }}>{site.tagline}</div>}
+                </div>
+              </div>
+              <p style={{ fontSize: 13.5, lineHeight: 1.7, color: 'rgba(241,240,255,0.62)', margin: '0 0 16px' }}>
+                {(home.aboutText || 'Authentic Vedic astrology consultations — kundli readings, match making and remedies, done personally.').slice(0, 150)}
+              </p>
+              {socials.length > 0 && (
+                <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+                  {socials.map(([key, Icon, href]) => (
+                    <a key={key} href={href} target="_blank" rel="noopener noreferrer" title={key}
+                      className="tenant-footer-link"
+                      style={{
+                        width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.04)',
+                      }}>
+                      <Icon size={16} />
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 2 · explore */}
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: theme.accentColor, marginBottom: 14 }}>Explore</div>
+              {[
+                ['#/', 'Home'], ['#/about', 'About'], ['#/services', 'Services & Booking'],
+                ...(showStore ? [['#/shop', 'Shop']] : []),
+                ['#/contact', 'Contact'], ['#book', 'Book Appointment'],
+              ].map(([href, label]) => (
+                <a key={href} href={href} className="tenant-footer-link"
+                  style={{ display: 'block', padding: '5px 0', fontSize: 14 }}>{label}</a>
               ))}
             </div>
-          )}
-          <div style={{ textAlign: 'center', fontSize: 12, opacity: 0.5 }}>
-            <Link to="/" style={{ color: 'inherit', textDecoration: 'none' }}>Powered by AstroVakta</Link>
+
+            {/* 3 · free tools */}
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: theme.accentColor, marginBottom: 14 }}>Free Tools</div>
+              {[
+                ['#/kundli', 'Free Kundli'], ['#/matching', 'Match Making'], ['#/horoscope', 'Horoscope'],
+                ['#/muhurat', 'Muhurat'], ['#/numerology', 'Numerology'], ['#/gemstone', 'Gemstone'],
+                ['#/lucky', 'Lucky Finder'],
+              ].map(([href, label]) => (
+                <a key={href} href={href} className="tenant-footer-link"
+                  style={{ display: 'block', padding: '5px 0', fontSize: 14 }}>{label}</a>
+              ))}
+            </div>
+
+            {/* 4 · contact */}
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: theme.accentColor, marginBottom: 14 }}>Get in Touch</div>
+              {[
+                [settings.phone, 'phone', `tel:${(settings.phone || '').replace(/[^\d+]/g, '')}`],
+                [settings.email, 'email', `mailto:${settings.email}`],
+                [settings.city, 'city', null],
+              ].filter(([v]) => !!v).map(([v, key, href]) => (
+                <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '5px 0', fontSize: 14, color: 'rgba(241,240,255,0.66)' }}>
+                  {key === 'phone' ? <Phone size={14} /> : key === 'email' ? <Mail size={14} /> : <MapPin size={14} />}
+                  {href
+                    ? <a href={href} className="tenant-footer-link" style={{ fontSize: 14 }}>{v}</a>
+                    : <span>{v}</span>}
+                </div>
+              ))}
+              {settings.whatsappNumber && (
+                <a href={`https://wa.me/${String(settings.whatsappNumber).replace(/[^\d]/g, '')}?text=${encodeURIComponent(`Namaste ${site.name}, I want to book a consultation.`)}`}
+                  target="_blank" rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 12, padding: '9px 16px',
+                    borderRadius: 10, background: '#16a34a', color: '#fff', fontWeight: 700, fontSize: 13.5,
+                    textDecoration: 'none',
+                  }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                  Chat on WhatsApp
+                </a>
+              )}
+              {!settings.whatsappNumber && !settings.phone && !settings.email && !settings.city && (
+                <div style={{ fontSize: 13.5, color: 'rgba(241,240,255,0.55)', lineHeight: 1.6 }}>
+                  Contact details coming soon — book a consultation online anytime.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* bottom bar */}
+          <div style={{
+            borderTop: '1px solid rgba(255,255,255,0.1)', padding: '18px 0 22px',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+            fontSize: 12.5, color: 'rgba(241,240,255,0.5)',
+          }}>
+            <span>© {new Date().getFullYear()} {site.name}. All rights reserved.</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {/* Only show the custom domain once it's verified & serving — until
+                  then the free subdomain is the site's real address. */}
+              <span>{site.custom_domain && site.domain_status === 'active' ? site.custom_domain : tenantSubdomainLabel(site.slug)}</span>
+              <span>·</span>
+              <Link to="/" style={{ color: 'inherit', textDecoration: 'none' }}>Powered by AstroVakta</Link>
+            </span>
           </div>
         </div>
       </footer>

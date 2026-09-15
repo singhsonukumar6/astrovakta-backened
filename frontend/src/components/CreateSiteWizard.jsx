@@ -138,17 +138,29 @@ function CreateSiteWizard({ onCreated }) {
 
   return (
     <div style={{ maxWidth: 680, margin: '0 auto' }}>
-      {/* progress header */}
-      <div style={{ textAlign: 'center', marginBottom: 28 }}>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'center' }}>
-          {[1, 2, 3].map((s) => (
-            <div key={s} style={{
-              flex: 1, maxWidth: 90, height: 5, borderRadius: 4,
-              background: step >= s ? 'var(--gradient-primary)' : 'rgba(79,70,229,0.15)',
-            }} />
-          ))}
-        </div>
-        <div style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>Step {step} of 3 · {stepTitles[step - 1]}</div>
+      {/* stepper header — numbered, labelled, with connector line */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 26, position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 17, left: '16.6%', right: '16.6%', height: 2.5, background: step > 1 ? '#4f46e5' : '#e2e8f0', borderRadius: 2 }} />
+        {stepTitles.map((title, i) => {
+          const n = i + 1
+          const done = step > n
+          const active = step === n
+          return (
+            <div key={n} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, position: 'relative' }}>
+              <div style={{
+                width: 34, height: 34, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 800, fontSize: 13.5, transition: 'all 0.25s',
+                background: done ? '#4f46e5' : active ? '#fff' : '#f1f5f9',
+                color: done ? '#fff' : active ? '#4f46e5' : '#94a3b8',
+                border: active ? '2.5px solid #4f46e5' : done ? 'none' : '2px solid #e2e8f0',
+                boxShadow: active ? '0 0 0 5px rgba(79,70,229,0.12)' : 'none',
+              }}>
+                {done ? <Check size={16} color="#fff" /> : n}
+              </div>
+              <span style={{ fontSize: 11.5, fontWeight: active ? 800 : 600, color: active ? '#4f46e5' : done ? '#334155' : '#94a3b8', textAlign: 'center' }}>{title}</span>
+            </div>
+          )
+        })}
       </div>
 
       <div className="wiz-step-body">
