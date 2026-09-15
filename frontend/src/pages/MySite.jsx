@@ -814,9 +814,10 @@ function StoreTab({ site, reload }) {
 
             <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Connect your store</h3>
             <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16, lineHeight: 1.6 }}>
-              Push your products to your Shopify or WooCommerce store and pull its orders back here —
-              no API keys to create or copy. Enter the store address, click connect, and approve on the
-              next screen. Done.
+              Push your products to your store and pull its orders back here — no API keys to create or
+              copy. Enter the store address, click connect, and approve on the next screen. Done.
+              WooCommerce is live; Shopify one-click is coming soon (until then, Shopify stores can be
+              connected from "Advanced" below).
             </p>
 
             {(integrations || []).length > 0 && (
@@ -849,19 +850,24 @@ function StoreTab({ site, reload }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginBottom: 14 }}>
               {[[
                 'shopify', 'Shopify', '#95bf47', 'mystore.myshopify.com',
-                providers?.shopify_one_click !== false,
+                false, // coming soon — flip to true once SHOPIFY_CLIENT_ID/SECRET are set on the server
               ], [
                 'woocommerce', 'WooCommerce', '#7f54b3', 'mystore.com',
                 true,
               ]].map(([id, label, color, ph, enabled]) => (
-                <div key={id} style={{ border: '1px solid #e2e8f0', borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 10, opacity: enabled ? 1 : 0.55 }}>
+                <div key={id} style={{ border: '1px solid #e2e8f0', borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 10, opacity: enabled ? 1 : 0.6, position: 'relative' }}>
+                  {!enabled && (
+                    <span style={{ position: 'absolute', top: 12, right: 12, fontSize: 10, fontWeight: 800, letterSpacing: 0.5, background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: 999, padding: '3px 8px', textTransform: 'uppercase' }}>
+                      Coming soon
+                    </span>
+                  )}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ width: 34, height: 34, borderRadius: 10, background: color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 800 }}>
                       {label[0]}
                     </span>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 14.5 }}>{label}</div>
-                      <div style={{ fontSize: 11.5, color: '#64748b' }}>{enabled ? 'One-click connect' : 'Not enabled on this deployment'}</div>
+                      <div style={{ fontSize: 11.5, color: '#64748b' }}>{enabled ? 'One-click connect' : 'One-click connect — coming soon'}</div>
                     </div>
                   </div>
                   <input
@@ -876,8 +882,10 @@ function StoreTab({ site, reload }) {
                     onClick={() => startOneClick(id)}
                     disabled={!enabled || connecting === id}
                     className={enabled ? 'btn-primary' : ''}
-                    style={{ ...primaryBtn, justifyContent: 'center', opacity: enabled && connecting !== id ? 1 : 0.6, fontSize: 13.5, padding: '10px 16px' }}>
-                    {connecting === id ? <><Loader2 size={15} className="spin" /> Redirecting…</> : <><Zap size={15} /> Connect {label} in one click</>}
+                    style={{ ...primaryBtn, justifyContent: 'center', opacity: enabled && connecting !== id ? 1 : 0.6, fontSize: 13.5, padding: '10px 16px', background: enabled ? undefined : '#94a3b8' }}>
+                    {enabled
+                      ? (connecting === id ? <><Loader2 size={15} className="spin" /> Redirecting…</> : <><Zap size={15} /> Connect {label} in one click</>)
+                      : <>Coming soon</>}
                   </button>
                 </div>
               ))}
