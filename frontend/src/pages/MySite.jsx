@@ -13,6 +13,7 @@ import {
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth.jsx'
 import KundaliReport from './KundaliReport.jsx'
+import DashboardLoader from '../components/DashboardLoader.jsx'
 import {
   TEMPLATES, PRESETS, fileToDataUrl, inputStyle, labelStyle, cardStyle,
   primaryBtn, ghostBtn, errDetail,
@@ -55,7 +56,7 @@ function OverviewTab({ site, reload }) {
   return (
     <div>
       {stats === null ? (
-        <div style={{ color: '#64748b', padding: 40, textAlign: 'center' }}>Loading your stats…</div>
+        <DashboardLoader label="Reading your stats" />
       ) : (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 24 }}>
@@ -969,7 +970,7 @@ function StoreTab({ site, reload }) {
             <p style={{ fontSize: 13, color: '#64748b', marginBottom: 14, lineHeight: 1.6 }}>
               Products curated by AstroVakta. Your cost = MRP − margin. List at MRP or set your own price — you keep the difference.
             </p>
-            {!catalog ? <div style={{ color: '#64748b' }}>Loading…</div> : (
+            {!catalog ? <DashboardLoader label="Loading catalog" size={44} /> : (
               (catalog.products || []).map((mp) => (
                 <div key={mp.id} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f1f5f9', flexWrap: 'wrap' }}>
                   {mp.image ? <img src={mp.image} alt="" style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover' }} /> : <div style={{ width: 52, height: 52, borderRadius: 10, background: '#f1f5f9' }} />}
@@ -997,7 +998,7 @@ function StoreTab({ site, reload }) {
 {sub === 'products' && (
         <>
           {products === null ? (
-            <div style={{ color: '#64748b', padding: 40, textAlign: 'center' }}>Loading products…</div>
+            <DashboardLoader label="Loading products" />
           ) : products.length === 0 ? (
             <div style={{ ...cardStyle, textAlign: 'center', color: '#64748b', padding: 40 }}>
               <Package size={32} style={{ marginBottom: 12 }} />
@@ -1069,7 +1070,7 @@ function StoreTab({ site, reload }) {
       {sub === 'orders' && (
         <>
           {orders === null ? (
-            <div style={{ color: '#64748b', padding: 40, textAlign: 'center' }}>Loading orders…</div>
+            <DashboardLoader label="Loading orders" />
           ) : orders.length === 0 ? (
             <div style={{ ...cardStyle, textAlign: 'center', color: '#64748b', padding: 40 }}>
               <ShoppingBag size={32} style={{ marginBottom: 12 }} />
@@ -1212,7 +1213,7 @@ function LeadsTab({ site }) {
         People who used your free tools (kundli etc.) and shared their contact — a warm list of potential clients.
       </p>
       {leads === null ? (
-        <div style={{ color: '#64748b', padding: 40, textAlign: 'center' }}>Loading leads…</div>
+        <DashboardLoader label="Loading leads" />
       ) : leads.length === 0 ? (
         <div style={{ ...cardStyle, textAlign: 'center', color: '#64748b', padding: 48 }}>
           <Users size={32} style={{ marginBottom: 12 }} />
@@ -1281,7 +1282,7 @@ function BookingsTab({ site }) {
       </div>
 
       {bookings === null ? (
-        <div style={{ color: '#64748b', padding: 40, textAlign: 'center' }}>Loading bookings…</div>
+        <DashboardLoader label="Loading bookings" />
       ) : visible.length === 0 ? (
         <div style={{ ...cardStyle, textAlign: 'center', color: '#64748b', padding: 48 }}>
           <Calendar size={32} style={{ marginBottom: 12 }} />
@@ -1727,7 +1728,7 @@ function SocialTab({ site, reload }) {
         Content queue {posts ? `(${posts.length})` : ''}
       </h3>
       {posts === null ? (
-        <div style={{ color: '#64748b', padding: 24 }}>Loading…</div>
+        <DashboardLoader label="Loading posts" size={44} />
       ) : posts.length === 0 ? (
         <div style={{ ...cardStyle, color: '#64748b', textAlign: 'center', padding: 32 }}>
           No posts yet — generate one above or turn on auto-daily.
@@ -2145,7 +2146,7 @@ export default function MySite() {
   if (authLoading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div className="gradient-text" style={{ fontSize: 18, fontWeight: 600 }}>Loading…</div>
+        <DashboardLoader label="Loading your dashboard" size={84} />
       </div>
     )
   }
@@ -2414,7 +2415,7 @@ export default function MySite() {
           marginLeft: site ? (sidebarCollapsed ? 66 : 216) : 0, transition: 'margin-left 0.2s ease',
         }}>
           {site === null ? (
-            <div style={{ color: '#64748b', padding: 60, textAlign: 'center' }}>Loading…</div>
+            <DashboardLoader label="Loading your site" size={72} full />
           ) : (
             <div key={tab} className="mysite-tab-fade">
               {tab === 'overview' && <OverviewTab site={site} reload={reload} />}
