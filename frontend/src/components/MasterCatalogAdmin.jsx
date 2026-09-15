@@ -3,7 +3,8 @@ import { Plus, Trash2, Loader2, Save, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api.js'
 
-const inputStyle = { width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 14, outline: 'none', background: '#fff', color: '#0f172a' }
+const inputStyle = { width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 10, fontSize: 14, outline: 'none', background: '#fff', color: '#0f172a', colorScheme: 'light' }
+const selectStyle = { ...inputStyle, color: '#0f172a', background: '#fff' }
 const labelStyle = { display: 'block', fontSize: 12.5, fontWeight: 700, color: '#475569', marginBottom: 5 }
 
 // Master dropshipping catalog: categories + products (MRP, margin, multi-image).
@@ -84,7 +85,7 @@ export default function MasterCatalogAdmin() {
   }
 
   return (
-    <div>
+    <div style={{ colorScheme: 'light', color: '#0f172a' }}>
       {/* categories */}
       <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 20, marginBottom: 20 }}>
         <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 10 }}>Categories</h3>
@@ -141,9 +142,9 @@ export default function MasterCatalogAdmin() {
               </div>
               <div>
                 <label style={labelStyle}>Category</label>
-                <select value={editing.category_id ?? ''} onChange={(e) => setEditing({ ...editing, category_id: Number(e.target.value) || null })} style={inputStyle}>
+                <select value={editing.category_id ?? ''} onChange={(e) => setEditing({ ...editing, category_id: Number(e.target.value) || null })} style={selectStyle}>
                   <option value="">—</option>
-                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {categories.map((c) => <option key={c.id} value={c.id} style={{ color: '#0f172a', background: '#fff' }}>{c.name}</option>)}
                 </select>
               </div>
               <div>

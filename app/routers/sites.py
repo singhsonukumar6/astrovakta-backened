@@ -1405,7 +1405,7 @@ def woo_activate(site_id: int, body: WooActivateBody, user: dict = Depends(get_c
     _require_owned_site(site_id, user)
     key = body.activation_key.strip()
     from ..database import get_db
-    row = get_db().execute(_convert("SELECT id FROM store_connections WHERE site_id = ? AND api_key = ?"),
+    row = get_db().execute(_tc("SELECT id FROM store_connections WHERE site_id = ? AND api_key = ?"),
                            (site_id, key)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Activation key not recognised — copy it again from the dashboard")
@@ -1424,8 +1424,9 @@ def woo_start(site_id: int, user: dict = Depends(get_current_user)):
     _require_owned_site(site_id, user)
     key = "avk_" + _secrets.token_urlsafe(18)
     from ..database import get_db
+    from ..tenants import _convert as _tc
     db = get_db()
-    db.execute(_convert("INSERT INTO store_connections (site_id, provider, shop_domain, api_key) VALUES (?, 'woocommerce', 'pending', ?)"),
+    db.execute(_tc("INSERT INTO store_connections (site_id, provider, shop_domain, api_key) VALUES (?, 'woocommerce', 'pending', ?)"),
                (site_id, key))
     db.commit()
     plugin_url = f"{_plugin_base()}/wp-content/plugins/astrovakta-connect/astrovakta-connect.php"
@@ -1450,13 +1451,12 @@ async def woo_claim(request: Request):
         raise HTTPException(status_code=400, detail="activation_key, shop_domain, api_key, api_secret required")
     from ..database import get_db
     db = get_db()
-    row = db.execute(_convert("SELECT id, site_id FROM store_connections WHERE api_key = ? AND status = 'connected'"),
-                     (key,)).fetchone() if False else db.execute(
-        _convert("SELECT id, site_id FROM store_connections WHERE api_key = ? AND shop_domain = 'pending'"), (key,)).fetchone()
+    from ..tenants import _convert as _tc
+    row = db.execute(_tc("SELECT id, site_id FROM store_connections WHERE api_key = ? AND shop_domain = 'pending'"), (key,)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Unknown activation key")
     conn_id, site_id = (row[0], row[1]) if not isinstance(row, dict) else (row["id"], row["site_id"])
-    db.execute(_convert("UPDATE store_connections SET shop_domain = ?, api_key = ?, api_secret = ? WHERE id = ?"),
+    db.execute(_tc("UPDATE store_connections SET shop_domain = ?, api_key = ?, api_secret = ? WHERE id = ?"),
                (shop_domain, api_key, api_secret, conn_id))
     db.commit()
     return {"ok": True}

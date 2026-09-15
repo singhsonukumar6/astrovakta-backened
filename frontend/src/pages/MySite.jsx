@@ -29,7 +29,7 @@ import {
   getMyOrders, updateMyOrder, getKeys,
   getMySocial, generateSocialPost, createSocialPost, updateSocialPost, deleteSocialPost, socialPostMedia,
   getMyCatalog, importCatalogProduct,
-  getMyIntegrations, getIntegrationProviders, beginStoreConnect, connectStore, disconnectStore, pushToStore, pullStoreOrders,
+  getMyIntegrations, getIntegrationProviders, beginStoreConnect, connectStore, disconnectStore, pushToStore, pullStoreOrders, wooOneClickStart,
   aiGenerateSiteContent,
 } from '../lib/api.js'
 
@@ -604,6 +604,8 @@ function StoreTab({ site, reload }) {
   const [domains, setDomains] = useState({ shopify: '', woocommerce: '' }) // per-provider input
   const [showManual, setShowManual] = useState(false)
   const [connForm, setConnForm] = useState({ provider: 'woocommerce', shop_domain: '', api_key: '', api_secret: '', access_token: '' })
+  const [wooKey, setWooKey] = useState(null)
+  const [wooSteps, setWooSteps] = useState([])
   const [oauthResult, setOauthResult] = useState(null) // {status, message} from the provider redirect
   const [pushSel, setPushSel] = useState([])
   const [products, setProducts] = useState(null)
@@ -798,6 +800,32 @@ function StoreTab({ site, reload }) {
 
                       {sub === 'integrations' && (
           <div style={{ ...cardStyle, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, marginBottom: 16 }}>
+              <button onClick={async () => {
+                try {
+                  const d = await wooOneClickStart(site.id)
+                  setWooKey(d.activation_key)
+                  setWooSteps(d.plugin_instructions || [])
+                } catch (e) { toast.error(errDetail(e, 'Could not start the connect')) }
+              }} style={{ padding: '14px', borderRadius: 12, border: '2px solid #7c3aed', background: 'rgba(124,58,237,0.06)', cursor: 'pointer', textAlign: 'left' }}>
+                <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 3 }}>🛒 WooCommerce — one click</div>
+                <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>Install our plugin, paste one key, done. No API keys to copy.</div>
+              </button>
+              <button onClick={() => toast('Shopify one-click needs the AstroVakta Shopify app — coming soon. Use the token method below for now.', { icon: 'ℹ️' })}
+                style={{ padding: '14px', borderRadius: 12, border: '2px solid #e2e8f0', background: '#fff', cursor: 'pointer', textAlign: 'left' }}>
+                <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 3 }}>🟢 Shopify — one click</div>
+                <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>Approve once on Shopify's screen — no tokens.</div>
+              </button>
+            </div>
+            {wooKey && (
+              <div style={{ padding: 14, borderRadius: 12, background: 'rgba(79,70,229,0.06)', border: '1px solid rgba(79,70,229,0.25)', marginBottom: 16 }}>
+                <div style={{ fontWeight: 800, fontSize: 13.5, marginBottom: 6 }}>Your activation key</div>
+                <code style={{ display: 'inline-block', background: '#fff', padding: '8px 12px', borderRadius: 8, fontSize: 13.5, border: '1px solid #e2e8f0', userSelect: 'all' }}>{wooKey}</code>
+                <div style={{ marginTop: 10, fontSize: 12.5, color: '#64748b', lineHeight: 1.8 }}>
+                  {(wooSteps.length ? wooSteps : ['1. Install the AstroVakta Connect plugin in WordPress.', '2. Paste this key in the plugin settings.', '3. Click Connect.']).map((st, i) => <div key={i}>{st}</div>)}
+                </div>
+              </div>
+            )}
             {oauthResult && (
               <div style={{
                 display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 10,

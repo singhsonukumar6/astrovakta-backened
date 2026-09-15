@@ -477,3 +477,6 @@ export const pushToStore = (siteId, id, productIds) =>
   api.post(`/sites/my/${siteId}/integrations/${id}/push`, { product_ids: productIds }).then((r) => r.data?.data ?? r.data)
 export const pullStoreOrders = (siteId, id) =>
   api.post(`/sites/my/${siteId}/integrations/${id}/pull-orders`).then((r) => r.data?.data ?? r.data)
+
+export const wooOneClickStart = (siteId) =>
+  api.get(`/sites/my/${siteId}/integrations/woocommerce/start`).then((r) => r.data?.data ?? r.data)
