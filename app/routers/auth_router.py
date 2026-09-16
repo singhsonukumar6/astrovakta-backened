@@ -4,7 +4,7 @@ import logging
 import os
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr, Field
 from jose import jwt, JWTError
@@ -25,15 +25,31 @@ from ..auth import (
     verify_email_token,
     create_password_reset_token,
     reset_password_with_token,
-    sync_clerk_user,
     TIER_LIMITS,
     CREDIT_COSTS,
     get_credit_cost,
 )
+from ..rate_limit import rate_limit, client_ip
 
 router = APIRouter()
 
-SECRET_KEY = os.getenv("JWT_SECRET", "dev-only-fallback-key-change-in-production")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development").strip().lower()
+IS_PRODUCTION = ENVIRONMENT in ("production", "prod")
+
+SECRET_KEY = os.getenv("JWT_SECRET", "").strip()
+if not SECRET_KEY:
+    if IS_PRODUCTION:
+        raise RuntimeError(
+            "JWT_SECRET must be set in production — refusing to start with a "
+            "predictable signing key. Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
+        )
+    # Dev fallback: an ephemeral random key. It cannot be guessed or forged,
+    # at the cost of invalidating all sessions on every restart.
+    SECRET_KEY = secrets.token_hex(32)
+    logging.getLogger(__name__).warning(
+        "JWT_SECRET is not set — using an ephemeral random secret (dev only). "
+        "All tokens are invalidated on restart."
+    )
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 72
 
@@ -57,9 +73,10 @@ class CreateKeyBody(BaseModel):
 
 
 class UpdateProfileBody(BaseModel):
+    # Plan/tier is deliberately NOT user-editable — upgrades only via the
+    # payments webhook or an admin.
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     email: Optional[EmailStr] = None
-    plan: Optional[str] = Field(None, pattern="^(free|starter|pro|enterprise)$")
 
 
 class ChangePasswordBody(BaseModel):
@@ -74,12 +91,6 @@ class ForgotPasswordBody(BaseModel):
 class ResetPasswordBody(BaseModel):
     token: str
     new_password: str = Field(..., min_length=6, max_length=128)
-
-
-class ClerkSyncBody(BaseModel):
-    clerk_id: str
-    email: str
-    name: str = ""
 
 
 def create_access_token(user_id: int) -> str:
@@ -154,7 +165,9 @@ def _maybe_grant_superadmin(user: dict) -> dict:
 
 
 @router.post("/register")
-def register(body: RegisterBody):
+def register(body: RegisterBody, request: Request = None):
+    if request:
+        rate_limit(f"register:{client_ip(request)}", max_calls=20, window=3600)
     from ..database import get_db
     existing = get_db().execute("SELECT id FROM users WHERE email = ?", (body.email.lower().strip(),)).fetchone()
     if existing:
@@ -172,10 +185,10 @@ def register(body: RegisterBody):
     except Exception as e:
         print(f"[AUTH] ERROR: Verification email exception for {body.email}: {e}")
 
-    if not email_sent:
-        # Email delivery unavailable (no RESEND_API_KEY, provider error) —
-        # auto-verify so signup is never a dead end. Production sets
-        # RESEND_API_KEY and gets real verification.
+    if not email_sent and not IS_PRODUCTION:
+        # Dev convenience only (no RESEND_API_KEY configured): auto-verify so
+        # signup is never a dead end. Production keeps email_verified=false —
+        # a mail outage must not silently mark addresses as verified.
         from ..auth import mark_email_verified
         mark_email_verified(user["id"])
         user = {**user, "email_verified": 1}
@@ -187,7 +200,12 @@ def register(body: RegisterBody):
 
 
 @router.post("/login")
-def login(body: LoginBody):
+def login(body: LoginBody, request: Request = None):
+    if request:
+        # per-IP and per-account windows: throttles both credential stuffing
+        # from one host and targeted guessing against a single mailbox
+        rate_limit(f"login-ip:{client_ip(request)}", max_calls=20, window=300)
+        rate_limit(f"login-acct:{body.email.lower().strip()}", max_calls=10, window=300)
     user = authenticate_user(body.email, body.password)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
@@ -268,7 +286,7 @@ def usage(key_id: int, user: dict = Depends(get_current_user)):
 
 @router.put("/profile")
 def update_profile(body: UpdateProfileBody, user: dict = Depends(get_current_user)):
-    updated = update_user_profile(user["id"], body.name, body.plan, body.email)
+    updated = update_user_profile(user["id"], body.name, body.email)
     if not updated:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already in use")
     return {
@@ -291,7 +309,9 @@ def change_password_endpoint(body: ChangePasswordBody, user: dict = Depends(get_
 # ──────────────── EMAIL VERIFICATION ────────────────
 
 @router.get("/verify-email")
-def verify_email(token: str):
+def verify_email(token: str, request: Request = None):
+    if request:
+        rate_limit(f"verify:{client_ip(request)}", max_calls=30, window=3600)
     user = verify_email_token(token)
     if not user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired verification token")
@@ -299,7 +319,9 @@ def verify_email(token: str):
 
 
 @router.post("/resend-verification")
-def resend_verification(body: ForgotPasswordBody):
+def resend_verification(body: ForgotPasswordBody, request: Request = None):
+    if request:
+        rate_limit(f"resend:{client_ip(request)}", max_calls=10, window=600)
     user = get_user_by_email(body.email)
     if not user:
         return {"detail": "If that email is registered, a verification link has been sent."}
@@ -316,8 +338,10 @@ def resend_verification(body: ForgotPasswordBody):
         print(f"[AUTH] ERROR: Resend verification email exception for {body.email}: {e}")
 
     verified = False
-    if not email_sent:
-        # Delivery unavailable — verify on the spot instead of dead-ending.
+    if not email_sent and not IS_PRODUCTION:
+        # Dev convenience only: with no mail provider configured, verify on the
+        # spot instead of dead-ending. Production must never auto-verify —
+        # a provider outage would otherwise mark unverified emails as verified.
         from ..auth import mark_email_verified
         mark_email_verified(user["id"])
         verified = True
@@ -331,7 +355,9 @@ def resend_verification(body: ForgotPasswordBody):
 # ──────────────── PASSWORD RESET ────────────────
 
 @router.post("/forgot-password")
-def forgot_password(body: ForgotPasswordBody):
+def forgot_password(body: ForgotPasswordBody, request: Request = None):
+    if request:
+        rate_limit(f"forgot:{client_ip(request)}", max_calls=10, window=600)
     user = get_user_by_email(body.email)
     if not user:
         return {"detail": "If that email is registered, a password reset link has been sent."}
@@ -348,20 +374,16 @@ def forgot_password(body: ForgotPasswordBody):
 
 
 @router.post("/reset-password")
-def reset_password(body: ResetPasswordBody):
+def reset_password(body: ResetPasswordBody, request: Request = None):
+    if request:
+        rate_limit(f"resetpw:{client_ip(request)}", max_calls=20, window=3600)
     ok = reset_password_with_token(body.token, body.new_password)
     if not ok:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset token")
     return {"detail": "Password reset successfully"}
 
 
-@router.post("/clerk-sync")
-def clerk_sync(body: ClerkSyncBody):
-    user = sync_clerk_user(body.clerk_id, body.email, body.name)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to sync user")
-    token = create_access_token(user["id"])
-    return _user_response(user, token)
+# ──────────────── Google / Firebase ────────────────
 
 
 @router.get("/credits/costs")
@@ -383,6 +405,10 @@ def google_login(body: GoogleLoginBody):
     against Google's tokeninfo endpoint, then find or create the user
     (Google emails arrive pre-verified)."""
     import httpx
+    audience = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+    if not audience and IS_PRODUCTION:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            detail="Google sign-in is not configured (GOOGLE_CLIENT_ID missing)")
     try:
         r = httpx.get("https://oauth2.googleapis.com/tokeninfo",
                       params={"id_token": body.credential}, timeout=10)
@@ -394,7 +420,8 @@ def google_login(body: GoogleLoginBody):
     email = (info.get("email") or "").lower().strip()
     if not email or str(info.get("email_verified", "")).lower() != "true":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Google account email is not verified")
-    audience = os.getenv("GOOGLE_CLIENT_ID", "")
+    if info.get("iss") not in ("accounts.google.com", "https://accounts.google.com"):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google token issuer")
     if audience and info.get("aud") != audience:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Google token audience mismatch")
     if info.get("exp") and int(info["exp"]) < int(datetime.now(timezone.utc).timestamp()):

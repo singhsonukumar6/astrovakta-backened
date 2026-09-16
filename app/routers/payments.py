@@ -32,6 +32,17 @@ DODO_WEBHOOK_SECRET = os.getenv("DODO_WEBHOOK_SECRET", "")
 DODO_SUCCESS_URL = os.getenv("DODO_SUCCESS_URL", os.getenv("FRONTEND_URL", "http://localhost:5173") + "/dashboard")
 DODO_CANCEL_URL = os.getenv("DODO_CANCEL_URL", os.getenv("FRONTEND_URL", "http://localhost:5173") + "/pricing")
 
+# Replay protection for Dodo webhooks (Standard Webhooks / Svix headers).
+_WEBHOOK_TIMESTAMP_TOLERANCE = 300  # seconds of allowed clock skew
+_seen_webhook_ids: dict = {}
+
+
+def _prune_seen_webhook_ids() -> None:
+    cutoff = time.time() - (_WEBHOOK_TIMESTAMP_TOLERANCE * 4)
+    for wid, seen_at in list(_seen_webhook_ids.items()):
+        if seen_at < cutoff:
+            _seen_webhook_ids.pop(wid, None)
+
 # Dodo API hosts: test.dodopayments.com (test keys) / live.dodopayments.com (live keys).
 # DODO_API_BASE can override, but the default MUST be a real host (api.dodopayments.com does not exist).
 def _dodo_base() -> str:
@@ -166,27 +177,48 @@ def create_checkout(body: CreateCheckoutBody, user: dict = Depends(get_current_u
 @router.post("/webhook")
 async def dodo_webhook(request: Request):
     raw = await request.body()
-    if DODO_WEBHOOK_SECRET:
-        # Dodo uses the Standard Webhooks specification (Svix):
-        # headers: webhook-id, webhook-timestamp, webhook-signature
-        # signature = base64(hmac_sha256(secret, "<timestamp>.<raw_body>"))
-        sig_header = request.headers.get("Webhook-Signature") or request.headers.get("webhook-signature") or ""
-        timestamp = request.headers.get("Webhook-Timestamp") or request.headers.get("webhook-timestamp") or ""
-        _id = request.headers.get("Webhook-Id") or request.headers.get("webhook-id") or ""
+    if not DODO_WEBHOOK_SECRET:
+        # Fail closed: without the secret anyone could forge a
+        # "payment.succeeded" event and get a free plan upgrade.
+        raise HTTPException(status_code=503, detail="Webhook not configured (DODO_WEBHOOK_SECRET missing)")
 
-        sig_parts = [s for s in sig_header.split(" ") if s and not s.startswith("t=")]
-        received = ""
-        for s in sig_parts:
-            if s.startswith("v1,"):
-                received = s[len("v1,"):]
-                break
-        if received:
-            signed_content = f"{timestamp}.{raw.decode('utf-8')}".encode()
-            computed = base64.b64encode(
-                hmac.new(DODO_WEBHOOK_SECRET.encode(), signed_content, hashlib.sha256).digest()
-            ).decode()
-            if not hmac.compare_digest(received, computed):
-                raise HTTPException(status_code=400, detail="Invalid signature")
+    # Dodo uses the Standard Webhooks specification (Svix):
+    # headers: webhook-id, webhook-timestamp, webhook-signature
+    # signature = base64(hmac_sha256(secret, "<timestamp>.<raw_body>"))
+    sig_header = request.headers.get("Webhook-Signature") or request.headers.get("webhook-signature") or ""
+    timestamp = request.headers.get("Webhook-Timestamp") or request.headers.get("webhook-timestamp") or ""
+    _id = request.headers.get("Webhook-Id") or request.headers.get("webhook-id") or ""
+
+    if not (_id and timestamp):
+        raise HTTPException(status_code=400, detail="Missing webhook-id/timestamp headers")
+
+    # Replay protection: reject stale events and seen webhook ids.
+    try:
+        ts = int(timestamp)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid webhook timestamp")
+    if abs(time.time() - ts) > _WEBHOOK_TIMESTAMP_TOLERANCE:
+        raise HTTPException(status_code=400, detail="Webhook timestamp outside tolerance")
+    if _id in _seen_webhook_ids:
+        return {"received": True, "duplicate": True}
+
+    sig_parts = [s for s in sig_header.split(" ") if s and not s.startswith("t=")]
+    received = ""
+    for s in sig_parts:
+        if s.startswith("v1,"):
+            received = s[len("v1,"):]
+            break
+    if not received:
+        raise HTTPException(status_code=400, detail="Missing v1 signature")
+    signed_content = f"{timestamp}.{raw.decode('utf-8')}".encode()
+    computed = base64.b64encode(
+        hmac.new(DODO_WEBHOOK_SECRET.encode(), signed_content, hashlib.sha256).digest()
+    ).decode()
+    if not hmac.compare_digest(received, computed):
+        raise HTTPException(status_code=400, detail="Invalid signature")
+    _seen_webhook_ids[_id] = time.time()
+    if len(_seen_webhook_ids) > 10000:
+        _prune_seen_webhook_ids()
 
     try:
         event = json.loads(raw)

@@ -3,8 +3,31 @@ import base64
 import hashlib
 import hmac
 import httpx
+import ipaddress
 import os
+import socket
 from urllib.parse import urlencode
+
+
+def _is_public_host(domain: str) -> bool:
+    """Every resolved IP must be public — blocks SSRF against loopback,
+    private ranges and cloud-metadata addresses."""
+    host = (domain or "").split("/")[0].split(":")[0].strip(".")
+    if not host:
+        return False
+    try:
+        for info in socket.getaddrinfo(host, 443, proto=socket.IPPROTO_TCP):
+            ip = ipaddress.ip_address(info[4][0])
+            if (ip.is_private or ip.is_loopback or ip.is_link_local
+                    or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+                return False
+        return True
+    except Exception:
+        return False
+
+
+def _assert_safe_shop(shop_domain: str) -> bool:
+    return _is_public_host(_normalize_shop_domain(shop_domain))
 
 
 # ── one-click connect (OAuth-style, no keys pasted by the tenant) ──
@@ -49,11 +72,15 @@ def shopify_authorize_url(shop_domain: str, state: str, redirect_uri: str, scope
 
 
 def shopify_exchange_code(shop_domain: str, code: str, redirect_uri: str) -> dict:
-    """Exchange the oauth `code` for a permanent offline access token."""
+    """Exchange the oauth `code` for a permanent offline access token.
+    This call carries our client_secret, so the target is locked to the
+    official *.myshopify.com OAuth endpoint."""
     shop = _normalize_shop_domain(shop_domain)
     cid, secret = shopify_credentials()
     if not (cid and secret):
         return {"ok": False, "error": "Server is missing SHOPIFY_CLIENT_ID/SECRET — one-click connect is not configured"}
+    if not shop.endswith(".myshopify.com") or not _is_public_host(shop):
+        return {"ok": False, "error": "Shopify OAuth requires your myshopify.com store domain"}
     try:
         r = httpx.post(
             f"https://{shop}/admin/oauth/access_token",
@@ -101,6 +128,9 @@ def _shopify_headers(conn):
 
 
 def test_connection(conn) -> dict:
+    domain = conn.get("shop_domain") or ""
+    if not _assert_safe_shop(domain):
+        return {"ok": False, "error": "Store domain is not reachable/public"}
     try:
         if conn["provider"] == "woocommerce":
             r = httpx.get(f"{_woo_base(conn)}/products?per_page=1", auth=_woo_auth(conn), timeout=15)
@@ -115,6 +145,8 @@ def test_connection(conn) -> dict:
 
 def push_product(conn, product) -> dict:
     """Create/update the product on the external store. Returns external id."""
+    if not _assert_safe_shop(conn.get("shop_domain") or ""):
+        return {"ok": False, "error": "Store domain is not reachable/public"}
     if conn["provider"] == "woocommerce":
         payload = {
             "name": product["name"],
@@ -196,6 +228,8 @@ def woo_order_to_site_order(woo_order: dict) -> dict:
 
 def pull_shopify_orders(conn, limit=20) -> list:
     """Fetch recent paid/unfulfilled Shopify orders mapped to our shape."""
+    if not _assert_safe_shop(conn.get("shop_domain") or ""):
+        return [{"error": "Store domain is not reachable/public", "status": 0}]
     base = _shopify_base(conn)
     r = httpx.get(f"{base}/orders.json?status=any&limit={limit}",
                   headers=_shopify_headers(conn), timeout=20)

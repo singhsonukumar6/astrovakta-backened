@@ -85,6 +85,7 @@ import {
   adminGetPaymentsTotals,
 } from '../lib/api.js'
 import api from '../lib/api.js'
+import { sanitizeHtml } from '../lib/sanitize.js'
 
 const tabs = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -1626,7 +1627,7 @@ function BlogsTab() {
                 padding: 16, background: 'rgba(255,255,255,0.4)', color: '#1e293b', fontSize: 14, lineHeight: 1.7,
                 outline: 'none', whiteSpace: 'pre-wrap',
               }}
-              dangerouslySetInnerHTML={{ __html: form.body }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(form.body) }}
             />
           </div>
 

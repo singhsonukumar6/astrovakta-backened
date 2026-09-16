@@ -43,7 +43,7 @@ Set in Vercel → Settings → Environment Variables (see `.env.example`):
 - `VITE_CLERK_PUBLISHABLE_KEY` — Clerk publishable key (`pk_test_…` / `pk_live_…`)
 
 If the Clerk key is missing or malformed, the site still renders fully with auth
-controls in signed-out state (see `src/lib/clerk.jsx`). A bad key must never
+controls in signed-out state (see `src/lib/auth.jsx`). A bad key must never
 blank the site — that was previously fatal for SEO.
 
 ## SEO surfaces to keep in sync

@@ -260,11 +260,12 @@ def _compute_chart(body) -> dict:
 
 
 @router.post("/site/tools/kundli")
-def tenant_kundli_tool(body: KundliToolBody, slug: str = None, domain: str = None):
+def tenant_kundli_tool(body: KundliToolBody, request: Request, slug: str = None, domain: str = None):
     """Free kundli for a tenant site's visitors. Basic mode returns a snapshot
     (ascendant, moon/sun sign, nakshatra, planets, gemstone); detail=true adds
     the full software view: houses, North-Indian chart SVG and Vimshottari
     dasha. Contact details, when given, become a lead for the astrologer."""
+    _tool_limit(request)
     site = _resolve_site(slug, domain)
     if not charge_site_credits(site["id"], "kundli" if body.detail else "kundli_basic"):
         raise HTTPException(status_code=402, detail="This site is out of credits — the astrologer needs to recharge")
@@ -291,9 +292,9 @@ def tenant_kundli_tool(body: KundliToolBody, slug: str = None, domain: str = Non
     if body.phone or body.email:
         create_lead(site["id"], {
             "tool": "kundli",
-            "name": body.name,
-            "phone": body.phone,
-            "email": body.email,
+            "name": _strip_html(body.name),
+            "phone": (body.phone or "").strip(),
+            "email": (body.email or "").strip(),
             "details": {
                 "date": body.date, "time": body.time,
                 "place": body.place or _DEFAULT_PLACE["label"],
@@ -673,12 +674,14 @@ async def tenant_lucky_tool(body: LuckyToolBody, request: Request, slug: str = N
 
 @router.get("/site/tools/panchang")
 def tenant_panchang_tool(
+    request: Request,
     slug: str = None, domain: str = None, date_str: str = None,
     lat: float = Query(None, ge=-90, le=90), lon: float = Query(None, ge=-180, le=180),
     tz: str = Query(None, max_length=60), place: str = Query(None, max_length=120),
 ):
     """Today's panchang for a tenant site's daily widget. Defaults to Delhi;
     pass lat/lon/tz (from the location picker) to see another place's panchang."""
+    _tool_limit(request)
     site = _resolve_site(slug, domain)
     from ..utils import compute_panchang
     d = date_str or date.today().isoformat()
@@ -702,9 +705,10 @@ class _NoLangRequest:
 
 
 @router.get("/site/tools/horoscope")
-def tenant_daily_horoscope(slug: str = None, domain: str = None, sign: str = Query(..., min_length=3, max_length=20)):
+def tenant_daily_horoscope(request: Request, slug: str = None, domain: str = None, sign: str = Query(..., min_length=3, max_length=20)):
     """Daily rashi horoscope for a tenant site's widget, computed on the
     platform engine (template-based — no birth details needed)."""
+    _tool_limit(request, max_calls=30)
     site = _resolve_site(slug, domain)
     from ..utils import ZODIAC_SIGNS
     s = (sign or "").strip().capitalize()
@@ -897,7 +901,7 @@ def tenant_kundli_full(body: KundliToolBody, request: Request, slug: str = None,
     except Exception as e:
         dosha = {"error": str(e)[:200]}
 
-    core = tenant_kundli_tool(body, slug=slug, domain=domain)
+    core = tenant_kundli_tool(body, request=request, slug=slug, domain=domain)
     return {"core": core, "doshas": dosha, **sections}
 
 
@@ -979,9 +983,11 @@ def _tenant_token(user: dict, site: dict):
 
 
 @router.post("/site/auth/register")
-def tenant_register(body: TenantRegisterBody, slug: str = None, domain: str = None):
+def tenant_register(body: TenantRegisterBody, request: Request, slug: str = None, domain: str = None):
     """Visitor signs up on an astrologer's site with email+password.
     Stored per-tenant in tenant_users (bcrypt hash), never in platform users."""
+    from ..rate_limit import rate_limit, client_ip
+    rate_limit(f"treg:{client_ip(request)}", max_calls=20, window=3600)
     from ..auth import hash_password
     site = _resolve_site(slug, domain)
     email = body.email.lower().strip()
@@ -1004,7 +1010,10 @@ def tenant_register(body: TenantRegisterBody, slug: str = None, domain: str = No
 
 
 @router.post("/site/auth/login")
-def tenant_login(body: TenantRegisterBody, slug: str = None, domain: str = None):
+def tenant_login(body: TenantRegisterBody, request: Request, slug: str = None, domain: str = None):
+    from ..rate_limit import rate_limit, client_ip
+    rate_limit(f"tlogin-ip:{client_ip(request)}", max_calls=20, window=300)
+    rate_limit(f"tlogin-acct:{body.email.lower().strip()}", max_calls=10, window=300)
     from ..auth import verify_password
     site = _resolve_site(slug, domain)
     email = body.email.lower().strip()
@@ -1232,8 +1241,9 @@ async def woocommerce_webhook(connection_id: int, request: Request):
 
 
 @router.post("/site/event")
-def tenant_event(body: dict, slug: str = None, domain: str = None):
+def tenant_event(request: Request, body: dict, slug: str = None, domain: str = None):
     """Lightweight analytics beacon from tenant sites (pageviews)."""
+    _tool_limit(request, max_calls=120)
     kind = str((body or {}).get("kind", "pageview"))[:40]
     if kind not in ("pageview", "tool"):
         kind = "pageview"
@@ -1250,18 +1260,32 @@ class TenantLeadBody(BaseModel):
     source: str = Field("enquiry", max_length=40)
 
 
+_TAG_RE = None
+
+
+def _strip_html(value):
+    """Lead fields are plain text downstream (CSV, email bodies) — drop any
+    markup the submitter tried to embed."""
+    global _TAG_RE
+    if _TAG_RE is None:
+        import re
+        _TAG_RE = re.compile(r"<[^>]*>")
+    return _TAG_RE.sub(" ", str(value or "")).strip()
+
+
 @router.post("/site/lead")
-def tenant_lead(body: TenantLeadBody, slug: str = None, domain: str = None):
+def tenant_lead(request: Request, body: TenantLeadBody, slug: str = None, domain: str = None):
     """Universal lead capture for tenant sites: newsletter, enquiries,
     callback requests, consult asks — any widget can post here."""
+    _tool_limit(request, max_calls=10)
     site = _resolve_site(slug, domain)
     if not (body.phone or body.email):
         raise HTTPException(status_code=400, detail="A phone number or email is required")
     create_lead(site["id"], {
-        "tool": body.source,
-        "name": body.name,
-        "phone": body.phone,
-        "email": body.email,
-        "details": body.message or "",
+        "tool": _strip_html(body.source)[:40],
+        "name": _strip_html(body.name),
+        "phone": (body.phone or "").strip(),
+        "email": (body.email or "").strip(),
+        "details": _strip_html(body.message),
     })
     return {"ok": True, "message": "Got it — we'll be in touch soon."}

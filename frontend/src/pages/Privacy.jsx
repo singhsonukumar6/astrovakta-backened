@@ -41,7 +41,7 @@ export default function Privacy() {
             <div style={sectionStyle}>
               <h2 style={headingStyle}>1. Information We Collect</h2>
               <p style={textStyle}>
-                When you create an AstroVakta account, we collect your email address and name via Clerk authentication. We do not collect or store birth chart data, planetary positions, or any personal information you submit through our API endpoints. API call data is stored only for usage analytics and rate-limiting purposes.
+                When you create an AstroVakta account, we collect your email address and name for authentication. We do not collect or store birth chart data, planetary positions, or any personal information you submit through our API endpoints. API call data is stored only for usage analytics and rate-limiting purposes.
               </p>
               <p style={textStyle}>
                 If you configure AI provider keys (OpenAI, Anthropic, Groq, Together), those keys are encrypted with AES-256 at rest and never logged. We do not have access to your AI provider keys in plaintext.
@@ -72,14 +72,14 @@ export default function Privacy() {
             <div style={sectionStyle}>
               <h2 style={headingStyle}>5. Third-Party Services</h2>
               <p style={textStyle}>
-                We use Clerk for authentication (their privacy policy applies to your login credentials). If you configure third-party AI providers through our platform, your requests are forwarded to those providers using the keys you supply. We do not share any additional data with those providers beyond what you explicitly send in your API requests.
+                Authentication runs on our own servers; your login credentials are stored only as bcrypt hashes on our infrastructure. If you configure third-party AI providers through our platform, your requests are forwarded to those providers using the keys you supply. We do not share any additional data with those providers beyond what you explicitly send in your API requests.
               </p>
             </div>
 
             <div style={sectionStyle}>
               <h2 style={headingStyle}>6. Cookies</h2>
               <p style={textStyle}>
-                We use essential cookies for authentication (via Clerk) and session management. We do not use tracking cookies, advertising cookies, or third-party analytics cookies on our platform.
+                We use essential session tokens for authentication and session management. We do not use tracking cookies, advertising cookies, or third-party analytics cookies on our platform.
               </p>
             </div>
 

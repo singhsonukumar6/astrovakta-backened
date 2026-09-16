@@ -19,12 +19,12 @@ def create_admin():
     admin_name = os.getenv("ADMIN_NAME", "Admin")
 
     if not admin_password:
-        print("ERROR: ADMIN_PASSWORD env var is not set.")
-        print("  Set ADMIN_EMAIL and ADMIN_PASSWORD before running in production.")
-        if os.getenv("NODE_ENV") == "production":
-            sys.exit(1)
-        admin_password = "admin123"
-        print(f"  WARNING: Using default password (dev mode only)")
+        # No default password — a predictable admin credential is as bad as
+        # no admin at all.
+        raise RuntimeError(
+            "ADMIN_PASSWORD env var is not set. "
+            "Set ADMIN_EMAIL and ADMIN_PASSWORD before creating the admin user."
+        )
 
     existing = get_user_by_email(admin_email)
     if existing:

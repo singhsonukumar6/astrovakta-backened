@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Clock, User, Calendar, BookOpen, Image as ImageIcon } from 'lucide-react'
 import { getBlog } from '../lib/api.js'
+import { sanitizeHtml } from '../lib/sanitize.js'
 import { SITE_URL, OG_IMAGE } from '../components/SEO.jsx'
 import blogData from './blogData.js'
 
@@ -208,7 +209,7 @@ export default function BlogPost() {
           style={{
             color: '#334155', fontSize: 16, lineHeight: 1.85, wordBreak: 'break-word',
           }}
-          dangerouslySetInnerHTML={{ __html: post.body || '' }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.body) }}
         />
       </section>
     </div>

@@ -1239,8 +1239,24 @@ def products_with_category(site_id: int) -> list:
     return out
 
 
+# Settings fields a public visitor may see. Everything else (alert toggles,
+# automation flags, visitor-auth controls) stays owner-only even if a new
+# setting is later added to the JSON blob.
+_PUBLIC_SETTINGS_KEYS = (
+    "whatsappNumber", "instagram", "youtube", "facebook", "twitter",
+    "linkedin", "telegram", "websiteUrl", "email", "phone", "city",
+    "showStore", "showTestimonials", "showGallery",
+    "storeBanners", "storeSections",
+    # client-facing payment options (Razorpay key id is public by design —
+    # it is embedded in the browser checkout; the secret never is)
+    "paymentsMode", "upiId", "razorpayKeyId",
+)
+
+
 def public_site_bundle(site: dict) -> dict:
     site_id = site["id"]
+    settings = site.get("settings") or {}
+    public_settings = {k: settings[k] for k in _PUBLIC_SETTINGS_KEYS if k in settings}
     pages = {p["page_key"]: p for p in list_pages(site_id) if p.get("is_published")}
     return {
         "site": {
@@ -1257,7 +1273,7 @@ def public_site_bundle(site: dict) -> dict:
             "domain_status": site.get("domain_status") or "none",
             "logo_url": site.get("logo_url"),
             "hero_image": site.get("hero_image"),
-            "settings": site.get("settings"),
+            "settings": public_settings,
         },
         "pages": pages,
         "services": list_services(site_id, active_only=True),

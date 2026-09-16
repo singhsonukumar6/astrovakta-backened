@@ -1016,8 +1016,9 @@ def social_post_media(site_id: int, body: SocialMediaBody, user: dict = Depends(
         if body.format == "video":
             return {"dataUrl": render_video(site, headline, body_lines, footer)}
         return {"dataUrl": render_image(site, headline, body_lines, footer)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Could not render media: {e}")
+    except Exception:
+        # don't leak renderer internals (paths, ffmpeg output) to the client
+        raise HTTPException(status_code=500, detail="Could not render media — try shorter text")
 
 
 # ─────────────── products (store) ───────────────
@@ -1088,13 +1089,22 @@ def update_my_order(site_id: int, order_id: int, body: UpdateOrderBody, user: di
 
 # ─────────────── exports (CSV / calendar) ───────────────
 
+def _csv_safe(value):
+    """Neutralize CSV/Excel formula injection: visitor-supplied fields are
+    exported verbatim, so a leading formula character must be defanged."""
+    s = "" if value is None else str(value)
+    if s[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        s = "'" + s
+    return s.replace("\r", " ").replace("\n", " ")
+
+
 def _csv_response(filename, rows, headers):
     import csv
     import io
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(headers)
-    w.writerows(rows)
+    w.writerows([[_csv_safe(cell) for cell in row] for row in rows])
     from fastapi import Response as _Resp
     return _Resp(buf.getvalue(), media_type="text/csv",
                  headers={"Content-Disposition": f'attachment; filename="{filename}"'})
@@ -1134,6 +1144,10 @@ def bookings_ics(site_id: int, user: dict = Depends(get_current_user)):
         import re as _re
         t = _re.sub(r"[^\d:]", "", str(t or "00:00"))[:5]
         return f"{(d or '').replace('-', '')}T{t.replace(':', '')}00"
+    def _ics_escape(value):
+        # ICS text escaping: backslash, semicolons, commas, newlines
+        return (str(value or "").replace("\\", "\\\\").replace(";", "\\;")
+                .replace(",", "\\,").replace("\r\n", "\\n").replace("\n", "\\n"))
     lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//AstroVakta//Bookings//EN"]
     for b in bookings:
         if (b.get("status") or "new") == "cancelled":
@@ -1141,8 +1155,8 @@ def bookings_ics(site_id: int, user: dict = Depends(get_current_user)):
         lines += ["BEGIN:VEVENT",
                   f"UID:booking-{b.get('id')}@astrovakta",
                   f"DTSTART:{_fmt(b.get('date'), b.get('start_time'))}",
-                  f"SUMMARY:{(b.get('service_name') or 'Consultation')} — {b.get('client_name')}",
-                  f"DESCRIPTION:{b.get('client_phone') or ''} payment:{b.get('payment_status', 'none')}",
+                  f"SUMMARY:{_ics_escape((b.get('service_name') or 'Consultation') + ' — ' + (b.get('client_name') or ''))}",
+                  f"DESCRIPTION:{_ics_escape((b.get('client_phone') or '') + ' payment:' + str(b.get('payment_status', 'none')))}",
                   "END:VEVENT"]
     lines.append("END:VCALENDAR")
     from fastapi import Response as _Resp
@@ -1410,13 +1424,15 @@ def _shopify_redirect_uri() -> str:
 @router.get("/integrations/callback/shopify")
 def shopify_callback(code: str = None, state: str = None, shop: str = None, hmac_sig: str = None, host: str = None, timestamp: str = None):
     """Shopify redirects here after the tenant approves. Public by design —
-    the single-use state (created under the owner's JWT) is the auth."""
+    the single-use state (created under the owner's JWT) is the auth. The
+    store domain always comes from the stored state, never from the query
+    string, so a tampered link can't re-point the OAuth exchange."""
     from ..store_integrations import shopify_exchange_code, test_connection
     hs = get_oauth_state(state) if state else None
     if not hs:
         return RedirectResponse(_frontend_result_url("error", "This connect link has expired — please try connecting again"), status_code=302)
     delete_oauth_state(state)
-    shop_domain = _clean_shop_domain(shop or hs["shop_domain"])
+    shop_domain = _clean_shop_domain(hs["shop_domain"])
     result = shopify_exchange_code(shop_domain, code or "", _shopify_redirect_uri())
     if not result.get("ok"):
         return RedirectResponse(_frontend_result_url("error", f"Shopify did not grant access: {str(result.get('error', ''))[:150]}"), status_code=302)
@@ -1541,57 +1557,6 @@ def pull_store_orders(site_id: int, cid: int, user: dict = Depends(get_current_u
 # ─────────────── one-click store connect (OAuth / activation key) ───────────────
 
 import secrets as _secrets
-
-
-@router.get("/my/{site_id}/integrations/shopify/connect")
-def shopify_oauth_start(site_id: int, user: dict = Depends(get_current_user)):
-    """One-click Shopify connect: redirect the astrologer to Shopify's grant
-    screen. Requires SHOPIFY_CLIENT_ID (public app credentials) on the server."""
-    from fastapi.responses import RedirectResponse
-    import os as _os
-    _require_owned_site(site_id, user)
-    client_id = _os.getenv("SHOPIFY_CLIENT_ID", "")
-    if not client_id:
-        raise HTTPException(status_code=503, detail="One-click Shopify connect isn't configured yet — contact support or use the token method")
-    shop = user.get("_shop")  # not used; shop comes from the connect UI
-    raise HTTPException(status_code=400, detail="Provide your myshopify domain via the connect form")
-
-
-@router.get("/integrations/shopify/callback")
-def shopify_oauth_callback(code: str = None, shop: str = None, state: str = None, hmac: str = None, host: str = None, timestamp: str = None):
-    """Shopify redirects here after the merchant approves. Exchanges the code
-    for a permanent offline token and stores the connection. `state` carries
-    '<site_id>:<nonce>' so we know which tenant connected."""
-    import os as _os
-    import httpx as _httpx
-    from fastapi.responses import RedirectResponse
-    from ..database import get_db
-    if not code or not shop or not state:
-        raise HTTPException(status_code=400, detail="Missing OAuth parameters")
-    try:
-        site_id = int(state.split(":", 1)[0])
-    except (ValueError, IndexError):
-        raise HTTPException(status_code=400, detail="Bad state")
-    client_id = _os.getenv("SHOPIFY_CLIENT_ID", "")
-    client_secret = _os.getenv("SHOPIFY_CLIENT_SECRET", "")
-    if not client_id or not client_secret:
-        raise HTTPException(status_code=503, detail="Shopify OAuth not configured")
-    domain = shop.replace("https://", "").rstrip("/")
-    r = _httpx.post(f"https://{domain}/admin/oauth/access_token",
-                    json={"client_id": client_id, "client_secret": client_secret, "code": code}, timeout=15)
-    if r.status_code != 200:
-        raise HTTPException(status_code=400, detail="Token exchange failed")
-    token = r.json().get("access_token")
-    if not token:
-        raise HTTPException(status_code=400, detail="No token returned")
-    conn = create_store_connection(site_id, {"provider": "shopify", "shop_domain": domain,
-                                             "access_token": token})
-    from ..store_integrations import test_connection
-    if not test_connection(conn).get("ok"):
-        delete_store_connection(site_id, conn["id"])
-        raise HTTPException(status_code=400, detail="Store connected but unreachable")
-    frontend = _os.getenv("FRONTEND_URL", "https://astrovakta.com")
-    return RedirectResponse(f"{frontend}/mysite/store?shopify=connected")
 
 
 class WooActivateBody(BaseModel):

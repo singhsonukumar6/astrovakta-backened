@@ -37,7 +37,7 @@ if _sentry_dsn:
 
 
 from .routers.auth_router import router as auth_router
-from .middleware import APIKeyMiddleware
+from .middleware import APIKeyMiddleware, SecurityHeadersMiddleware
 
 app = FastAPI(
     title="Vedic Astrology API",
@@ -82,18 +82,23 @@ app = FastAPI(
     ],
 )
 
+# Explicit allowlist — never default to "*". Auth uses Bearer headers, not
+# cookies, so credentials stay off and cross-origin reads carry no authority.
+_CORS_DEFAULT = ",".join([
+    "https://astrovakta.com", "https://www.astrovakta.com", "https://dev.astrovakta.com",
+    "http://localhost:5173", "http://localhost:4173", "http://127.0.0.1:5173",
+])
+_cors_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", _CORS_DEFAULT).split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",")
-        if o.strip()
-    ] or ["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.add_middleware(APIKeyMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
 # ──────── Swagger UI: API Key Input ────────
 from fastapi.openapi.utils import get_openapi
@@ -136,11 +141,6 @@ async def global_exception_handler(request, exc: Exception):
     return JSONResponse(
         status_code=500,
         content={"success": False, "message": "Internal server error", "data": None},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-            "Access-Control-Allow-Headers": "Authorization, Content-Type, X-API-Key",
-        },
     )
 
 
@@ -149,24 +149,36 @@ async def not_found_handler(request, exc):
     return JSONResponse(
         status_code=404,
         content={"success": False, "message": "Endpoint not found", "data": None},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-            "Access-Control-Allow-Headers": "Authorization, Content-Type, X-API-Key",
-        },
+    )
+
+
+def _scrub_validation_errors(exc):
+    """Echo validation errors without the submitted input values."""
+    errors = exc.errors() if hasattr(exc, "errors") else str(exc)
+    if isinstance(errors, list):
+        for err in errors:
+            if isinstance(err, dict):
+                err.pop("input", None)
+                err.pop("ctx", None)
+    return errors
+
+
+from fastapi.exceptions import RequestValidationError as _RVE
+
+
+@app.exception_handler(_RVE)
+async def validation_handler(request, exc):
+    return JSONResponse(
+        status_code=422,
+        content={"success": False, "message": "Validation error", "data": _scrub_validation_errors(exc)},
     )
 
 
 @app.exception_handler(422)
-async def validation_handler(request, exc):
+async def validation_status_handler(request, exc):
     return JSONResponse(
         status_code=422,
-        content={"success": False, "message": "Validation error", "data": exc.errors() if hasattr(exc, 'errors') else str(exc)},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-            "Access-Control-Allow-Headers": "Authorization, Content-Type, X-API-Key",
-        },
+        content={"success": False, "message": "Validation error", "data": _scrub_validation_errors(exc)},
     )
 
 

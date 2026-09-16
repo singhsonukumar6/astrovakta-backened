@@ -22,8 +22,11 @@ client = TestClient(app)
 # header, so never follow it (it points at a real https:// URL).
 client_no_redirects = TestClient(app, follow_redirects=False)
 
-_SITE_TABLES = ("site_bookings", "site_orders", "tenant_users", "site_leads",
-                "site_pages", "site_services", "site_products", "site_availability")
+_SITE_TABLES = ("site_bookings", "site_orders", "site_invoices", "site_clients",
+                "tenant_users", "site_leads", "site_pages", "site_services",
+                "site_products", "site_availability", "site_social_posts",
+                "site_credits", "site_events", "store_connections",
+                "oauth_handshakes")
 
 
 @pytest.fixture

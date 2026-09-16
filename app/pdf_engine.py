@@ -18,6 +18,10 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import io
 import os
+import urllib.request
+
+# Remote images are fetched server-side; cap the download size.
+MAX_REMOTE_IMAGE_BYTES = 8 * 1024 * 1024  # 8 MB
 import sys
 import logging
 from datetime import datetime
@@ -491,31 +495,75 @@ def make_page_break_if_needed():
 
 # ──────────────────────────── PAGE TEMPLATES ────────────────────────────
 
+def _is_safe_public_https_url(url: str) -> bool:
+    """HTTPS only, and every resolved IP must be public — blocks file://,
+    internal hosts, loopback and cloud-metadata targets."""
+    from urllib.parse import urlparse
+    import ipaddress
+    import socket
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme != "https" or not parsed.hostname:
+            return False
+        infos = socket.getaddrinfo(parsed.hostname, 443, proto=socket.IPPROTO_TCP)
+        for info in infos:
+            ip = ipaddress.ip_address(info[4][0])
+            if (ip.is_private or ip.is_loopback or ip.is_link_local
+                    or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+                return False
+        return True
+    except Exception:
+        return False
+
+
+class _NoRedirects(urllib.request.HTTPRedirectHandler):
+    """Redirects are not followed — a public URL must not bounce to an
+    internal one (each hop would need re-validation)."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_IMAGE_CACHE: dict = {}
+
+
 def _load_image(image_source: str):
-    """Load an image from a local file path, URL, or base64 data URI.
-    Returns a ReportLab ImageReader or None if loading/validation fails.
-    All images are validated with PIL to prevent downstream rendering crashes."""
+    """Load an image from an https:// URL (public hosts only) or a base64
+    data URI. Local file paths are deliberately NOT supported — the value
+    comes from API request bodies. Returns a ReportLab ImageReader or None.
+    Results are cached: watermarks re-render on every page."""
     if not image_source:
         return None
+    image_source = str(image_source).strip()
+    if len(_IMAGE_CACHE) > 64:
+        _IMAGE_CACHE.clear()
+    if image_source in _IMAGE_CACHE:
+        return _IMAGE_CACHE[image_source]
     try:
         from PIL import Image as PILImage
         import io as _pio
 
         # Load raw bytes from source
         raw_bytes = None
-        if os.path.exists(image_source):
-            raw_bytes = open(image_source, 'rb').read()
-        elif image_source.startswith('data:'):
+        if image_source.startswith('data:image/'):
             import base64
             _, encoded = image_source.split(',', 1)
             raw_bytes = base64.b64decode(encoded)
-        elif image_source.startswith(('http://', 'https://')):
-            import urllib.request
-            raw_bytes = urllib.request.urlopen(image_source, timeout=10).read()
+        elif image_source.startswith('https://'):
+            if not _is_safe_public_https_url(image_source):
+                logger.warning(f"Blocked non-public image URL: {image_source[:80]}")
+                return None
+            opener = urllib.request.build_opener(_NoRedirects)
+            with opener.open(image_source, timeout=10) as resp:
+                if getattr(resp, "status", 200) != 200:
+                    return None
+                if (resp.headers.get("Content-Type") or "").startswith("text/"):
+                    return None
+                raw_bytes = resp.read(MAX_REMOTE_IMAGE_BYTES + 1)
         else:
             return None
 
-        if not raw_bytes:
+        if not raw_bytes or len(raw_bytes) > MAX_REMOTE_IMAGE_BYTES:
             return None
 
         # Validate with PIL — catches corrupt/malformed images before they crash doc.build()
@@ -528,10 +576,12 @@ def _load_image(image_source: str):
         pil_img = PILImage.open(buf)
         pil_img.load()
 
-        return ImageReader(buf)
+        reader = ImageReader(buf)
+        _IMAGE_CACHE[image_source] = reader
+        return reader
 
     except Exception as e:
-        logger.warning(f"Image load failed for {image_source[:60]}...: {e}")
+        logger.warning(f"Image load failed for {str(image_source)[:60]}...: {e}")
         return None
 
 def _add_image_to_elements(elements, image_source, width, height, hAlign='CENTER'):
@@ -811,20 +861,23 @@ def draw_watermark(canvas, doc, watermark_text: str = None,
         canvas.rotate(45)
         canvas.drawCentredString(0, 0, watermark_text)
         canvas.restoreState()
-    if watermark_image_path and os.path.exists(watermark_image_path):
-        try:
-            from reportlab.lib.utils import ImageReader
-            img_r = ImageReader(watermark_image_path)
-            iw, ih = img_r.getSize()
-            max_w, max_h = w * 0.35, h * 0.35
-            scale = min(max_w / iw, max_h / ih)
-            dw, dh = iw * scale, ih * scale
-            canvas.setFillAlpha(watermark_opacity)
-            canvas.drawImage(watermark_image_path, (w - dw) / 2, (h - dh) / 2,
-                             dw, dh, mask='auto')
-            canvas.setFillAlpha(1.0)
-        except Exception as e:
-            logger.warning(f"Watermark image draw failed: {e}")
+    if watermark_image_path:
+        # _load_image accepts only public https:// URLs and data: URIs — the
+        # value comes straight from the request body, so local paths are
+        # rejected rather than opened.
+        img_r = _load_image(watermark_image_path)
+        if img_r is not None:
+            try:
+                iw, ih = img_r.getSize()
+                max_w, max_h = w * 0.35, h * 0.35
+                scale = min(max_w / iw, max_h / ih)
+                dw, dh = iw * scale, ih * scale
+                canvas.setFillAlpha(watermark_opacity)
+                canvas.drawImage(img_r, (w - dw) / 2, (h - dh) / 2,
+                                 dw, dh, mask='auto')
+                canvas.setFillAlpha(1.0)
+            except Exception as e:
+                logger.warning(f"Watermark image draw failed: {e}")
     canvas.restoreState()
 
 

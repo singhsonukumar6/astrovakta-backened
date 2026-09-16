@@ -154,29 +154,6 @@ def get_user_by_id(user_id: int) -> Optional[dict]:
     return _to_dict(row) if row else None
 
 
-def sync_clerk_user(clerk_id: str, email: str, name: str) -> Optional[dict]:
-    db = get_db()
-    existing = db.execute(
-        "SELECT * FROM users WHERE clerk_id = ? OR email = ?",
-        (clerk_id, email.lower().strip()),
-    ).fetchone()
-    if existing:
-        db.execute(
-            "UPDATE users SET clerk_id = ?, name = ?, email = ?, email_verified = TRUE WHERE id = ?",
-            (clerk_id, name.strip(), email.lower().strip(), existing["id"]),
-        )
-        db.commit()
-        return _to_dict(db.execute("SELECT * FROM users WHERE id = ?", (existing["id"],)).fetchone())
-    row = _insert_and_get_id(
-        "users", "id", db,
-        "INSERT INTO users (email, name, password_hash, clerk_id, email_verified) VALUES (?, ?, ?, ?, TRUE)",
-        (email.lower().strip(), name.strip(), hash_password("clerk_" + secrets.token_hex(16)), clerk_id),
-    )
-    db.commit()
-    new_id = row["id"] if row else None
-    return _to_dict(db.execute("SELECT * FROM users WHERE id = ?", (new_id,)).fetchone()) if new_id else None
-
-
 def get_user_by_email(email: str) -> Optional[dict]:
     row = get_db().execute(
         "SELECT * FROM users WHERE email = ?", (email.lower().strip(),)
@@ -333,6 +310,7 @@ def get_usage_stats(api_key_id: int) -> dict:
         "credits_this_month": month_row["credits"] if month_row else 0,
         "credits_total": total_row["credits"] if total_row else 0,
         "calls_total": total_row["calls"] if total_row else 0,
+        "requests_total": total_row["calls"] if total_row else 0,
         "errors_total": errors_row["cnt"] if errors_row else 0,
         "top_endpoints": [dict(r) for r in top_endpoints],
     }
@@ -358,7 +336,9 @@ def update_email(user_id: int, new_email: str) -> Optional[dict]:
     return get_user_by_id(user_id)
 
 
-def update_user_profile(user_id: int, name: Optional[str] = None, plan: Optional[str] = None, email: Optional[str] = None) -> Optional[dict]:
+def update_user_profile(user_id: int, name: Optional[str] = None, email: Optional[str] = None) -> Optional[dict]:
+    """Update display name / email. Plan and monthly limits are deliberately
+    excluded — they change only via the payments webhook or an admin."""
     db = get_db()
     updates = []
     params = []
@@ -371,22 +351,11 @@ def update_user_profile(user_id: int, name: Optional[str] = None, plan: Optional
             return None
         updates.append("email = ?")
         params.append(email.lower().strip())
-    if plan is not None:
-        updates.append("plan = ?")
-        params.append(plan)
     if not updates:
         return get_user_by_id(user_id)
     params.append(user_id)
     db.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ?", params)
     db.commit()
-
-    if plan is not None:
-        new_limit = TIER_LIMITS.get(plan, TIER_LIMITS["free"])
-        db.execute(
-            "UPDATE users SET monthly_limit = ? WHERE id = ?",
-            (new_limit, user_id),
-        )
-        db.commit()
 
     return get_user_by_id(user_id)
 
@@ -888,35 +857,36 @@ def get_all_jobs(page: int = 1, per_page: int = 50, status: str = None) -> dict:
 
 # ──────────────── EMAIL VERIFICATION ────────────────
 import secrets as _secrets
+import hashlib as _hashlib
+
+
+def _hash_token(token: str) -> str:
+    """Tokens are stored hashed (SHA-256), so a DB leak can't be replayed
+    as a verification or password-reset link."""
+    return _hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def create_verification_token(user_id: int) -> str:
     token = _secrets.token_urlsafe(48)
     db = get_db()
-    if USE_POSTGRES:
-        db.execute(
-            "UPDATE users SET verification_token = %s WHERE id = %s",
-            (token, user_id),
-        )
-    else:
-        db.execute(
-            "UPDATE users SET verification_token = ? WHERE id = ?",
-            (token, user_id),
-        )
+    db.execute(
+        "UPDATE users SET verification_token = ? WHERE id = ?"
+        if not USE_POSTGRES else
+        "UPDATE users SET verification_token = %s WHERE id = %s",
+        (_hash_token(token), user_id),
+    )
     db.commit()
     return token
 
 
 def verify_email_token(token: str) -> Optional[dict]:
     db = get_db()
-    if USE_POSTGRES:
-        row = db.execute(
-            "SELECT * FROM users WHERE verification_token = %s", (token,)
-        ).fetchone()
-    else:
-        row = db.execute(
-            "SELECT * FROM users WHERE verification_token = ?", (token,)
-        ).fetchone()
+    row = db.execute(
+        "SELECT * FROM users WHERE verification_token = ?"
+        if not USE_POSTGRES else
+        "SELECT * FROM users WHERE verification_token = %s",
+        (_hash_token(token),),
+    ).fetchone()
     if not row:
         return None
     user = _to_dict(row)
@@ -953,7 +923,7 @@ def create_password_reset_token(user_id: int) -> str:
     row = _insert_and_get_id(
         "password_resets", "id", db,
         "INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)",
-        (user_id, token, expires_str),
+        (user_id, _hash_token(token), expires_str),
     )
     db.commit()
     return token
@@ -962,33 +932,27 @@ def create_password_reset_token(user_id: int) -> str:
 def verify_password_reset_token(token: str) -> Optional[dict]:
     db = get_db()
     now = datetime.now(timezone.utc).isoformat()
-    if USE_POSTGRES:
-        row = db.execute(
-            "SELECT pr.*, u.id as uid, u.email, u.name "
-            "FROM password_resets pr JOIN users u ON pr.user_id = u.id "
-            "WHERE pr.token = %s AND pr.used = FALSE AND pr.expires_at > %s",
-            (token, now),
-        ).fetchone()
-    else:
-        row = db.execute(
-            "SELECT pr.*, u.id as uid, u.email, u.name "
-            "FROM password_resets pr JOIN users u ON pr.user_id = u.id "
-            "WHERE pr.token = ? AND pr.used = FALSE AND pr.expires_at > ?",
-            (token, now),
-        ).fetchone()
+    row = db.execute(
+        "SELECT pr.*, u.id as uid, u.email, u.name "
+        "FROM password_resets pr JOIN users u ON pr.user_id = u.id "
+        "WHERE pr.token = ? AND pr.used = FALSE AND pr.expires_at > ?"
+        if not USE_POSTGRES else
+        "SELECT pr.*, u.id as uid, u.email, u.name "
+        "FROM password_resets pr JOIN users u ON pr.user_id = u.id "
+        "WHERE pr.token = %s AND pr.used = FALSE AND pr.expires_at > %s",
+        (_hash_token(token), now),
+    ).fetchone()
     return _to_dict(row) if row else None
 
 
 def use_password_reset_token(token: str) -> bool:
     db = get_db()
-    if USE_POSTGRES:
-        cur = db.execute(
-            "UPDATE password_resets SET used = TRUE WHERE token = %s", (token,)
-        )
-    else:
-        cur = db.execute(
-            "UPDATE password_resets SET used = 1 WHERE token = ?", (token,)
-        )
+    cur = db.execute(
+        "UPDATE password_resets SET used = 1 WHERE token = ?"
+        if not USE_POSTGRES else
+        "UPDATE password_resets SET used = TRUE WHERE token = %s",
+        (_hash_token(token),),
+    )
     db.commit()
     return cur.rowcount > 0
 
