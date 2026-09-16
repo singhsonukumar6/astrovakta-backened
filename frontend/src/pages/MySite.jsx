@@ -1727,6 +1727,18 @@ const waLink = (phone) => {
 
 const invoicePublicUrl = (inv) => `${window.location.origin}/invoice/${inv.token}`
 
+// Lead source labels/colors (kundli, matching, newsletter, enquiry, callback…)
+const LEAD_SOURCE_META = {
+  kundli: { label: 'Free Kundli', bg: 'rgba(79,70,229,0.08)', fg: '#4f46e5' },
+  kundli_basic: { label: 'Free Kundli', bg: 'rgba(79,70,229,0.08)', fg: '#4f46e5' },
+  matching: { label: 'Match Making', bg: 'rgba(236,72,153,0.08)', fg: '#db2777' },
+  dosha: { label: 'Dosha Report', bg: 'rgba(239,68,68,0.08)', fg: '#dc2626' },
+  newsletter: { label: 'Newsletter', bg: 'rgba(14,165,233,0.1)', fg: '#0284c7' },
+  enquiry: { label: 'Contact Form', bg: 'rgba(245,158,11,0.1)', fg: '#d97706' },
+  callback: { label: 'Call Back', bg: 'rgba(34,197,94,0.1)', fg: '#16a34a' },
+  horoscope: { label: 'Horoscope', bg: 'rgba(168,85,247,0.1)', fg: '#9333ea' },
+}
+
 function LeadsClientsTab({ site }) {
   const [view, setView] = useState('leads')            // leads | clients | invoices
   const [leads, setLeads] = useState(null)
@@ -1852,9 +1864,9 @@ function LeadsClientsTab({ site }) {
                     <div>{l.phone || '—'}</div>
                     {l.email && <div style={{ fontSize: 12, color: '#94a3b8' }}>{l.email}</div>}
                   </td>
-                  <td style={_td}><span style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 12, background: 'rgba(79,70,229,0.08)', color: '#4f46e5' }}>{l.tool === 'kundli' ? 'Free Kundli' : l.tool}</span></td>
+                  <td style={_td}><span style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 12, background: LEAD_SOURCE_META[l.tool]?.bg || 'rgba(79,70,229,0.08)', color: LEAD_SOURCE_META[l.tool]?.fg || '#4f46e5' }}>{LEAD_SOURCE_META[l.tool]?.label || (l.tool || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</span></td>
                   <td style={{ ..._td, color: '#64748b', fontSize: 12.5 }}>
-                    {l.details?.date ? `${l.details.date} ${l.details.time || ''}` : '—'}{l.details?.place ? ` · ${l.details.place}` : ''}
+                    {l.details?.date ? `${l.details.date} ${l.details.time || ''}` : typeof l.details === 'string' && l.details ? l.details.slice(0, 90) : '—'}{l.details?.place ? ` · ${l.details.place}` : ''}
                   </td>
                   <td style={{ ..._td, color: '#94a3b8', fontSize: 12.5, whiteSpace: 'nowrap' }}>{l.created_at ? new Date(l.created_at).toLocaleDateString() : '—'}</td>
                   <td style={{ ..._td, textAlign: 'right', whiteSpace: 'nowrap' }}>
