@@ -1240,3 +1240,28 @@ def tenant_event(body: dict, slug: str = None, domain: str = None):
     site = _resolve_site(slug, domain)
     record_site_event(site["id"], kind, str((body or {}).get("path", ""))[:200])
     return {"ok": True}
+
+
+class TenantLeadBody(BaseModel):
+    name: Optional[str] = Field(None, max_length=120)
+    phone: Optional[str] = Field(None, max_length=20)
+    email: Optional[str] = Field(None, max_length=200)
+    message: Optional[str] = Field(None, max_length=1000)
+    source: str = Field("enquiry", max_length=40)
+
+
+@router.post("/site/lead")
+def tenant_lead(body: TenantLeadBody, slug: str = None, domain: str = None):
+    """Universal lead capture for tenant sites: newsletter, enquiries,
+    callback requests, consult asks — any widget can post here."""
+    site = _resolve_site(slug, domain)
+    if not (body.phone or body.email):
+        raise HTTPException(status_code=400, detail="A phone number or email is required")
+    create_lead(site["id"], {
+        "tool": body.source,
+        "name": body.name,
+        "phone": body.phone,
+        "email": body.email,
+        "details": body.message or "",
+    })
+    return {"ok": True, "message": "Got it — we'll be in touch soon."}

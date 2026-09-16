@@ -28,7 +28,7 @@ import {
 } from '../lib/api.js'
 import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
 import DashboardLoader from '../components/DashboardLoader.jsx'
-import { TenantHeader, KundliPage, MatchingPage, TenantSignIn, TenantAccount, ShopPage, ProductPage, HoroscopePage, NumerologyPage, GemstonePage, MuhuratPage, LuckyPage, AboutPage, ServicesPage, ContactPage, WhatsAppFab } from './TenantTools.jsx'
+import { NewsletterSignup, TenantHeader, KundliPage, MatchingPage, TenantSignIn, TenantAccount, ShopPage, ProductPage, HoroscopePage, NumerologyPage, GemstonePage, MuhuratPage, LuckyPage, AboutPage, ServicesPage, ContactPage, WhatsAppFab } from './TenantTools.jsx'
 import { tenantSiteUrl, tenantSubdomainLabel, tenantAuthReturnKey, tenantBookingDraftKey, tenantCartKey, parseYouTubeId } from '../lib/tenant.js'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -1403,6 +1403,9 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
         borderTop: `3px solid ${theme.primaryColor}`,
       }}>
         <div style={{ maxWidth: 1080, margin: '0 auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr', gap: 20, paddingBottom: 36, borderBottom: '1px solid rgba(255,255,255,0.12)', marginBottom: 36 }}>
+            <NewsletterSignup site={site} resolve={resolve} theme={theme} COLORS={{ surface: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.14)', textDim: 'rgba(241,240,255,0.6)' }} />
+          </div>
           <div className="tenant-mega-footer-grid" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1.2fr', gap: 36, paddingBottom: 44 }}>
 
             {/* 1 · brand */}

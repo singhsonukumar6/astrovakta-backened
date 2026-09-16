@@ -1701,7 +1701,8 @@ function CartDrawer({ open, onClose, cart, products, COLORS, theme, site, resolv
         {stage === 'cart' && (
           <>
             <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
-              {rows.length === 0 ? (
+              <ContactEnquiry site={site} resolve={resolve} theme={theme} COLORS={COLORS} />
+        {rows.length === 0 ? (
                 <div style={{ textAlign: 'center', color: COLORS.textDim, padding: 50, fontSize: 14.5 }}>Your cart is empty.<br /><a href="#/shop" onClick={onClose} style={{ color: theme.primaryColor, fontWeight: 700, textDecoration: 'none' }}>Browse products →</a></div>
               ) : rows.map((r) => (
                 <div key={r.p.id} style={{ display: 'flex', gap: 10, padding: '10px 0', borderBottom: `1px solid ${COLORS.border}` }}>
@@ -2600,6 +2601,138 @@ export function ServicesPage({ site, services, theme, COLORS, resolve }) {
       </main>
       <WhatsAppFab site={site} />
     </div>
+  )
+}
+
+
+async function postLead(resolve, payload) {
+  const qs = new URLSearchParams(resolve).toString()
+  const res = await fetch(`/sites/site/lead?${qs}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.detail || data.message || 'Could not submit — try again')
+  return data
+}
+
+// Footer/newsletter widget: WhatsApp or email subscription → lead
+export function NewsletterSignup({ site, resolve, theme, COLORS }) {
+  const [contact, setContact] = useState('')
+  const [done, setDone] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const isPhone = /^[+\d][\d\s-]{7,}$/.test(contact.trim())
+  const valid = contact.trim() && (isPhone || /@/.test(contact))
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!valid) return
+    setBusy(true)
+    try {
+      await postLead(resolve, isPhone
+        ? { phone: contact.trim(), source: 'newsletter' }
+        : { email: contact.trim(), source: 'newsletter' })
+      setDone(true)
+    } catch (err) { toast.error(err.message) } finally { setBusy(false) }
+  }
+
+  return (
+    <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 20 }}>
+      <h3 style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>📩 Daily astro tips — free</h3>
+      <p style={{ fontSize: 12.5, color: COLORS.textDim, lineHeight: 1.6, marginBottom: 10 }}>
+        One short prediction or remedy every morning. No spam, unsubscribe anytime.
+      </p>
+      {done ? (
+        <div style={{ color: '#16a34a', fontWeight: 700, fontSize: 13.5 }}>✓ Subscribed — see you tomorrow morning!</div>
+      ) : (
+        <form onSubmit={submit} style={{ display: 'flex', gap: 8 }}>
+          <input value={contact} onChange={(e) => setContact(e.target.value)} placeholder="Email or WhatsApp number"
+            style={{ flex: 1, minWidth: 0, padding: '10px 12px', borderRadius: 10, border: `1px solid ${COLORS.border}`, background: 'rgba(127,127,127,0.05)', color: 'inherit', fontSize: 13.5, outline: 'none' }} />
+          <button type="submit" disabled={busy || !valid}
+            style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`, color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', opacity: busy || !valid ? 0.6 : 1 }}>
+            {busy ? '…' : 'Subscribe'}
+          </button>
+        </form>
+      )}
+    </div>
+  )
+}
+
+// Callback request widget
+export function CallbackRequest({ site, resolve, theme, COLORS }) {
+  const [open, setOpen] = useState(false)
+  const [form, setForm] = useState({ name: '', phone: '', message: '' })
+  const [done, setDone] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setBusy(true)
+    try {
+      await postLead(resolve, { ...form, source: 'callback' })
+      setDone(true)
+    } catch (err) { toast.error(err.message) } finally { setBusy(false) }
+  }
+
+  if (done) return <div style={{ padding: 14, borderRadius: 12, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.3)', color: '#16a34a', fontWeight: 700, fontSize: 13.5 }}>✓ Request received — expect a call within a few hours.</div>
+
+  return open ? (
+    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Your name" style={inputStyle} />
+      <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone number *" style={inputStyle} />
+      <input value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder="What's it about? (optional)" style={inputStyle} />
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="submit" disabled={busy} style={{ ...btnPrimary, flex: 1, justifyContent: 'center', padding: 11 }}>
+          {busy ? <Loader2 size={14} className="spin" /> : null} Request call
+        </button>
+        <button type="button" onClick={() => setOpen(false)} style={{ ...btnGhost, padding: 11 }}>Cancel</button>
+      </div>
+    </form>
+  ) : (
+    <button type="button" onClick={() => setOpen(true)} style={{ ...btnGhost, width: '100%', justifyContent: 'center', padding: 12 }}>
+      📞 Request a call back instead
+    </button>
+  )
+}
+
+// Enquiry form on the contact page — every submission is a lead
+function ContactEnquiry({ site, resolve, theme, COLORS }) {
+  const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+  const [form, setForm] = useState({ name: '', phone: '', email: '', message: '' })
+  const [done, setDone] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const inp = { width: '100%', padding: '11px 13px', borderRadius: 10, border: `1px solid ${COLORS.border}`, background: 'rgba(127,127,127,0.05)', color: COLORS.text, fontSize: 14, outline: 'none' }
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!form.name.trim() || !(form.phone.trim() || form.email.trim())) { setError('Name + phone or email required'); return }
+    setBusy(true); setError(null)
+    try {
+      await postLead(resolve, { name: form.name, phone: form.phone, email: form.email, message: form.message, source: 'enquiry' })
+      setDone(true)
+    } catch (err) { setError(err.message) } finally { setBusy(false) }
+  }
+
+  if (done) return (
+    <div style={{ background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 18, padding: 28, textAlign: 'center', marginBottom: 18 }}>
+      <div style={{ fontSize: 30, marginBottom: 6 }}>🙏</div>
+      <div style={{ fontWeight: 900, fontSize: 17, color: '#16a34a', marginBottom: 4 }}>Message received</div>
+      <div style={{ fontSize: 13.5, color: COLORS.textDim }}>{site.name} will reply within a day.</div>
+    </div>
+  )
+
+  return (
+    <form onSubmit={submit} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22, marginBottom: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>Ask a question</h3>
+      <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Your name *" style={inp} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone (WhatsApp)" style={inp} />
+        <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Email" style={inp} />
+      </div>
+      <textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder="Your question — about a reading, remedy or booking" rows={3} style={{ ...inp, resize: 'vertical' }} />
+      {error && <div style={{ color: '#dc2626', fontSize: 13 }}>{error}</div>}
+      <button type="submit" disabled={busy} style={{ ...inp, cursor: 'pointer', fontWeight: 800, border: 'none', background: gradient, color: '#fff', fontSize: 14.5, opacity: busy ? 0.7 : 1 }}>
+        {busy ? 'Sending…' : 'Send message'}
+      </button>
+    </form>
   )
 }
 
