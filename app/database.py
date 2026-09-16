@@ -309,6 +309,7 @@ CREATE TABLE IF NOT EXISTS site_services (
     cost_price INTEGER DEFAULT 0,
     images TEXT,
     attributes TEXT,
+    category TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (site_id) REFERENCES sites(id)
 );
@@ -347,8 +348,43 @@ CREATE TABLE IF NOT EXISTS site_leads (
     phone TEXT,
     email TEXT,
     details TEXT,
+    client_id INTEGER,
+    converted_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (site_id) REFERENCES sites(id)
+);
+CREATE TABLE IF NOT EXISTS site_clients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    notes TEXT,
+    source TEXT DEFAULT 'manual',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (site_id) REFERENCES sites(id)
+);
+CREATE TABLE IF NOT EXISTS site_invoices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER NOT NULL,
+    client_id INTEGER NOT NULL,
+    number TEXT NOT NULL,
+    token TEXT UNIQUE NOT NULL,
+    status TEXT DEFAULT 'draft',
+    items TEXT NOT NULL,
+    subtotal INTEGER DEFAULT 0,
+    tax_rate REAL DEFAULT 0,
+    tax_amount INTEGER DEFAULT 0,
+    total INTEGER DEFAULT 0,
+    currency TEXT DEFAULT 'INR',
+    due_date TEXT,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    sent_at TIMESTAMP,
+    paid_at TIMESTAMP,
+    FOREIGN KEY (site_id) REFERENCES sites(id),
+    FOREIGN KEY (client_id) REFERENCES site_clients(id),
+    UNIQUE (site_id, number)
 );
 CREATE TABLE IF NOT EXISTS site_products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -365,6 +401,7 @@ CREATE TABLE IF NOT EXISTS site_products (
     cost_price INTEGER DEFAULT 0,
     images TEXT,
     attributes TEXT,
+    category TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (site_id) REFERENCES sites(id)
 );
@@ -663,7 +700,39 @@ CREATE TABLE IF NOT EXISTS site_leads (
     phone TEXT,
     email TEXT,
     details TEXT,
+    client_id INTEGER,
+    converted_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS site_clients (
+    id SERIAL PRIMARY KEY,
+    site_id INTEGER NOT NULL REFERENCES sites(id),
+    name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    notes TEXT,
+    source TEXT DEFAULT 'manual',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS site_invoices (
+    id SERIAL PRIMARY KEY,
+    site_id INTEGER NOT NULL REFERENCES sites(id),
+    client_id INTEGER NOT NULL REFERENCES site_clients(id),
+    number TEXT NOT NULL,
+    token TEXT UNIQUE NOT NULL,
+    status TEXT DEFAULT 'draft',
+    items TEXT NOT NULL,
+    subtotal INTEGER DEFAULT 0,
+    tax_rate REAL DEFAULT 0,
+    tax_amount INTEGER DEFAULT 0,
+    total INTEGER DEFAULT 0,
+    currency TEXT DEFAULT 'INR',
+    due_date TEXT,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    sent_at TIMESTAMPTZ,
+    paid_at TIMESTAMPTZ,
+    UNIQUE (site_id, number)
 );
 CREATE TABLE IF NOT EXISTS site_products (
     id SERIAL PRIMARY KEY,
@@ -836,11 +905,14 @@ def init_db() -> None:
                 ("site_bookings", "payment_status", "TEXT DEFAULT 'none'"),
                 ("site_bookings", "tenant_user_id", "INTEGER"),
                 ("site_orders", "tenant_user_id", "INTEGER"),
+                ("site_leads", "client_id", "INTEGER"),
+                ("site_leads", "converted_at", "TIMESTAMPTZ"),
                 ("site_products", "master_product_id", "INTEGER"),
                 ("site_products", "cost_price", "INTEGER DEFAULT 0"),
                 ("site_products", "images", "TEXT"),
                 ("master_products", "images", "TEXT"),
                 ("master_products", "attributes", "TEXT"),
+                ("site_products", "category", "TEXT"),
             ]:
                 try:
                     row = conn.execute(
@@ -881,11 +953,14 @@ def init_db() -> None:
         _migrate_sqlite(cursor, "site_bookings", "payment_status", "TEXT DEFAULT 'none'")
         _migrate_sqlite(cursor, "site_bookings", "tenant_user_id", "INTEGER")
         _migrate_sqlite(cursor, "site_orders", "tenant_user_id", "INTEGER")
+        _migrate_sqlite(cursor, "site_leads", "client_id", "INTEGER")
+        _migrate_sqlite(cursor, "site_leads", "converted_at", "TIMESTAMP")
         _migrate_sqlite(cursor, "site_products", "master_product_id", "INTEGER")
         _migrate_sqlite(cursor, "site_products", "cost_price", "INTEGER DEFAULT 0")
         _migrate_sqlite(cursor, "site_products", "images", "TEXT")
         _migrate_sqlite(cursor, "master_products", "images", "TEXT")
         _migrate_sqlite(cursor, "master_products", "attributes", "TEXT")
+        _migrate_sqlite(cursor, "site_products", "category", "TEXT")
         _migrate_sqlite(cursor, "usage_logs", "credits_used", "INTEGER DEFAULT 0")
         _migrate_sqlite(cursor, "sites", "logo_url", "TEXT")
         _migrate_sqlite(cursor, "sites", "hero_image", "TEXT")

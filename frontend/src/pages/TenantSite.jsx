@@ -27,6 +27,7 @@ import {
   publicHoroscopeTool, publicPlaceOrder, getTenantSession, sendSiteEvent,
 } from '../lib/api.js'
 import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
+import DashboardLoader from '../components/DashboardLoader.jsx'
 import { TenantHeader, KundliPage, MatchingPage, TenantSignIn, TenantAccount, ShopPage, ProductPage, HoroscopePage, NumerologyPage, GemstonePage, MuhuratPage, LuckyPage, AboutPage, ServicesPage, ContactPage, WhatsAppFab } from './TenantTools.jsx'
 import { tenantSiteUrl, tenantSubdomainLabel, tenantAuthReturnKey, tenantBookingDraftKey, tenantCartKey, parseYouTubeId } from '../lib/tenant.js'
 
@@ -935,7 +936,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
   if (!bundle) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div className="gradient-text" style={{ fontSize: 18, fontWeight: 600 }}>Loading…</div>
+        <DashboardLoader label="Loading" size={44} light />
       </div>
     )
   }

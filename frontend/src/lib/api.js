@@ -275,6 +275,46 @@ export const setMySiteSettings = (siteId, data) =>
 export const getMyLeads = (siteId) =>
   api.get(`/sites/my/${siteId}/leads`).then((r) => r.data?.leads ?? r.data?.data?.leads ?? [])
 
+// ──── SITE BUILDER: CLIENTS (converted leads + manual) ────
+export const getMyClients = (siteId) =>
+  api.get(`/sites/my/${siteId}/clients`).then((r) => r.data?.clients ?? r.data?.data?.clients ?? [])
+
+export const createMyClient = (siteId, data) =>
+  api.post(`/sites/my/${siteId}/clients`, data).then((r) => r.data?.data ?? r.data)
+
+export const updateMyClient = (siteId, clientId, data) =>
+  api.put(`/sites/my/${siteId}/clients/${clientId}`, data).then((r) => r.data?.data ?? r.data)
+
+export const deleteMyClient = (siteId, clientId) =>
+  api.delete(`/sites/my/${siteId}/clients/${clientId}`).then((r) => r.data)
+
+export const convertMyLead = (siteId, leadId) =>
+  api.post(`/sites/my/${siteId}/leads/${leadId}/convert`).then((r) => r.data?.data ?? r.data)
+
+// ──── SITE BUILDER: INVOICES ────
+export const getMyInvoices = (siteId, clientId) =>
+  api.get(`/sites/my/${siteId}/invoices`, { params: clientId ? { client_id: clientId } : {} })
+    .then((r) => r.data?.invoices ?? r.data?.data?.invoices ?? [])
+
+export const createMyInvoice = (siteId, data) =>
+  api.post(`/sites/my/${siteId}/invoices`, data).then((r) => r.data?.data ?? r.data)
+
+export const updateMyInvoice = (siteId, invoiceId, data) =>
+  api.put(`/sites/my/${siteId}/invoices/${invoiceId}`, data).then((r) => r.data?.data ?? r.data)
+
+export const sendMyInvoice = (siteId, invoiceId) =>
+  api.post(`/sites/my/${siteId}/invoices/${invoiceId}/send`).then((r) => r.data?.data ?? r.data)
+
+export const setMyInvoiceStatus = (siteId, invoiceId, status) =>
+  api.post(`/sites/my/${siteId}/invoices/${invoiceId}/status`, { status }).then((r) => r.data?.data ?? r.data)
+
+export const deleteMyInvoice = (siteId, invoiceId) =>
+  api.delete(`/sites/my/${siteId}/invoices/${invoiceId}`).then((r) => r.data)
+
+// Public invoice (shareable link, no auth)
+export const getPublicInvoice = (token) =>
+  api.get(`/sites/invoice/${token}`).then((r) => r.data?.data ?? r.data)
+
 export const getMySiteStats = (siteId) =>
   api.get(`/sites/my/${siteId}/stats`).then((r) => r.data?.stats ?? r.data?.data?.stats ?? r.data?.data ?? r.data ?? {})
 

@@ -7,12 +7,13 @@ owner's user id, so tenants can never touch each other's data.
 import os
 import re
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
 from .admin_content import require_admin
+from ..email_service import send_booking_emails, send_invoice_email
 from ..tenants import (
     get_site_by_slug,
     validate_slug, normalize_domain, slug_exists, domain_exists, TEMPLATES, WEEKDAYS,
@@ -22,6 +23,8 @@ from ..tenants import (
     list_availability, set_availability,
     list_bookings, get_booking, create_booking, update_booking,
     list_leads,
+    list_clients, get_client, create_client, update_client, delete_client, convert_lead_to_client,
+    list_invoices, get_invoice, create_invoice, update_invoice, delete_invoice,
     list_products, get_product, create_product, update_product, delete_product,
     list_social_posts, create_social_post, update_social_post, delete_social_post,
     list_master_categories, create_master_category, update_master_category, delete_master_category,
@@ -129,6 +132,7 @@ class ProductBody(BaseModel):
     stock: int = Field(-1, ge=-1)
     is_active: bool = True
     sort_order: int = 0
+    category: Optional[str] = Field(None, max_length=80)
 
 class UpdateProductBody(ProductBody):
     name: Optional[str] = Field(None, min_length=1, max_length=140)
@@ -230,6 +234,8 @@ def create_my_site(body: CreateSiteBody, user: dict = Depends(get_current_user))
         "tagline": body.tagline,
         "template": body.template,
     })
+    from ..tenants import grant_starter_credits
+    grant_starter_credits(site["id"])
     return site
 
 
@@ -515,6 +521,139 @@ def my_site_leads(site_id: int, user: dict = Depends(get_current_user)):
     return {"leads": list_leads(site_id)}
 
 
+@router.post("/my/{site_id}/leads/{lead_id}/convert")
+def convert_lead(site_id: int, lead_id: int, user: dict = Depends(get_current_user)):
+    """Turn a captured lead into a client (deduped by email)."""
+    _require_owned_site(site_id, user)
+    client = convert_lead_to_client(site_id, lead_id)
+    if not client:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    return client
+
+
+# ─────────────── clients (converted leads + manual) ───────────────
+
+class ClientBody(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    email: Optional[str] = Field(None, max_length=200)
+    phone: Optional[str] = Field(None, max_length=20)
+    notes: Optional[str] = Field(None, max_length=1000)
+
+    class Config:
+        extra = "forbid"
+
+
+@router.get("/my/{site_id}/clients")
+def my_clients(site_id: int, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    return {"clients": list_clients(site_id)}
+
+
+@router.post("/my/{site_id}/clients")
+def create_my_client(site_id: int, body: ClientBody, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    return create_client(site_id, body.model_dump())
+
+
+@router.put("/my/{site_id}/clients/{client_id}")
+def update_my_client(site_id: int, client_id: int, body: ClientBody, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    if not get_client(site_id, client_id):
+        raise HTTPException(status_code=404, detail="Client not found")
+    return update_client(site_id, client_id, body.model_dump(exclude_none=True))
+
+
+@router.delete("/my/{site_id}/clients/{client_id}")
+def delete_my_client(site_id: int, client_id: int, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    if not delete_client(site_id, client_id):
+        raise HTTPException(status_code=404, detail="Client not found")
+    return {"deleted": True}
+
+
+# ─────────────── invoices ───────────────
+
+class InvoiceItemBody(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    qty: int = Field(1, ge=1, le=999)
+    price: int = Field(0, ge=0)
+
+    class Config:
+        extra = "forbid"
+
+
+class InvoiceBody(BaseModel):
+    client_id: int
+    items: List[InvoiceItemBody] = Field(..., min_length=1, max_length=30)
+    tax_rate: float = Field(0, ge=0, le=50)
+    due_date: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    notes: Optional[str] = Field(None, max_length=1000)
+
+    class Config:
+        extra = "forbid"
+
+
+class InvoiceStatusBody(BaseModel):
+    status: str = Field(..., pattern="^(draft|sent|paid)$")
+
+
+@router.get("/my/{site_id}/invoices")
+def my_invoices(site_id: int, client_id: int = None, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    return {"invoices": list_invoices(site_id, client_id=client_id)}
+
+
+@router.post("/my/{site_id}/invoices")
+def create_my_invoice(site_id: int, body: InvoiceBody, background_tasks: BackgroundTasks,
+                      user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    if not get_client(site_id, body.client_id):
+        raise HTTPException(status_code=404, detail="Client not found")
+    return create_invoice(site_id, body.model_dump())
+
+
+@router.put("/my/{site_id}/invoices/{invoice_id}")
+def update_my_invoice(site_id: int, invoice_id: int, body: InvoiceBody, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    if not get_invoice(site_id, invoice_id):
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    return update_invoice(site_id, invoice_id, body.model_dump(exclude_none=True))
+
+
+@router.post("/my/{site_id}/invoices/{invoice_id}/send")
+def send_my_invoice(site_id: int, invoice_id: int, background_tasks: BackgroundTasks,
+                    user: dict = Depends(get_current_user)):
+    """Email the invoice to the client (white-label) and mark it sent."""
+    _require_owned_site(site_id, user)
+    invoice = get_invoice(site_id, invoice_id)
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if not invoice.get("client_email"):
+        raise HTTPException(status_code=400, detail="This client has no email address — add one, or share via WhatsApp")
+    site = get_site_by_id(site_id)
+    client = get_client(site_id, invoice["client_id"])
+    invoice = update_invoice(site_id, invoice_id, {"status": "sent"})
+    background_tasks.add_task(send_invoice_email, site, invoice, client)
+    return {"sent": True, "invoice": invoice}
+
+
+@router.post("/my/{site_id}/invoices/{invoice_id}/status")
+def set_my_invoice_status(site_id: int, invoice_id: int, body: InvoiceStatusBody,
+                          user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    if not get_invoice(site_id, invoice_id):
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    return update_invoice(site_id, invoice_id, {"status": body.status})
+
+
+@router.delete("/my/{site_id}/invoices/{invoice_id}")
+def delete_my_invoice(site_id: int, invoice_id: int, user: dict = Depends(get_current_user)):
+    _require_owned_site(site_id, user)
+    if not delete_invoice(site_id, invoice_id):
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    return {"deleted": True}
+
+
 # ─────────────── pages ───────────────
 
 @router.put("/my/{site_id}/pages/{page_key}")
@@ -531,6 +670,8 @@ class AiGenerateBody(BaseModel):
     field: str = Field(..., pattern="^(heroTitle|heroSubtitle|aboutTitle|aboutText|pageTitle|pageText|serviceDescription|tagline)$")
     tone: str = Field("warm", pattern="^(warm|professional|spiritual|friendly)$")
     keywords: Optional[str] = Field(None, max_length=300)
+    # free-form "what should the AI focus on" from the Write-with-AI dialog
+    instructions: Optional[str] = Field(None, max_length=500)
     # serviceDescription: which service; pageTitle/pageText: which page key
     context_key: Optional[str] = Field(None, max_length=40)
 
@@ -582,8 +723,10 @@ def my_site_ai_generate(site_id: int, body: AiGenerateBody, user: dict = Depends
     prompt = (
         f"You write website copy for a professional Vedic astrology practice.\n"
         f"Astrologer / business: {name}. Tagline: {tagline or 'none yet'}. Services: {svc_names}.\n"
-        f"Write in a {tone} tone.{kw}\n"
-        f"Produce ONLY the requested copy — no greeting, no explanation, no quotes, no markdown.\n"
+        f"Write in a {tone} tone.{kw}"
+        + (f"\nThe astrologer specifically asks: {body.instructions} — honour this above everything else.\n"
+           if body.instructions else "\n")
+        + f"Produce ONLY the requested copy — no greeting, no explanation, no quotes, no markdown.\n"
         f"Requested: {prompt_extra}"
     )
 
@@ -665,11 +808,19 @@ def my_bookings(site_id: int, date_from: str = None, date_to: str = None, status
 
 
 @router.post("/my/{site_id}/bookings")
-def create_my_booking(site_id: int, body: BookingBody, user: dict = Depends(get_current_user)):
+def create_my_booking(site_id: int, body: BookingBody, background_tasks: BackgroundTasks,
+                      user: dict = Depends(get_current_user)):
     _require_owned_site(site_id, user)
     if body.end_time <= body.start_time:
         raise HTTPException(status_code=400, detail="End time must be after start time")
-    return create_booking(site_id, body.model_dump())
+    booking = create_booking(site_id, body.model_dump())
+    # The astrologer booked on a client's behalf — send the client the same
+    # white-label confirmation (no owner alert needed; they made the booking).
+    if booking.get("client_email"):
+        site = get_site_by_id(site_id)
+        service = get_service(site_id, booking.get("service_id")) if booking.get("service_id") else None
+        background_tasks.add_task(send_booking_emails, site, booking, service, False)
+    return booking
 
 
 @router.put("/my/{site_id}/bookings/{booking_id}")
@@ -1150,6 +1301,11 @@ def import_catalog_product(site_id: int, master_id: int, body: ImportBody, user:
     mp = get_master_product(master_id)
     if not mp or not mp.get("active", True):
         raise HTTPException(status_code=404, detail="Master product not found")
+    # attach the category name for the import copy
+    if mp.get("category_id"):
+        cat = next((c for c in list_master_categories() if c["id"] == mp["category_id"]), None)
+        if cat:
+            mp["category_name"] = cat["name"]
     cost = max(0, mp.get("mrp", 0) - mp.get("margin", 0))
     price = body.price if body.price is not None else mp.get("mrp", 0)
     if price < cost:

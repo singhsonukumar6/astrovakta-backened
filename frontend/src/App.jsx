@@ -14,6 +14,7 @@ import Sandbox from './pages/Sandbox.jsx'
 import Admin from './pages/Admin.jsx'
 import Docs from './pages/Docs.jsx'
 import KundaliReport from './pages/KundaliReport.jsx'
+import InvoicePublic from './pages/InvoicePublic.jsx'
 import VerifyEmail from './pages/VerifyEmail.jsx'
 import VerifyEmailPrompt from './pages/VerifyEmailPrompt.jsx'
 import ForgotPassword from './pages/ForgotPassword.jsx'
@@ -39,6 +40,8 @@ function AppRoutes() {
       <Route path="/onboarding" element={<Onboarding />} />
       {/* Public tenant site (astrologer's branded website) */}
       <Route path="/s/:slug" element={<TenantSite />} />
+      {/* Public invoice behind the shareable /invoice/<token> link */}
+      <Route path="/invoice/:token" element={<InvoicePublic />} />
       <Route path="/admin" element={<Admin />} />
       <Route path="/admin/:tab" element={<Admin />} />
       <Route path="/sandbox" element={<Sandbox />} />
@@ -65,7 +68,8 @@ function AppRoutes() {
 export default function App() {
   const { pathname } = useLocation()
   // Tenant sites are standalone brands — no platform navbar/footer/starfield.
-  const isTenantSite = pathname.startsWith('/s/')
+  // Public invoices too: they're the astrologer's document, not platform pages.
+  const isTenantSite = pathname.startsWith('/s/') || pathname.startsWith('/invoice/')
   // The builder dashboard is a full app surface with its own fixed header + sidebar.
   const isDashboard = pathname.startsWith('/mysite') || pathname === '/onboarding'
 

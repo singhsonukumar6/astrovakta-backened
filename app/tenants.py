@@ -665,6 +665,256 @@ def list_leads(site_id: int, limit: int = 200) -> list:
 
 
 # ═══════════════════════════════════════════════
+#  Clients (converted leads + manual additions)
+# ═══════════════════════════════════════════════
+
+def list_clients(site_id: int, limit: int = 500) -> list:
+    rows = get_db().execute(
+        _convert("SELECT * FROM site_clients WHERE site_id = ? ORDER BY created_at DESC LIMIT ?"),
+        (site_id, limit),
+    ).fetchall()
+    return [_to_dict(r) for r in rows]
+
+
+def get_client(site_id: int, client_id: int):
+    row = get_db().execute(
+        _convert("SELECT * FROM site_clients WHERE site_id = ? AND id = ?"), (site_id, client_id)
+    ).fetchone()
+    return _to_dict(row)
+
+
+def create_client(site_id: int, data: dict) -> dict:
+    db = get_db()
+    cur = db.execute(
+        _convert(
+            "INSERT INTO site_clients (site_id, name, email, phone, notes, source, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id"
+        ),
+        (site_id, data.get("name"), data.get("email"), data.get("phone"),
+         data.get("notes"), data.get("source") or "manual", _now()),
+    ).fetchone()
+    db.commit()
+    return get_client(site_id, cur["id"])
+
+
+def update_client(site_id: int, client_id: int, data: dict) -> dict:
+    db = get_db()
+    fields, params = [], []
+    for col in ["name", "email", "phone", "notes"]:
+        if col in data and data[col] is not None:
+            fields.append(f"{col} = ?")
+            params.append(data[col])
+    if fields:
+        params.extend([site_id, client_id])
+        db.execute(_convert(f"UPDATE site_clients SET {', '.join(fields)} WHERE site_id = ? AND id = ?"), params)
+        db.commit()
+    return get_client(site_id, client_id)
+
+
+def delete_client(site_id: int, client_id: int) -> bool:
+    db = get_db()
+    cur = db.execute(_convert("DELETE FROM site_clients WHERE site_id = ? AND id = ?"), (site_id, client_id))
+    db.commit()
+    return cur.rowcount > 0
+
+
+def convert_lead_to_client(site_id: int, lead_id: int) -> dict:
+    """Turn a captured lead into a client record. The lead row is kept (it holds
+    the birth details) and linked via client_id so the Leads tab shows 'converted'."""
+    db = get_db()
+    lead = db.execute(_convert("SELECT * FROM site_leads WHERE site_id = ? AND id = ?"), (site_id, lead_id)).fetchone()
+    lead = _to_dict(lead)
+    if not lead:
+        return None
+    if lead.get("client_id"):
+        return get_client(site_id, lead["client_id"])
+
+    # re-use an existing client with the same email instead of duplicating
+    if lead.get("email"):
+        existing = db.execute(
+            _convert("SELECT id FROM site_clients WHERE site_id = ? AND LOWER(email) = LOWER(?)"),
+            (site_id, lead["email"]),
+        ).fetchone()
+        if existing:
+            client_id = existing["id"]
+            db.execute(
+                _convert("UPDATE site_leads SET client_id = ?, converted_at = ? WHERE id = ?"),
+                (client_id, _now(), lead_id),
+            )
+            db.commit()
+            return get_client(site_id, client_id)
+
+    details = _parse_content(lead.get("details"))
+    birth_note = (f" · Born {details.get('date', '')} {details.get('time', '')}".rstrip()
+                  if isinstance(details, dict) else "")
+    client = create_client(site_id, {
+        "name": lead.get("name") or "Unnamed lead",
+        "email": lead.get("email"),
+        "phone": lead.get("phone"),
+        "notes": f"From {lead.get('tool') or 'lead'} tool{birth_note}",
+        "source": "lead",
+    })
+    db.execute(
+        _convert("UPDATE site_leads SET client_id = ?, converted_at = ? WHERE id = ?"),
+        (client["id"], _now(), lead_id),
+    )
+    db.commit()
+    return client
+
+
+# ═══════════════════════════════════════════════
+#  Invoices
+# ═══════════════════════════════════════════════
+
+INVOICE_STATUSES = ("draft", "sent", "paid")
+
+
+def _next_invoice_number(site_id: int) -> str:
+    """Sequential per-site number: INV-2026-0007."""
+    year = _now()[:4]
+    row = get_db().execute(
+        _convert("SELECT COUNT(*) AS n FROM site_invoices WHERE site_id = ?"),
+        (site_id,),
+    ).fetchone()
+    n = (row["n"] if isinstance(row, dict) else row[0]) + 1
+    return f"INV-{year}-{n:04d}"
+
+
+def _invoice_totals(items: list, tax_rate: float):
+    subtotal = sum(int((it.get("price") or 0) * (it.get("qty") or 1)) for it in items)
+    tax_amount = round(subtotal * (float(tax_rate or 0) / 100))
+    return subtotal, tax_amount, subtotal + tax_amount
+
+
+def _normalize_invoice_items(items) -> list:
+    out = []
+    for it in items or []:
+        if not isinstance(it, dict):
+            continue
+        name = str(it.get("name") or "").strip()
+        if not name:
+            continue
+        out.append({"name": name[:120],
+                    "qty": max(1, min(999, int(it.get("qty") or 1))),
+                    "price": max(0, int(it.get("price") or 0))})
+    return out
+
+
+def list_invoices(site_id: int, client_id: int = None, limit: int = 300) -> list:
+    where = ["i.site_id = ?"]
+    params = [site_id]
+    if client_id:
+        where.append("i.client_id = ?")
+        params.append(client_id)
+    rows = get_db().execute(
+        _convert(
+            f"SELECT i.*, c.name AS client_name, c.email AS client_email, c.phone AS client_phone "
+            f"FROM site_invoices i JOIN site_clients c ON c.id = i.client_id "
+            f"WHERE {' AND '.join(where)} ORDER BY i.id DESC LIMIT ?"
+        ),
+        (*params, limit),
+    ).fetchall()
+    out = []
+    for r in rows:
+        d = _to_dict(r)
+        d["items"] = _parse_content(d.get("items"))
+        out.append(d)
+    return out
+
+
+def get_invoice(site_id: int, invoice_id: int):
+    row = get_db().execute(
+        _convert(
+            "SELECT i.*, c.name AS client_name, c.email AS client_email, c.phone AS client_phone "
+            "FROM site_invoices i JOIN site_clients c ON c.id = i.client_id "
+            "WHERE i.site_id = ? AND i.id = ?"
+        ),
+        (site_id, invoice_id),
+    ).fetchone()
+    d = _to_dict(row)
+    if d:
+        d["items"] = _parse_content(d.get("items"))
+    return d
+
+
+def get_invoice_by_token(token: str):
+    """Public lookup for the shareable invoice link — site-scoped data only."""
+    row = get_db().execute(
+        _convert(
+            "SELECT i.*, c.name AS client_name, c.email AS client_email, c.phone AS client_phone "
+            "FROM site_invoices i JOIN site_clients c ON c.id = i.client_id WHERE i.token = ?"
+        ),
+        (token,),
+    ).fetchone()
+    d = _to_dict(row)
+    if d:
+        d["items"] = _parse_content(d.get("items"))
+    return d
+
+
+def create_invoice(site_id: int, data: dict) -> dict:
+    import secrets
+    db = get_db()
+    items = _normalize_invoice_items(data.get("items"))
+    tax_rate = float(data.get("tax_rate") or 0)
+    subtotal, tax_amount, total = _invoice_totals(items, tax_rate)
+    cur = db.execute(
+        _convert(
+            "INSERT INTO site_invoices (site_id, client_id, number, token, status, items, subtotal, tax_rate, tax_amount, total, currency, due_date, notes, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id"
+        ),
+        (site_id, data.get("client_id"), data.get("number") or _next_invoice_number(site_id),
+         secrets.token_urlsafe(18), data.get("status") or "draft", json.dumps(items),
+         subtotal, tax_rate, tax_amount, total, data.get("currency") or "INR",
+         data.get("due_date"), data.get("notes"), _now()),
+    ).fetchone()
+    db.commit()
+    return get_invoice(site_id, cur["id"])
+
+
+def update_invoice(site_id: int, invoice_id: int, data: dict) -> dict:
+    db = get_db()
+    existing = get_invoice(site_id, invoice_id)
+    if not existing:
+        return None
+    fields, params = [], []
+    if "items" in data and data["items"] is not None:
+        items = _normalize_invoice_items(data["items"])
+        tax_rate = float(data.get("tax_rate") if data.get("tax_rate") is not None else existing.get("tax_rate") or 0)
+        subtotal, tax_amount, total = _invoice_totals(items, tax_rate)
+        fields += ["items = ?", "subtotal = ?", "tax_rate = ?", "tax_amount = ?", "total = ?"]
+        params += [json.dumps(items), subtotal, tax_rate, tax_amount, total]
+    elif data.get("tax_rate") is not None:
+        items = existing.get("items") or []
+        tax_rate = float(data["tax_rate"])
+        subtotal, tax_amount, total = _invoice_totals(items, tax_rate)
+        fields += ["tax_rate = ?", "tax_amount = ?", "total = ?"]
+        params += [tax_rate, tax_amount, total]
+    for col in ["status", "due_date", "notes"]:
+        if col in data and data[col] is not None:
+            fields.append(f"{col} = ?")
+            params.append(data[col])
+    if data.get("status") == "sent" and not existing.get("sent_at"):
+        fields.append("sent_at = ?")
+        params.append(_now())
+    if data.get("status") == "paid" and not existing.get("paid_at"):
+        fields.append("paid_at = ?")
+        params.append(_now())
+    if fields:
+        params.extend([site_id, invoice_id])
+        db.execute(_convert(f"UPDATE site_invoices SET {', '.join(fields)} WHERE site_id = ? AND id = ?"), params)
+        db.commit()
+    return get_invoice(site_id, invoice_id)
+
+
+def delete_invoice(site_id: int, invoice_id: int) -> bool:
+    db = get_db()
+    cur = db.execute(_convert("DELETE FROM site_invoices WHERE site_id = ? AND id = ?"), (site_id, invoice_id))
+    db.commit()
+    return cur.rowcount > 0
+
+
+# ═══════════════════════════════════════════════
 #  Products (store)
 # ═══════════════════════════════════════════════
 
@@ -708,8 +958,8 @@ def create_product(site_id: int, data: dict) -> dict:
     db = get_db()
     cur = db.execute(
         _convert(
-            "INSERT INTO site_products (site_id, name, description, price, currency, image, stock, is_active, sort_order, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id"
+            "INSERT INTO site_products (site_id, name, description, price, currency, image, stock, is_active, sort_order, category, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id"
         ),
         (
             site_id,
@@ -721,6 +971,7 @@ def create_product(site_id: int, data: dict) -> dict:
             int(data.get("stock", -1)),
             bool(data.get("is_active", True)),
             int(data.get("sort_order", 0) or 0),
+            (data.get("category") or None),
             _now(),
         ),
     ).fetchone()
@@ -1137,13 +1388,15 @@ def import_master_product(site_id: int, master_product: dict, price: int):
     db = get_db()
     images = master_product.get("images") or ([master_product["image"]] if master_product.get("image") else [])
     attrs = master_product.get("attributes") or []
+    category = master_product.get("category_name") or master_product.get("category")
     cur = db.execute(_convert(
         "INSERT INTO site_products (site_id, name, description, price, currency, image, stock, is_active, sort_order, "
-        "master_product_id, cost_price, images, attributes) VALUES (?, ?, ?, ?, 'INR', ?, -1, 1, 0, ?, ?, ?, ?) RETURNING id"),
+        "master_product_id, cost_price, images, attributes, category) VALUES (?, ?, ?, ?, 'INR', ?, -1, 1, 0, ?, ?, ?, ?, ?) RETURNING id"),
         (site_id, master_product["name"], master_product.get("description"),
          int(price), images[0] if images else None, master_product["id"], cost,
          _json.dumps(images[:8]) if images else None,
-         _json.dumps(attrs) if attrs else None))
+         _json.dumps(attrs) if attrs else None,
+         category))
     pid = cur.fetchone()[0]
     db.commit()
     row = db.execute(_convert("SELECT * FROM site_products WHERE id = ?"), (pid,)).fetchone()
@@ -1261,6 +1514,13 @@ SITE_CREDIT_COSTS = {
 }
 
 
+STARTER_CREDITS = 100  # granted per new site so tools work out of the box
+
+
+def grant_starter_credits(site_id: int) -> None:
+    adjust_site_credits(site_id, STARTER_CREDITS, "starter:welcome")
+
+
 def site_credit_balance(site_id: int) -> int:
     row = get_db().execute(_convert(
         "SELECT balance_after FROM site_credits WHERE site_id = ? ORDER BY id DESC LIMIT 1"
@@ -1316,10 +1576,10 @@ def site_analytics(site_id: int, days: int = 30) -> dict:
         (site_id, since)).fetchone()[0]
     # unique-ish visitors: distinct minute-bucketed sessions
     visitors = db.execute(_convert(
-        "SELECT COUNT(DISTINCT substr(created_at, 1, 16)) FROM site_events "
+        "SELECT COUNT(DISTINCT substr(CAST(created_at AS TEXT), 1, 16)) FROM site_events "
         "WHERE site_id = ? AND kind = 'pageview' AND created_at >= ?"), (site_id, since)).fetchone()[0]
     daily = db.execute(_convert(
-        "SELECT substr(created_at, 1, 10) AS d, COUNT(*) FROM site_events "
+        "SELECT substr(CAST(created_at AS TEXT), 1, 10) AS d, COUNT(*) FROM site_events "
         "WHERE site_id = ? AND kind = 'pageview' AND created_at >= ? GROUP BY d ORDER BY d"),
         (site_id, since)).fetchall()
     tools = db.execute(_convert(

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Sparkles, CalendarCheck, Star, Store, Globe, ArrowRight } from 'lucide-react'
 import { useAuth } from '../lib/auth.jsx'
 import { CreateSiteWizard } from '../components/CreateSiteWizard.jsx'
+import DashboardLoader from '../components/DashboardLoader.jsx'
 
 // First-run flow: users without a website land here from /mysite (both
 // after login and signup) and are sent to the dashboard once created.
@@ -13,7 +14,7 @@ export default function Onboarding() {
   if (authLoading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0b0b1e' }}>
-        <div className="gradient-text" style={{ fontSize: 18, fontWeight: 600 }}>Loading…</div>
+        <DashboardLoader label="Loading" size={44} light />
       </div>
     )
   }

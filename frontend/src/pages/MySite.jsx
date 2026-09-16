@@ -9,6 +9,7 @@ import {
   Phone, Star, TrendingUp, IndianRupee, Menu, LogOut, PanelLeft, Home,
   Key, Bot, ScrollText, Zap, BarChart3, User,
   Share2, Copy, Calendar as CalendarIcon, Clock as ClockIcon, Video, MousePointerClick, Link as LinkIcon,
+  Info, RefreshCw, UserPlus, FileText as InvoiceIcon, Send, Mail, MessageCircle, Pencil,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth.jsx'
@@ -26,6 +27,8 @@ import {
   createMyService, updateMyService, deleteMyService,
   getMyAvailability, setMyAvailability, getMyBookings, updateMyBooking,
   checkSlugAvailability, checkDomainAvailability, setMySiteMedia, setMySiteSettings, getMyLeads,
+  getMyClients, createMyClient, updateMyClient, deleteMyClient, convertMyLead,
+  getMyInvoices, createMyInvoice, sendMyInvoice, setMyInvoiceStatus, deleteMyInvoice,
   getMySiteStats, getMyProducts, createMyProduct, updateMyProduct, deleteMyProduct,
   getMyOrders, updateMyOrder, getKeys,
   getMySocial, generateSocialPost, createSocialPost, updateSocialPost, deleteSocialPost, socialPostMedia,
@@ -240,6 +243,151 @@ function OverviewTab({ site, reload }) {
   )
 }
 
+// ═══════════════ AI WRITER DIALOG ═══════════════
+// Shared "Write with AI" flow: explains WHAT it will write (per-field
+// context), asks the tenant what to focus on, shows a clear "AI is working"
+// state while generating, and previews the result before applying it.
+const AI_FIELD_META = {
+  heroTitle: {
+    label: 'Homepage headline',
+    hint: 'A short, punchy headline at the very top of your homepage — max 8 words. First thing every visitor reads.',
+    ph: 'e.g. mention 15+ years of experience, celebrity clients, Patna-based',
+  },
+  heroSubtitle: {
+    label: 'Sub-headline',
+    hint: '1–2 sentences right under the headline — what you offer and why a visitor should book with you.',
+    ph: 'e.g. focus on career & marriage readings, online video consultations',
+  },
+  aboutTitle: {
+    label: 'About section title',
+    hint: 'A short title for your About section — max 6 words.',
+    ph: 'e.g. keep it traditional, mention your lineage or guru',
+  },
+  aboutText: {
+    label: 'About section text',
+    hint: '2–3 short paragraphs about you — your background, experience and how you work with clients.',
+    ph: 'e.g. mention Jyotish Acharya degree, 10,000+ kundlis read, TV appearances',
+  },
+  pageTitle: { label: 'Page title', hint: 'A short title for this page.', ph: '' },
+  pageText: { label: 'Page text', hint: '2–3 welcoming paragraphs for this page — what the visitor can do here and how to reach you.', ph: '' },
+  serviceDescription: {
+    label: 'Service description',
+    hint: 'One sentence of 15–35 words describing this service — what the client gets and how the session runs.',
+    ph: 'e.g. 45-minute video call, includes a written remedy summary',
+  },
+  tagline: {
+    label: 'Tagline',
+    hint: 'One short line shown under your name in the site header — max 10 words.',
+    ph: 'e.g. highlight trust, accuracy, or your specialisation',
+  },
+}
+
+function AiWriterDialog({ site, field, contextKey, onClose, onApply }) {
+  const meta = AI_FIELD_META[field] || { label: 'Website copy', hint: 'AI-written copy for your website.', ph: '' }
+  const [instructions, setInstructions] = useState('')
+  const [tone, setTone] = useState('warm')
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState(null)
+
+  const run = async () => {
+    setBusy(true); setResult(null)
+    try {
+      const res = await aiGenerateSiteContent(site.id, {
+        field, tone, instructions: instructions.trim() || undefined, context_key: contextKey || undefined,
+      })
+      if (res?.text) setResult(res)
+      else toast.error('Could not generate — try again')
+    } catch {
+      toast.error('Could not generate — try again')
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget && !busy) onClose() }}
+      style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18 }}>
+      <motion.div
+        initial={{ opacity: 0, y: 18, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+        style={{ width: 'min(560px, 100%)', background: '#fff', borderRadius: 18, padding: 24, boxShadow: '0 24px 64px rgba(15,23,42,0.35)' }}>
+
+        {/* header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800, fontSize: 16, color: '#0f172a' }}>
+            <Sparkles size={17} color="#4f46e5" /> Write with AI
+          </div>
+          <button type="button" onClick={() => { if (!busy) onClose() }} aria-label="Close"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 22, lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#475569', marginBottom: 14 }}>
+          {meta.label}{contextKey && field === 'serviceDescription' ? ` — ${contextKey}` : ''}
+        </div>
+
+        {/* what I'll write — context so the tenant knows what this produces */}
+        <div style={{ display: 'flex', gap: 10, padding: '12px 14px', borderRadius: 12, background: 'rgba(79,70,229,0.05)', border: '1px dashed rgba(79,70,229,0.3)', marginBottom: 16 }}>
+          <Info size={15} color="#4f46e5" style={{ flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6, color: '#4f46e5', marginBottom: 3 }}>WHAT I'LL WRITE</div>
+            <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>{meta.hint}</div>
+          </div>
+        </div>
+
+        {busy ? (
+          /* generating — unmistakable "AI is working" state */
+          <div style={{ textAlign: 'center', padding: '26px 10px 20px' }}>
+            <Loader2 size={32} className="spin" color="#4f46e5" style={{ margin: '0 auto 14px', display: 'block' }} />
+            <div style={{ fontWeight: 800, fontSize: 15.5, color: '#0f172a' }}>Writing your {meta.label.toLowerCase()}…</div>
+            <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 5 }}>The AI is working — this usually takes a few seconds.</div>
+          </div>
+        ) : result ? (
+          <>
+            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6, color: '#16a34a', marginBottom: 7 }}>
+              {result.ai ? 'GENERATED WITH YOUR AI PROVIDER' : 'STARTER DRAFT — ADD AN AI PROVIDER FOR PERSONALISED COPY'}
+            </div>
+            <div style={{ padding: 16, borderRadius: 12, border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: 14.5, lineHeight: 1.7, whiteSpace: 'pre-wrap', marginBottom: 16, maxHeight: 220, overflowY: 'auto', color: '#0f172a' }}>
+              {result.text}
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button type="button" onClick={() => onApply(result.text)} className="btn-primary" style={primaryBtn}>
+                <Check size={15} /> Use this text
+              </button>
+              <button type="button" onClick={run} style={ghostBtn}>
+                <RefreshCw size={14} /> Try again
+              </button>
+              <button type="button" onClick={() => setResult(null)} style={ghostBtn}>
+                Edit instructions
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <label style={labelStyle}>What should the AI focus on? (optional)</label>
+            <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={3}
+              placeholder={meta.ph || 'Anything special to include — the AI weaves it in naturally'}
+              style={{ ...inputStyle, resize: 'vertical', marginBottom: 14 }} />
+            <label style={labelStyle}>Tone</label>
+            <select value={tone} onChange={(e) => setTone(e.target.value)} style={{ ...inputStyle, marginBottom: 18 }}>
+              <option value="warm">Warm & inviting</option>
+              <option value="professional">Professional</option>
+              <option value="spiritual">Spiritual / devotional</option>
+              <option value="friendly">Friendly & easygoing</option>
+            </select>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="button" onClick={run} className="btn-primary" style={primaryBtn}>
+                <Sparkles size={15} /> Generate
+              </button>
+              <button type="button" onClick={onClose} style={ghostBtn}>Cancel</button>
+            </div>
+            <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 12, lineHeight: 1.5 }}>
+              Uses the AI provider from your AI Providers tab — without one you still get solid starter copy.
+            </div>
+          </>
+        )}
+      </motion.div>
+    </div>
+  )
+}
+
 // ═══════════════ CONTENT TAB (pages editor + AI copy generation) ═══════════════
 function ContentTab({ site, reload }) {
   const [pageKey, setPageKey] = useState('home')
@@ -247,9 +395,7 @@ function ContentTab({ site, reload }) {
   const page = pages.find((p) => p.page_key === pageKey) || { content: {} }
   const [content, setContent] = useState(page.content || {})
   const [saving, setSaving] = useState(false)
-  const [tone, setTone] = useState('warm')
-  const [keywords, setKeywords] = useState('')
-  const [genBusy, setGenBusy] = useState('')
+  const [aiDialog, setAiDialog] = useState(null) // { field, contextKey } → AiWriterDialog
 
   useEffect(() => { setContent(page.content || {}) }, [pageKey, site.updated_at]) // eslint-disable-line
 
@@ -266,47 +412,18 @@ function ContentTab({ site, reload }) {
 
   const set = (k, v) => setContent((c) => ({ ...c, [k]: v }))
 
-  // field: one of the backend's supported fields; context_key disambiguates
-  // which service/page when generating pageTitle/pageText/serviceDescription.
-  const generate = async (field, contextKey) => {
-    setGenBusy(contextKey ? `${field}:${contextKey}` : field)
-    try {
-      const res = await aiGenerateSiteContent(site.id, {
-        field, tone, keywords: keywords || undefined, context_key: contextKey || undefined,
-      })
-      if (res?.text) {
-        // serviceDescription edits live in the Services tab — surface it as
-        // a toast to copy instead of writing into this page's content.
-        if (field === 'serviceDescription') {
-          toast(`Suggested description: ${res.text}`, { duration: 8000 })
-        } else {
-          set(field, res.text)
-          toast.success(res.ai ? 'Generated with AI — edit freely' : 'Draft generated (add an AI provider for personalised copy)')
-        }
-      } else {
-        toast.error('Could not generate — try again')
-      }
-    } catch {
-      toast.error('Could not generate — try again')
-    } finally { setGenBusy('') }
-  }
-
-  const GenBtn = ({ field, contextKey }) => {
-    const myKey = contextKey ? `${field}:${contextKey}` : field
-    return (
-      <button type="button" onClick={() => generate(field, contextKey)} disabled={!!genBusy}
-        title="Write this for me with AI"
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 5, marginLeft: 10, padding: '5px 12px',
-          borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: genBusy ? 'wait' : 'pointer',
-          border: '1px solid rgba(79,70,229,0.35)', color: '#4f46e5', background: 'rgba(79,70,229,0.06)',
-          opacity: genBusy && genBusy !== myKey ? 0.55 : 1,
-        }}>
-        {genBusy === myKey ? <Loader2 size={12} className="spin" /> : <Sparkles size={12} />}
-        {genBusy === myKey ? 'Writing…' : 'Write with AI'}
-      </button>
-    )
-  }
+  // Opens the shared AI writer: shows field context, asks what to focus on,
+  // generates with a visible working state, previews before applying.
+  const GenBtn = ({ field, contextKey }) => (
+    <button type="button" onClick={() => setAiDialog({ field, contextKey })} title="Write this for me with AI"
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5, marginLeft: 10, padding: '5px 12px',
+        borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+        border: '1px solid rgba(79,70,229,0.35)', color: '#4f46e5', background: 'rgba(79,70,229,0.06)',
+      }}>
+      <Sparkles size={12} /> Write with AI
+    </button>
+  )
 
   const testiList = Array.isArray(content.testimonials) ? content.testimonials : []
   const setTesti = (i, patch) => setContent((c) => ({
@@ -316,30 +433,17 @@ function ContentTab({ site, reload }) {
 
   const aiCard = (
     <div style={{
-      border: '1px dashed rgba(79,70,229,0.35)', borderRadius: 14, padding: '14px 18px',
+      display: 'flex', alignItems: 'flex-start', gap: 9,
+      border: '1px dashed rgba(79,70,229,0.35)', borderRadius: 14, padding: '12px 16px',
       marginBottom: 20, background: 'rgba(79,70,229,0.03)',
+      fontSize: 13, color: '#64748b', lineHeight: 1.6,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8, fontSize: 13, fontWeight: 700 }}>
-        <Sparkles size={14} color="#4f46e5" /> AI writing assistant
-      </div>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <div style={{ minWidth: 160 }}>
-          <label style={{ ...labelStyle, fontSize: 11 }}>Tone</label>
-          <select value={tone} onChange={(e) => setTone(e.target.value)} style={{ ...inputStyle, padding: '8px 10px', fontSize: 13 }}>
-            <option value="warm">Warm & inviting</option>
-            <option value="professional">Professional</option>
-            <option value="spiritual">Spiritual / devotional</option>
-            <option value="friendly">Friendly & easygoing</option>
-          </select>
-        </div>
-        <div style={{ flex: 1, minWidth: 220 }}>
-          <label style={{ ...labelStyle, fontSize: 11 }}>Keywords / themes (optional)</label>
-          <input value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="e.g. 15 years experience, specialization in career & marriage" style={{ ...inputStyle, fontSize: 13 }} />
-        </div>
-      </div>
-      <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 8 }}>
-        Uses the AI provider you configured in the AI Providers tab. Without one, you still get solid starter copy.
-      </div>
+      <Sparkles size={14} color="#4f46e5" style={{ flexShrink: 0, marginTop: 3 }} />
+      <span>
+        Tap <b style={{ color: '#4f46e5' }}>Write with AI</b> on any field — it explains what it will write,
+        asks what you want to focus on, and drafts the copy for you in seconds.
+        Uses the AI provider from your <b>AI Providers</b> tab.
+      </span>
     </div>
   )
 
@@ -556,6 +660,20 @@ function ContentTab({ site, reload }) {
           <Save size={15} /> {saving ? 'Saving…' : 'Save changes'}
         </button>
       </div>
+
+      {aiDialog && (
+        <AiWriterDialog
+          site={site}
+          field={aiDialog.field}
+          contextKey={aiDialog.contextKey}
+          onClose={() => setAiDialog(null)}
+          onApply={(text) => {
+            set(aiDialog.field, text)
+            setAiDialog(null)
+            toast.success('Added — edit freely, then Save changes')
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -724,6 +842,7 @@ function DesignTab({ site, reload }) {
 function ServicesTab({ site, reload }) {
   const [svc, setSvc] = useState({ name: '', description: '', duration_minutes: 30, price: 500 })
   const [busy, setBusy] = useState(false)
+  const [aiDialog, setAiDialog] = useState(false) // serviceDescription writer
 
   const addService = async () => {
     if (!svc.name.trim()) return toast.error('Give the service a name')
@@ -757,28 +876,40 @@ function ServicesTab({ site, reload }) {
     <div>
       <div style={cardStyle}>
         <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 18 }}>Your consultation services</h3>
-        {(site.services || []).map((s) => (
-          <div key={s.id} style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
-            padding: '14px 16px', border: '1px solid #e2e8f0', borderRadius: 12, marginBottom: 10, flexWrap: 'wrap',
-          }}>
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <div style={{ fontWeight: 600, fontSize: 15 }}>{s.name} {!s.is_active && <span style={{ color: '#94a3b8', fontSize: 12 }}>(hidden)</span>}</div>
-              <div style={{ color: '#64748b', fontSize: 13 }}>{s.description}</div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>₹{s.price}</div>
-              <div style={{ color: '#64748b', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}><Clock size={13} /> {s.duration_minutes}m</div>
-              <button onClick={() => toggleActive(s)} title={s.is_active ? 'Hide from site' : 'Show on site'}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: s.is_active ? '#16a34a' : '#94a3b8' }}>
-                {s.is_active ? <Eye size={17} /> : <EyeOff size={17} />}
-              </button>
-              <button onClick={() => remove(s)} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}>
-                <Trash2 size={16} />
-              </button>
-            </div>
-          </div>
-        ))}
+        <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, overflowX: 'auto', marginBottom: 6 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5, minWidth: 640 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                {['Service', 'Price', 'Duration', 'Visible', ''].map((h) => (
+                  <th key={h} style={{ textAlign: 'left', padding: '10px 14px', fontSize: 11.5, fontWeight: 800, color: '#64748b' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(site.services || []).map((s) => (
+                <tr key={s.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '10px 14px' }}>
+                    <div style={{ fontWeight: 700 }}>{s.name} {!s.is_active && <span style={{ color: '#94a3b8', fontSize: 11.5 }}>(hidden)</span>}</div>
+                    {s.description && <div style={{ color: '#64748b', fontSize: 12.5, maxWidth: 380 }}>{s.description}</div>}
+                  </td>
+                  <td style={{ padding: '10px 14px', fontWeight: 700 }}>₹{s.price}</td>
+                  <td style={{ padding: '10px 14px', color: '#64748b' }}>{s.duration_minutes} min</td>
+                  <td style={{ padding: '10px 14px' }}>
+                    <button onClick={() => toggleActive(s)} title={s.is_active ? 'Hide from site' : 'Show on site'}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: s.is_active ? '#16a34a' : '#94a3b8' }}>
+                      {s.is_active ? <Eye size={16} /> : <EyeOff size={16} />}
+                    </button>
+                  </td>
+                  <td style={{ padding: '10px 14px' }}>
+                    <button onClick={() => remove(s)} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}>
+                      <Trash2 size={15} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 18, marginTop: 8 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 14 }}>
             <div style={{ gridColumn: '1 / -1' }}>
@@ -787,12 +918,9 @@ function ServicesTab({ site, reload }) {
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Description (optional)
-                <button type="button" onClick={async () => {
+                <button type="button" onClick={() => {
                   if (!svc.name.trim()) return toast.error('Give the service a name first')
-                  try {
-                    const res = await aiGenerateSiteContent(site.id, { field: 'serviceDescription', context_key: svc.name.trim() })
-                    if (res?.text) setSvc((s) => ({ ...s, description: res.text }))
-                  } catch { toast.error('Could not generate') }
+                  setAiDialog(true)
                 }} style={{ marginLeft: 8, padding: '3px 10px', borderRadius: 7, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', border: '1px solid rgba(79,70,229,0.35)', color: '#4f46e5', background: 'rgba(79,70,229,0.06)' }}>
                   ✨ Write with AI
                 </button>
@@ -813,6 +941,20 @@ function ServicesTab({ site, reload }) {
           </button>
         </div>
       </div>
+
+      {aiDialog && (
+        <AiWriterDialog
+          site={site}
+          field="serviceDescription"
+          contextKey={svc.name.trim()}
+          onClose={() => setAiDialog(false)}
+          onApply={(text) => {
+            setSvc((s) => ({ ...s, description: text }))
+            setAiDialog(false)
+            toast.success('Description added — Add the service to save it')
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -860,7 +1002,7 @@ function StoreTab({ site, reload }) {
   const [pushSel, setPushSel] = useState([])
   const [products, setProducts] = useState(null)
   const [orders, setOrders] = useState(null)
-  const [form, setForm] = useState({ name: '', description: '', price: 500, stock: -1 })
+  const [form, setForm] = useState({ name: '', description: '', price: 500, stock: -1, category: '' })
   const [busy, setBusy] = useState(false)
   const [connecting, setConnecting] = useState(null) // provider id while awaiting redirect
 
@@ -1285,7 +1427,14 @@ function StoreTab({ site, reload }) {
               Products curated by AstroVakta. Your cost = MRP − margin. List at MRP or set your own price — you keep the difference.
             </p>
             {!catalog ? <DashboardLoader label="Loading catalog" size={44} /> : (
-              (catalog.products || []).map((mp) => (
+              <>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                <button onClick={() => setImportCat('all')} style={{ padding: '7px 14px', borderRadius: 999, cursor: 'pointer', fontSize: 12.5, fontWeight: 700, border: '1.5px solid ' + (importCat === 'all' ? '#4f46e5' : '#e2e8f0'), background: importCat === 'all' ? '#4f46e5' : '#fff', color: importCat === 'all' ? '#fff' : '#475569' }}>All categories</button>
+                {(catalog.categories || []).map((c) => (
+                  <button key={c.id} onClick={() => setImportCat(c.name)} style={{ padding: '7px 14px', borderRadius: 999, cursor: 'pointer', fontSize: 12.5, fontWeight: 700, border: '1.5px solid ' + (importCat === c.name ? '#4f46e5' : '#e2e8f0'), background: importCat === c.name ? '#4f46e5' : '#fff', color: importCat === c.name ? '#fff' : '#475569' }}>{c.name}</button>
+                ))}
+              </div>
+              {(catalog.products || []).filter((mp) => importCat === 'all' || mp.category === importCat).map((mp) => (
                 <div key={mp.id} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f1f5f9', flexWrap: 'wrap' }}>
                   {mp.image ? <img src={mp.image} alt="" style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover' }} /> : <div style={{ width: 52, height: 52, borderRadius: 10, background: '#f1f5f9' }} />}
                   <div style={{ flex: 1, minWidth: 180 }}>
@@ -1305,7 +1454,8 @@ function StoreTab({ site, reload }) {
                     </div>
                   )}
                 </div>
-              ))
+              ))}
+              </>
             )}
           </div>
         )}
@@ -1348,36 +1498,61 @@ function StoreTab({ site, reload }) {
             </div>
           )}
 
-          <div style={cardStyle}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Add a product</h3>
-            <form onSubmit={addProduct}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 14 }}>
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>Product name</label>
-                  <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Yellow Sapphire (Pukhraj) 5.25 ct" style={inputStyle} />
-                </div>
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>Description (optional)</label>
-                  <input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Certified, government-lab tested" style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Price (₹)</label>
-                  <input type="number" min="0" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: +e.target.value }))} style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Stock (-1 = unlimited)</label>
-                  <input type="number" min="-1" value={form.stock} onChange={(e) => setForm((f) => ({ ...f, stock: +e.target.value }))} style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Photo (optional)</label>
-                  <input type="file" name="photo" accept="image/*" style={{ ...inputStyle, padding: '7px 10px', fontSize: 12 }} />
-                </div>
-              </div>
-              <button type="submit" disabled={busy} className="btn-primary" style={{ ...primaryBtn, opacity: busy ? 0.6 : 1 }}>
-                <Plus size={15} /> {busy ? 'Adding…' : 'Add product'}
+          {addMode === null ? (
+            <div style={{ ...cardStyle, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+              <button onClick={() => setAddMode('own')} style={{ padding: '18px', borderRadius: 14, border: '2px solid #e2e8f0', background: '#fff', cursor: 'pointer', textAlign: 'left' }}>
+                <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>➕ Add your own product</div>
+                <div style={{ fontSize: 12.5, color: '#64748b', lineHeight: 1.5 }}>Create a product from scratch — name, price, stock and photos.</div>
               </button>
-            </form>
-          </div>
+              <button onClick={() => setSub('catalog')} style={{ padding: '18px', borderRadius: 14, border: '2px solid rgba(79,70,229,0.4)', background: 'rgba(79,70,229,0.05)', cursor: 'pointer', textAlign: 'left' }}>
+                <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>📦 Import products from AstroVakta</div>
+                <div style={{ fontSize: 12.5, color: '#64748b', lineHeight: 1.5 }}>Browse the master catalog by category — certified products with ready photos & details.</div>
+              </button>
+            </div>
+          ) : (
+            <div style={cardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <h3 style={{ fontSize: 15, fontWeight: 700 }}>Add your own product</h3>
+                <button onClick={() => setAddMode(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: 13, textDecoration: 'underline' }}>Close</button>
+              </div>
+              <form onSubmit={async (e) => { const ok = await addProduct(e); if (ok !== false) setAddMode(null) }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 14 }}>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={labelStyle}>Product name</label>
+                    <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Yellow Sapphire (Pukhraj) 5.25 ct" style={inputStyle} />
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={labelStyle}>Category (optional — type a new one or pick existing)</label>
+                    <input list="prod-cats" value={form.category || ''} onChange={(e) => setForm((f2) => ({ ...f2, category: e.target.value }))} placeholder="Gemstones / Rudraksha / Bracelets…" style={inputStyle} />
+                    <datalist id="prod-cats">
+                      {[...new Set([...(catalog?.categories || []).map((c) => c.name), ...products.map((p2) => p2.category).filter(Boolean)])].map((c) => (
+                        <option key={c} value={c} />
+                      ))}
+                    </datalist>
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={labelStyle}>Description (optional)</label>
+                    <input value={form.description} onChange={(e) => setForm((f2) => ({ ...f2, description: e.target.value }))} placeholder="Certified, government-lab tested" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Price (₹)</label>
+                    <input type="number" min="0" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: +e.target.value }))} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Stock (-1 = unlimited)</label>
+                    <input type="number" min="-1" value={form.stock} onChange={(e) => setForm((f) => ({ ...f, stock: +e.target.value }))} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Photo (optional)</label>
+                    <input type="file" name="photo" accept="image/*" style={{ ...inputStyle, padding: '7px 10px', fontSize: 12 }} />
+                  </div>
+                </div>
+                <button type="submit" disabled={busy} className="btn-primary" style={{ ...primaryBtn, opacity: busy ? 0.6 : 1 }}>
+                  <Plus size={15} /> {busy ? 'Adding…' : 'Add product'}
+                </button>
+              </form>
+            </div>
+          )}
         </>
       )}
 
@@ -1507,60 +1682,390 @@ function HoursTab({ site, reload }) {
   )
 }
 
-// ═══════════════ LEADS TAB ═══════════════
-function LeadsTab({ site }) {
-  const [leads, setLeads] = useState(null)
+// ═══════════════ LEADS & CLIENTS TAB ═══════════════
+const _th = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: '#94a3b8', textAlign: 'left', padding: '10px 14px', borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }
+const _td = { padding: '12px 14px', fontSize: 13.5, borderBottom: '1px solid #f1f5f9', verticalAlign: 'middle' }
 
-  const load = () => getMyLeads(site.id).then(setLeads).catch(() => setLeads([]))
+function DataTable({ head, children }) {
+  return (
+    <div style={{ ...cardStyle, padding: 0, overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
+        <thead><tr>{head.map((h, i) => <th key={i} style={_th}>{h}</th>)}</tr></thead>
+        <tbody>{children}</tbody>
+      </table>
+    </div>
+  )
+}
+
+function Modal({ title, onClose, children, wide }) {
+  return (
+    <>
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', zIndex: 90 }} onClick={onClose} />
+      <div style={{
+        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 95,
+        background: '#fff', borderRadius: 18, padding: 26, width: wide ? 'min(680px, calc(100vw - 32px))' : 'min(440px, calc(100vw - 32px))',
+        maxHeight: 'calc(100vh - 60px)', overflowY: 'auto', boxShadow: '0 24px 70px rgba(15,23,42,0.28)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>{title}</h3>
+          <button onClick={onClose} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: 'none', background: '#f1f5f9', color: '#475569', cursor: 'pointer' }}>
+            <X size={16} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </>
+  )
+}
+
+const waLink = (phone) => {
+  const digits = (phone || '').replace(/[^\d]/g, '')
+  if (digits.length === 10) return `https://wa.me/91${digits}`
+  if (digits.length > 10) return `https://wa.me/${digits}`
+  return null
+}
+
+const invoicePublicUrl = (inv) => `${window.location.origin}/invoice/${inv.token}`
+
+function LeadsClientsTab({ site }) {
+  const [view, setView] = useState('leads')            // leads | clients | invoices
+  const [leads, setLeads] = useState(null)
+  const [clients, setClients] = useState(null)
+  const [invoices, setInvoices] = useState(null)
+  const [clientForm, setClientForm] = useState(null)   // { id?, name, email, phone, notes }
+  const [saving, setSaving] = useState(false)
+  const [invoiceFor, setInvoiceFor] = useState(null)   // client → open composer
+
+  const load = () => {
+    getMyLeads(site.id).then(setLeads).catch(() => setLeads([]))
+    getMyClients(site.id).then(setClients).catch(() => setClients([]))
+    getMyInvoices(site.id).then(setInvoices).catch(() => setInvoices([]))
+  }
   useEffect(() => { load() }, [site.id]) // eslint-disable-line
 
-  const waLink = (phone) => {
-    const digits = (phone || '').replace(/[^\d]/g, '')
-    if (digits.length === 10) return `https://wa.me/91${digits}`
-    if (digits.length > 10) return `https://wa.me/${digits}`
-    return null
+  const convert = async (l) => {
+    try {
+      await convertMyLead(site.id, l.id)
+      toast.success(`${l.name || 'Lead'} added to your clients`)
+      load()
+    } catch (e) { toast.error(errDetail(e, 'Could not convert lead')) }
   }
+
+  const saveClient = async (e) => {
+    e?.preventDefault?.()
+    if (!clientForm.name?.trim()) return toast.error('Name is required')
+    setSaving(true)
+    try {
+      const data = { name: clientForm.name.trim(), email: clientForm.email?.trim() || null, phone: clientForm.phone?.trim() || null, notes: clientForm.notes?.trim() || null }
+      if (clientForm.id) await updateMyClient(site.id, clientForm.id, data)
+      else await createMyClient(site.id, data)
+      toast.success(clientForm.id ? 'Client updated' : 'Client added')
+      setClientForm(null); load()
+    } catch (e2) { toast.error(errDetail(e2, 'Could not save client')) } finally { setSaving(false) }
+  }
+
+  const removeClient = async (c) => {
+    if (!window.confirm(`Remove ${c.name} from clients? Their invoices stay on record.`)) return
+    try { await deleteMyClient(site.id, c.id); toast.success('Client removed'); load() }
+    catch (e) { toast.error(errDetail(e, 'Could not remove client')) }
+  }
+
+  const sendInvoice = async (inv) => {
+    try {
+      await sendMyInvoice(site.id, inv.id)
+      toast.success(`Invoice ${inv.number} emailed to ${inv.client_name}`)
+      load()
+    } catch (e) { toast.error(errDetail(e, 'Could not send email')) }
+  }
+
+  const shareInvoice = async (inv) => {
+    const url = invoicePublicUrl(inv)
+    const msg = `Namaste 🙏 Here is your invoice ${inv.number} from ${site.name} — ${url}`
+    const link = waLink(inv.client_phone)
+    if (link) window.open(`${link}?text=${encodeURIComponent(msg)}`, '_blank')
+    else {
+      try { await navigator.clipboard.writeText(msg); toast.success('Invoice link copied — paste it in WhatsApp') }
+      catch { toast.error('Could not copy the link') }
+    }
+  }
+
+  const markPaid = async (inv) => {
+    try { await setMyInvoiceStatus(site.id, inv.id, 'paid'); toast.success(`Invoice ${inv.number} marked paid`); load() }
+    catch (e) { toast.error(errDetail(e, 'Could not update invoice')) }
+  }
+
+  const removeInvoice = async (inv) => {
+    if (!window.confirm(`Delete invoice ${inv.number}? This cannot be undone.`)) return
+    try { await deleteMyInvoice(site.id, inv.id); toast.success('Invoice deleted'); load() }
+    catch (e) { toast.error(errDetail(e, 'Could not delete invoice')) }
+  }
+
+  const chip = (status) => {
+    const s = { draft: ['rgba(148,163,184,0.15)', '#64748b'], sent: ['rgba(59,130,246,0.12)', '#2563eb'], paid: ['rgba(34,197,94,0.12)', '#16a34a'] }[status] || ['rgba(148,163,184,0.15)', '#64748b']
+    return <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 12, background: s[0], color: s[1] }}>{status}</span>
+  }
+
+  const count = { leads: leads?.length ?? 0, clients: clients?.length ?? 0, invoices: invoices?.length ?? 0 }
 
   return (
     <div>
-      <p style={{ color: '#475569', fontSize: 14, marginBottom: 20 }}>
-        People who used your free tools (kundli etc.) and shared their contact — a warm list of potential clients.
-      </p>
-      {leads === null ? (
-        <DashboardLoader label="Loading leads" />
-      ) : leads.length === 0 ? (
-        <div style={{ ...cardStyle, textAlign: 'center', color: '#64748b', padding: 48 }}>
-          <Users size={32} style={{ marginBottom: 12 }} />
-          <div>No leads yet. Your free kundli tool collects contacts automatically — share your site link to grow your client list.</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {[['leads', 'Leads', Users], ['clients', 'Clients', UserPlus], ['invoices', 'Invoices', InvoiceIcon]].map(([v, l, Icon]) => (
+            <button key={v} onClick={() => setView(v)} style={{
+              ...ghostBtn, padding: '8px 18px', fontSize: 13.5,
+              background: view === v ? 'rgba(79,70,229,0.08)' : 'transparent',
+              borderColor: view === v ? '#4f46e5' : '#e2e8f0',
+              color: view === v ? '#4f46e5' : '#0f172a',
+            }}>
+              <Icon size={14} /> {l} {count[v] > 0 && <span style={{ opacity: 0.6 }}>({count[v]})</span>}
+            </button>
+          ))}
         </div>
-      ) : (
-        leads.map((l) => (
-          <div key={l.id} style={{ ...cardStyle, padding: '16px 20px', marginBottom: 10, display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <span style={{ fontWeight: 700, fontSize: 15 }}>{l.name || 'Anonymous'}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 12, background: 'rgba(79,70,229,0.08)', color: '#4f46e5' }}>
-                  {l.tool === 'kundli' ? 'Free Kundli' : l.tool}
-                </span>
-              </div>
-              <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
-                {l.phone ? `${l.phone} · ` : ''}{l.details?.date ? `Born ${l.details.date} ${l.details.time || ''}` : ''}{l.details?.place ? ` · ${l.details.place}` : ''}
-              </div>
-              <div style={{ color: '#94a3b8', fontSize: 12, marginTop: 2 }}>
-                {l.details?.ascendant ? `Ascendant ${l.details.ascendant}` : ''}{l.details?.moonSign ? ` · Moon ${l.details.moonSign}` : ''} · {new Date(l.created_at).toLocaleDateString()}
-              </div>
+        {view === 'clients' && (
+          <button onClick={() => setClientForm({ name: '', email: '', phone: '', notes: '' })} className="btn-primary" style={{ ...primaryBtn, padding: '9px 18px', fontSize: 13.5 }}>
+            <UserPlus size={15} /> Add client
+          </button>
+        )}
+        {view === 'invoices' && (
+          <button
+            onClick={() => (clients?.length ? setInvoiceFor(clients[0]) : toast.error('Add a client first'))}
+            className="btn-primary" style={{ ...primaryBtn, padding: '9px 18px', fontSize: 13.5 }}>
+            <InvoiceIcon size={15} /> New invoice
+          </button>
+        )}
+      </div>
+
+      {/* ── LEADS ── */}
+      {view === 'leads' && (leads === null
+        ? <DashboardLoader label="Loading leads" />
+        : leads.length === 0
+          ? <div style={{ ...cardStyle, textAlign: 'center', color: '#64748b', padding: 48 }}>
+              <Users size={32} style={{ marginBottom: 12 }} />
+              <div>No leads yet. Your free kundli tool collects contacts automatically — share your site link to grow your client list.</div>
             </div>
-            {l.phone && waLink(l.phone) && (
-              <a href={waLink(l.phone)} target="_blank" rel="noopener noreferrer">
-                <button className="btn-primary" style={{ padding: '8px 16px', fontSize: 13 }}>
-                  WhatsApp <ArrowRight size={13} />
-                </button>
-              </a>
-            )}
-          </div>
-        ))
+          : <DataTable head={['Name', 'Contact', 'Source', 'Birth details', 'Captured', '']}>
+              {leads.map((l) => (
+                <tr key={l.id}>
+                  <td style={{ ..._td, fontWeight: 700 }}>{l.name || 'Anonymous'}</td>
+                  <td style={_td}>
+                    <div>{l.phone || '—'}</div>
+                    {l.email && <div style={{ fontSize: 12, color: '#94a3b8' }}>{l.email}</div>}
+                  </td>
+                  <td style={_td}><span style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 12, background: 'rgba(79,70,229,0.08)', color: '#4f46e5' }}>{l.tool === 'kundli' ? 'Free Kundli' : l.tool}</span></td>
+                  <td style={{ ..._td, color: '#64748b', fontSize: 12.5 }}>
+                    {l.details?.date ? `${l.details.date} ${l.details.time || ''}` : '—'}{l.details?.place ? ` · ${l.details.place}` : ''}
+                  </td>
+                  <td style={{ ..._td, color: '#94a3b8', fontSize: 12.5, whiteSpace: 'nowrap' }}>{l.created_at ? new Date(l.created_at).toLocaleDateString() : '—'}</td>
+                  <td style={{ ..._td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    {l.client_id ? (
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#16a34a', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                        <Check size={14} /> Client
+                      </span>
+                    ) : (
+                      <button onClick={() => convert(l)} style={{ ...ghostBtn, padding: '6px 14px', fontSize: 12.5, borderColor: 'rgba(34,197,94,0.45)', color: '#16a34a' }}>
+                        <UserPlus size={13} /> Convert
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </DataTable>)}
+
+      {/* ── CLIENTS ── */}
+      {view === 'clients' && (clients === null
+        ? <DashboardLoader label="Loading clients" />
+        : clients.length === 0
+          ? <div style={{ ...cardStyle, textAlign: 'center', color: '#64748b', padding: 48 }}>
+              <UserPlus size={32} style={{ marginBottom: 12 }} />
+              <div>No clients yet. Convert a lead above or add one manually — then invoice them in one click.</div>
+            </div>
+          : <DataTable head={['Name', 'Contact', 'Source', 'Added', '']}>
+              {clients.map((c) => (
+                <tr key={c.id}>
+                  <td style={{ ..._td, fontWeight: 700 }}>{c.name}</td>
+                  <td style={_td}>
+                    <div>{c.phone || '—'}</div>
+                    {c.email && <div style={{ fontSize: 12, color: '#94a3b8' }}>{c.email}</div>}
+                  </td>
+                  <td style={_td}>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 12, background: c.source === 'lead' ? 'rgba(234,179,8,0.12)' : 'rgba(148,163,184,0.15)', color: c.source === 'lead' ? '#b45309' : '#64748b' }}>
+                      {c.source === 'lead' ? 'Converted lead' : 'Manual'}
+                    </span>
+                  </td>
+                  <td style={{ ..._td, color: '#94a3b8', fontSize: 12.5, whiteSpace: 'nowrap' }}>{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
+                  <td style={{ ..._td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                      <button onClick={() => setInvoiceFor(c)} style={{ ...ghostBtn, padding: '6px 12px', fontSize: 12 }}>
+                        <InvoiceIcon size={13} /> Invoice
+                      </button>
+                      <button onClick={() => setClientForm(c)} style={{ ...ghostBtn, padding: '6px 12px', fontSize: 12 }}>
+                        <Pencil size={13} />
+                      </button>
+                      <button onClick={() => removeClient(c)} style={{ ...ghostBtn, padding: '6px 12px', fontSize: 12, borderColor: 'rgba(239,68,68,0.35)', color: '#ef4444' }}>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </DataTable>)}
+
+      {/* ── INVOICES ── */}
+      {view === 'invoices' && (invoices === null
+        ? <DashboardLoader label="Loading invoices" />
+        : invoices.length === 0
+          ? <div style={{ ...cardStyle, textAlign: 'center', color: '#64748b', padding: 48 }}>
+              <InvoiceIcon size={32} style={{ marginBottom: 12 }} />
+              <div>No invoices yet. Create one for a client — it gets a shareable link you can send by email or WhatsApp.</div>
+            </div>
+          : <DataTable head={['Invoice', 'Client', 'Amount', 'Status', 'Due', '']}>
+              {invoices.map((inv) => (
+                <tr key={inv.id}>
+                  <td style={{ ..._td, fontWeight: 700, whiteSpace: 'nowrap' }}>{inv.number}</td>
+                  <td style={_td}>{inv.client_name}</td>
+                  <td style={{ ..._td, fontWeight: 800 }}>₹{inv.total}</td>
+                  <td style={_td}>{chip(inv.status)}</td>
+                  <td style={{ ..._td, color: '#64748b', fontSize: 12.5, whiteSpace: 'nowrap' }}>{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : '—'}</td>
+                  <td style={{ ..._td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                      <a href={invoicePublicUrl(inv)} target="_blank" rel="noopener noreferrer" style={{ ...ghostBtn, padding: '6px 12px', fontSize: 12, textDecoration: 'none' }}>
+                        <ExternalLink size={13} />
+                      </a>
+                      <button onClick={() => sendInvoice(inv)} disabled={!inv.client_email} title={inv.client_email ? `Email to ${inv.client_email}` : 'No email on this client'} style={{ ...ghostBtn, padding: '6px 12px', fontSize: 12, opacity: inv.client_email ? 1 : 0.4 }}>
+                        <Mail size={13} />
+                      </button>
+                      <button onClick={() => shareInvoice(inv)} title="Send on WhatsApp" style={{ ...ghostBtn, padding: '6px 12px', fontSize: 12 }}>
+                        <MessageCircle size={13} />
+                      </button>
+                      {inv.status !== 'paid' && (
+                        <button onClick={() => markPaid(inv)} style={{ ...ghostBtn, padding: '6px 12px', fontSize: 12, borderColor: 'rgba(34,197,94,0.45)', color: '#16a34a' }}>
+                          <Check size={13} /> Paid
+                        </button>
+                      )}
+                      <button onClick={() => removeInvoice(inv)} style={{ ...ghostBtn, padding: '6px 12px', fontSize: 12, borderColor: 'rgba(239,68,68,0.35)', color: '#ef4444' }}>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </DataTable>)}
+
+      {/* ── add / edit client modal ── */}
+      {clientForm && (
+        <Modal title={clientForm.id ? 'Edit client' : 'Add client'} onClose={() => setClientForm(null)}>
+          <form onSubmit={saveClient} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div><label style={labelStyle}>Name *</label>
+              <input value={clientForm.name || ''} onChange={(e) => setClientForm((f) => ({ ...f, name: e.target.value }))} placeholder="Full name" style={inputStyle} autoFocus /></div>
+            <div><label style={labelStyle}>Email (for invoices)</label>
+              <input type="email" value={clientForm.email || ''} onChange={(e) => setClientForm((f) => ({ ...f, email: e.target.value }))} placeholder="you@example.com" style={inputStyle} /></div>
+            <div><label style={labelStyle}>Phone (WhatsApp)</label>
+              <input value={clientForm.phone || ''} onChange={(e) => setClientForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+91 98xxxxxxx" style={inputStyle} /></div>
+            <div><label style={labelStyle}>Notes</label>
+              <textarea value={clientForm.notes || ''} onChange={(e) => setClientForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Birth details, preferences…" rows={3} style={{ ...inputStyle, resize: 'vertical' }} /></div>
+            <button type="submit" disabled={saving} className="btn-primary" style={{ ...primaryBtn, opacity: saving ? 0.6 : 1 }}>
+              {saving ? 'Saving…' : clientForm.id ? 'Save changes' : 'Add client'}
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {/* ── invoice composer ── */}
+      {invoiceFor && (
+        <InvoiceComposer
+          site={site}
+          clients={clients || []}
+          initialClientId={invoiceFor.id}
+          onClose={() => setInvoiceFor(null)}
+          onCreated={() => { setInvoiceFor(null); setView('invoices'); load() }}
+        />
       )}
     </div>
+  )
+}
+
+// Invoice composer: pick client, line items, tax, due date → creates a draft invoice
+function InvoiceComposer({ site, clients, initialClientId, onClose, onCreated }) {
+  const [clientId, setClientId] = useState(initialClientId || clients[0]?.id)
+  const [items, setItems] = useState([{ name: '', qty: 1, price: 0 }])
+  const [taxRate, setTaxRate] = useState(0)
+  const [dueDate, setDueDate] = useState('')
+  const [notes, setNotes] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const setItem = (i, k, v) => setItems((arr) => arr.map((it, j) => (j === i ? { ...it, [k]: k === 'name' ? v : k === 'price' ? v : Math.max(1, Number(v) || 1) } : it)))
+  const subtotal = items.reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.qty) || 1), 0)
+  const tax = Math.round(subtotal * (Number(taxRate) || 0) / 100)
+
+  const create = async () => {
+    const clean = items.filter((it) => it.name?.trim())
+    if (!clientId) return toast.error('Pick a client')
+    if (!clean.length) return toast.error('Add at least one item')
+    setSaving(true)
+    try {
+      await createMyInvoice(site.id, {
+        client_id: clientId, items: clean, tax_rate: Number(taxRate) || 0,
+        due_date: dueDate || null, notes: notes.trim() || null,
+      })
+      toast.success('Invoice created — send it by email or WhatsApp')
+      onCreated()
+    } catch (e) { toast.error(errDetail(e, 'Could not create invoice')) } finally { setSaving(false) }
+  }
+
+  return (
+    <Modal title="New invoice" onClose={onClose} wide>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+          <div><label style={labelStyle}>Client *</label>
+            <select value={clientId || ''} onChange={(e) => setClientId(Number(e.target.value))} style={inputStyle}>
+              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}{c.email ? ` — ${c.email}` : ''}</option>)}
+            </select></div>
+          <div><label style={labelStyle}>Due date</label>
+            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} style={inputStyle} /></div>
+        </div>
+
+        <div>
+          <label style={labelStyle}>Items *</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 110px 34px', gap: 8, fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>
+              <span>Description</span><span>Qty</span><span>Price (₹)</span><span />
+            </div>
+            {items.map((it, i) => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 110px 34px', gap: 8, alignItems: 'center' }}>
+                <input value={it.name} onChange={(e) => setItem(i, 'name', e.target.value)} placeholder="e.g. Consultation — 1 hour" style={inputStyle} />
+                <input type="number" min="1" value={it.qty} onChange={(e) => setItem(i, 'qty', e.target.value)} style={inputStyle} />
+                <input type="number" min="0" value={it.price} onChange={(e) => setItem(i, 'price', e.target.value)} style={inputStyle} />
+                <button type="button" onClick={() => setItems((arr) => (arr.length > 1 ? arr.filter((_, j) => j !== i) : arr))}
+                  style={{ ...ghostBtn, padding: '8px 0', justifyContent: 'center', color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}>
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))}
+            <button type="button" onClick={() => setItems((arr) => [...arr, { name: '', qty: 1, price: 0 }])} style={{ ...ghostBtn, padding: '7px 14px', fontSize: 12.5, alignSelf: 'flex-start' }}>
+              <Plus size={13} /> Add item
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
+          <div><label style={labelStyle}>Tax %</label>
+            <input type="number" min="0" max="50" value={taxRate} onChange={(e) => setTaxRate(e.target.value)} style={inputStyle} /></div>
+          <div><label style={labelStyle}>Notes (shown on invoice)</label>
+            <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Payment via UPI on consultation day" style={inputStyle} /></div>
+        </div>
+
+        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '12px 16px', display: 'flex', justifyContent: 'flex-end', gap: 24, fontSize: 14, flexWrap: 'wrap' }}>
+          <span style={{ color: '#64748b' }}>Subtotal <b style={{ color: '#0f172a' }}>₹{subtotal}</b></span>
+          <span style={{ color: '#64748b' }}>Tax <b style={{ color: '#0f172a' }}>₹{tax}</b></span>
+          <span style={{ color: '#64748b' }}>Total <b style={{ color: '#0f172a', fontSize: 16 }}>₹{subtotal + tax}</b></span>
+        </div>
+
+        <button onClick={create} disabled={saving} className="btn-primary" style={{ ...primaryBtn, opacity: saving ? 0.6 : 1 }}>
+          {saving ? 'Creating…' : 'Create invoice'}
+        </button>
+      </div>
+    </Modal>
   )
 }
 
@@ -1603,51 +2108,47 @@ function BookingsTab({ site }) {
           <div>No bookings yet. Share your site link on WhatsApp and Instagram to get your first booking!</div>
         </div>
       ) : (
-        visible.map((b) => {
-          const upcoming = b.date >= today && b.status === 'confirmed'
-          return (
-            <div key={b.id} style={{
-              ...cardStyle, padding: '16px 20px', marginBottom: 10, display: 'flex',
-              justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap',
-              borderColor: upcoming ? 'rgba(34,197,94,0.3)' : '#e2e8f0',
-            }}>
-              <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontWeight: 700, fontSize: 15 }}>{b.client_name}</span>
-                  <span style={{
-                    fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 12,
-                    background: b.status === 'confirmed' ? 'rgba(34,197,94,0.12)' : b.status === 'completed' ? 'rgba(59,130,246,0.12)' : 'rgba(239,68,68,0.12)',
-                    color: b.status === 'confirmed' ? '#16a34a' : b.status === 'completed' ? '#2563eb' : '#ef4444',
-                  }}>{b.status.replace('_', ' ')}</span>
-                </div>
-                <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
-                  {b.date} · {b.start_time}–{b.end_time}
-                  {b.client_phone ? ` · ${b.client_phone}` : ''}
-                  {b.amount ? ` · ₹${b.amount}` : ''}
-                </div>
-                {b.notes && <div style={{ color: '#94a3b8', fontSize: 12, marginTop: 3 }}>📝 {b.notes}</div>}
-              </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {b.client_phone && (
-                  <a href={`https://wa.me/${String(b.client_phone).replace(/[^\d]/g, '').length >= 10 ? String(b.client_phone).replace(/[^\d]/g, '') : '91' + String(b.client_phone).replace(/[^\d]/g, '')}?text=${encodeURIComponent(`Namaste ${b.client_name}, confirming your consultation on ${b.date} at ${b.start_time}. — ${site.name}`)}`}
-                    target="_blank" rel="noopener noreferrer" style={{ ...ghostBtn, padding: '7px 12px', fontSize: 12 }}>
-                    WhatsApp
-                  </a>
-                )}
-                {b.status === 'confirmed' && (
-                  <>
-                    <button onClick={() => setStatus(b, 'completed')} style={{ ...ghostBtn, padding: '7px 14px', fontSize: 12 }}>
-                      <Check size={13} /> Completed
-                    </button>
-                    <button onClick={() => setStatus(b, 'cancelled')} style={{ ...ghostBtn, padding: '7px 14px', fontSize: 12, color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}>
-                      <X size={13} /> Cancel
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          )
-        })
+        <div style={{ ...cardStyle, padding: 0, overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5, minWidth: 720 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                {['Client', 'Date & time', 'Service', 'Amount', 'Status', ''].map((h) => (
+                  <th key={h} style={{ textAlign: 'left', padding: '11px 14px', fontSize: 11.5, fontWeight: 800, color: '#64748b', letterSpacing: 0.4 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((b) => (
+                <tr key={b.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '11px 14px' }}>
+                    <div style={{ fontWeight: 700 }}>{b.client_name}</div>
+                    {b.client_phone && <div style={{ fontSize: 11.5, color: '#94a3b8' }}>{b.client_phone}</div>}
+                  </td>
+                  <td style={{ padding: '11px 14px', whiteSpace: 'nowrap' }}>{b.date} · {b.start_time}–{b.end_time}</td>
+                  <td style={{ padding: '11px 14px' }}>{b.service_name || 'Consultation'}</td>
+                  <td style={{ padding: '11px 14px', fontWeight: 700 }}>{b.amount ? `₹${b.amount}` : '—'}</td>
+                  <td style={{ padding: '11px 14px' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 12,
+                      background: b.status === 'confirmed' ? 'rgba(34,197,94,0.12)' : b.status === 'completed' ? 'rgba(59,130,246,0.12)' : 'rgba(239,68,68,0.12)',
+                      color: b.status === 'confirmed' ? '#16a34a' : b.status === 'completed' ? '#2563eb' : '#ef4444' }}>{b.status.replace('_', ' ')}</span>
+                  </td>
+                  <td style={{ padding: '11px 14px', whiteSpace: 'nowrap' }}>
+                    {b.client_phone && (
+                      <a href={`https://wa.me/${String(b.client_phone).replace(/[^\d]/g, '').length >= 10 ? String(b.client_phone).replace(/[^\d]/g, '') : '91' + String(b.client_phone).replace(/[^\d]/g, '')}?text=${encodeURIComponent(`Namaste ${b.client_name}, confirming your consultation on ${b.date} at ${b.start_time}. — ${site.name}`)}`}
+                        target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, fontWeight: 700, color: '#16a34a', textDecoration: 'none', marginRight: 10 }}>WhatsApp</a>
+                    )}
+                    {b.status === 'confirmed' && (
+                      <>
+                        <button onClick={() => setStatus(b, 'completed')} style={{ fontSize: 12, fontWeight: 700, border: '1px solid #e2e8f0', background: '#fff', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', marginRight: 6 }}>Complete</button>
+                        <button onClick={() => setStatus(b, 'cancelled')} style={{ fontSize: 12, fontWeight: 700, border: '1px solid rgba(239,68,68,0.3)', background: '#fff', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', color: '#dc2626' }}>Cancel</button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   )
@@ -2097,6 +2598,7 @@ function SocialTab({ site, reload }) {
 // ═══════════════ SETTINGS TAB (alerts, social, contact, plan, danger zone) ═══════════════
 function SettingsTab({ site, reload }) {
   const [wa, setWa] = useState(site.settings?.whatsappNumber || '')
+  const [aiDialog, setAiDialog] = useState(false) // tagline writer
   const [alertsOn, setAlertsOn] = useState(site.settings?.bookingAlerts !== false)
   const [reminderHours, setReminderHours] = useState(site.settings?.reminderHours || 24)
   const [social, setSocial] = useState({
@@ -2330,12 +2832,7 @@ function SettingsTab({ site, reload }) {
         </div>
         <div style={{ marginBottom: 18 }}>
           <label style={labelStyle}>Tagline
-            <button type="button" onClick={async () => {
-              try {
-                const res = await aiGenerateSiteContent(site.id, { field: 'tagline' })
-                if (res?.text) await updateMySite(site.id, { tagline: res.text }).then(reload)
-              } catch { toast.error('Could not generate') }
-            }} style={{ marginLeft: 8, padding: '3px 10px', borderRadius: 7, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', border: '1px solid rgba(79,70,229,0.35)', color: '#4f46e5', background: 'rgba(79,70,229,0.06)' }}>
+            <button type="button" onClick={() => setAiDialog(true)} style={{ marginLeft: 8, padding: '3px 10px', borderRadius: 7, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', border: '1px solid rgba(79,70,229,0.35)', color: '#4f46e5', background: 'rgba(79,70,229,0.06)' }}>
               ✨ Write with AI
             </button>
           </label>
@@ -2349,6 +2846,18 @@ function SettingsTab({ site, reload }) {
           <Trash2 size={15} /> Delete website
         </button>
       </div>
+
+      {aiDialog && (
+        <AiWriterDialog
+          site={site}
+          field="tagline"
+          onClose={() => setAiDialog(false)}
+          onApply={(text) => {
+            setAiDialog(false)
+            updateMySite(site.id, { tagline: text }).then(reload).catch(() => toast.error('Could not save'))
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -2362,7 +2871,7 @@ const TABS = [
   { id: 'store', label: 'Store', icon: Store },
   { id: 'hours', label: 'Hours', icon: Clock },
   { id: 'bookings', label: 'Bookings', icon: Calendar },
-  { id: 'leads', label: 'Leads', icon: Users },
+  { id: 'leads', label: 'Leads & Clients', icon: Users },
   { id: 'social', label: 'Social', icon: Share2 },
   { id: 'domain', label: 'Domain', icon: Globe2 },
   { id: 'settings', label: 'Settings', icon: Settings2 },
@@ -2739,7 +3248,7 @@ export default function MySite() {
               {tab === 'store' && <StoreTab site={site} reload={reload} />}
               {tab === 'hours' && <HoursTab site={site} reload={reload} />}
               {tab === 'bookings' && <BookingsTab site={site} />}
-              {tab === 'leads' && <LeadsTab site={site} />}
+              {tab === 'leads' && <LeadsClientsTab site={site} />}
               {tab === 'social' && <SocialTab site={site} reload={reload} />}
               {tab === 'domain' && <DomainTab site={site} reload={reload} />}
               {tab === 'settings' && <SettingsTab site={site} reload={reload} />}

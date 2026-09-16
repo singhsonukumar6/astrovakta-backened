@@ -5,10 +5,11 @@ resolved by subdomain slug or custom domain; only published sites are visible.
 """
 import json
 from datetime import date, timedelta
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
+from ..email_service import send_booking_emails
 from ..tenants import (
     get_site_by_slug, get_site_by_domain, public_site_bundle,
     list_availability, get_service, list_bookings, create_booking,
@@ -78,7 +79,8 @@ class PublicBookingBody(BaseModel):
 
 
 @router.post("/site/book")
-def public_book(body: PublicBookingBody, request: Request, slug: str = None, domain: str = None):
+def public_book(body: PublicBookingBody, request: Request, background_tasks: BackgroundTasks,
+                slug: str = None, domain: str = None):
     """A signed-in visitor books a slot on a tenant site. Booking requires a
     tenant account (sign-in/sign-up) so the client can track the consultation.
     Slot is validated against the astrologer's weekly hours and existing
@@ -91,6 +93,7 @@ def public_book(body: PublicBookingBody, request: Request, slug: str = None, dom
     duration = 30
     amount = 0
     currency = "INR"
+    svc = None
     if body.service_id:
         svc = get_service(site_id, body.service_id)
         if not svc or not svc["is_active"]:
@@ -141,7 +144,9 @@ def public_book(body: PublicBookingBody, request: Request, slug: str = None, dom
         "currency": currency,
         "status": "confirmed",
     })
-    # WhatsApp alert / payment hook point: integrations attach here later.
+    # White-label confirmation emails (client + astrologer), sent after the
+    # response so the booking stays instant; failures never block a booking.
+    background_tasks.add_task(send_booking_emails, site, booking, svc)
     return {"booking": {k: v for k, v in booking.items() if k not in ("id", "site_id", "tenant_user_id")},
             "message": "Your appointment is confirmed. The astrologer has been notified."}
 
@@ -1163,6 +1168,35 @@ def cancel_my_order(order_id: int, request: Request, slug: str = None, domain: s
         if qty > 0:
             adjust_product_stock(site["id"], it["product_id"], qty)
     return {"ok": True, "order": _order_view(get_order(site["id"], order_id))}
+
+
+# ─────────────── public invoice view (shareable link) ───────────────
+
+@router.get("/invoice/{token}")
+def public_invoice(token: str):
+    """The client-facing invoice behind the shareable link. No auth — the
+    unguessable token IS the access. Returns the astrologer's public brand
+    info plus the invoice; never site settings beyond contact details."""
+    from ..tenants import get_invoice_by_token
+    invoice = get_invoice_by_token(token)
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    # resolve the site (draft sites still need to show their invoices)
+    from ..database import get_db
+    from ..tenants import _convert as _tc, _site_row
+    row = get_db().execute(_tc("SELECT * FROM sites WHERE id = ?"), (invoice["site_id"],)).fetchone()
+    site = _site_row(row)
+    if not site:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    settings = site.get("settings") or {}
+    # only contact fields the client may see on an invoice
+    contact = {k: settings.get(k) for k in ("email", "phone", "city", "whatsappNumber") if settings.get(k)}
+    return {
+        "invoice": {k: v for k, v in invoice.items() if k != "site_id"},
+        "site": {"id": site["id"], "slug": site["slug"], "name": site["name"], "tagline": site["tagline"],
+                 "logo_url": site.get("logo_url"), "custom_domain": site.get("custom_domain"),
+                 "theme": site.get("theme"), "contact": contact},
+    }
 
 
 @router.post("/integrations/woocommerce/{connection_id}")
