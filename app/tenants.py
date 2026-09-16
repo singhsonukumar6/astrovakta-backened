@@ -1539,8 +1539,22 @@ def adjust_site_credits(site_id: int, delta: int, reason: str = "") -> int:
     return bal
 
 
+def site_has_credit_rows(site_id: int) -> bool:
+    row = get_db().execute(_convert(
+        "SELECT id FROM site_credits WHERE site_id = ? LIMIT 1"), (site_id,)).fetchone()
+    return row is not None
+
+
+def ensure_starter_credits(site_id: int) -> None:
+    """Sites created before the credits feature have no ledger — grant them
+    the starter pack once, lazily, so their tools keep working."""
+    if not site_has_credit_rows(site_id):
+        adjust_site_credits(site_id, STARTER_CREDITS, "starter:welcome")
+
+
 def charge_site_credits(site_id: int, feature: str) -> bool:
     """Charge the feature cost if affordable. Returns False when out of credits."""
+    ensure_starter_credits(site_id)
     cost = SITE_CREDIT_COSTS.get(feature, 0)
     if cost <= 0:
         return True

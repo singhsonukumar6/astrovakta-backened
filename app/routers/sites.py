@@ -1003,6 +1003,9 @@ def social_post_media(site_id: int, body: SocialMediaBody, user: dict = Depends(
     """Phase-1 media pipeline: branded image card (Pillow) or short slideshow
     video (ffmpeg) rendered from the post text in the site's theme colors."""
     _require_owned_site(site_id, user)
+    from ..tenants import charge_site_credits
+    if not charge_site_credits(site_id, "media_render"):
+        raise HTTPException(status_code=402, detail="Out of credits — recharge to render more media")
     site = get_site_by_id(site_id)
     from ..social_media import render_image, render_video
     lines = [ln.strip() for ln in body.content.split("\n") if ln.strip()]
@@ -1678,6 +1681,8 @@ CREDIT_PACKS = [
 @router.get("/my/{site_id}/credits")
 def my_credits(site_id: int, user: dict = Depends(get_current_user)):
     _require_owned_site(site_id, user)
+    from ..tenants import ensure_starter_credits
+    ensure_starter_credits(site_id)
     return {
         "balance": site_credit_balance(site_id),
         "history": site_credit_history(site_id),
