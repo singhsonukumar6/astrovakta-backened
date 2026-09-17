@@ -402,7 +402,15 @@ function ContentTab({ site, reload }) {
   const save = async () => {
     setSaving(true)
     try {
-      await saveMySitePage(site.id, pageKey, { title: page.title, content })
+      // Drop fully-empty editor rows (added via "Add button/link/video" but
+      // never filled in) so they don't pile up as junk in the saved content.
+      const clean = { ...content }
+      for (const k of ['heroButtons', 'links', 'videos', 'testimonials', 'whyPoints']) {
+        if (Array.isArray(clean[k])) {
+          clean[k] = clean[k].filter((row) => row && Object.values(row).some((v) => String(v ?? '').trim()))
+        }
+      }
+      await saveMySitePage(site.id, pageKey, { title: page.title, content: clean })
       toast.success('Saved! Your website is updated.')
       reload()
     } catch {

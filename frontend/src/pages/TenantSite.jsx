@@ -1015,7 +1015,6 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
     return [
       { label: 'Book a Consultation', href: '#book', variant: 'primary' },
       { label: 'Free Kundli', href: '#tools', variant: 'outline' },
-      ...(showStore ? [{ label: 'Shop Remedies', href: '#/shop', variant: 'outline' }] : []),
     ]
   })()
 
@@ -1274,7 +1273,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
       )}
 
       {/* ─── linktree — socials + custom links ─── */}
-      {linkRows.length > 1 && (
+      {linkRows.length > 0 && (
         <section id="links">
           <div className="tenant-section" style={sectionStyle}>
             <h2 style={h2Style}>{home.linksTitle || 'Find Me Online'}</h2>
