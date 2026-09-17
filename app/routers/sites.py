@@ -427,6 +427,9 @@ class SettingsBody(BaseModel):
     social_auto_daily: Optional[bool] = None
     store_banners: Optional[list] = None
     store_sections: Optional[list] = None
+    # header branding: what the tenant site shows next to nav (logo and/or text)
+    brand_mode: Optional[str] = Field(None, pattern="^(logo_text|logo|text)$")
+    logo_size: Optional[int] = Field(None, ge=20, le=96)
 
 
 @router.put("/my/{site_id}/settings")
@@ -483,6 +486,11 @@ def update_my_site_settings(site_id: int, body: SettingsBody, user: dict = Depen
         settings["razorpayKeyId"] = body.razorpay_key_id.strip()
     if body.social_auto_daily is not None:
         settings["socialAutoDaily"] = body.social_auto_daily
+    # header branding: what the site header shows (logo and/or name) + logo size
+    if body.brand_mode is not None:
+        settings["brandMode"] = body.brand_mode
+    if body.logo_size is not None:
+        settings["logoSize"] = body.logo_size
     # storefront merchandising: carousel banners + curated sections
     if body.store_banners is not None:
         import json as _jsonb

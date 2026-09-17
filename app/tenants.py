@@ -238,6 +238,15 @@ def get_site_by_domain(domain: str):
     return _site_row(row)
 
 
+def list_active_custom_domains() -> list:
+    """Normalized custom domains of published, active sites — used by the CORS
+    middleware to echo visitor-browser origins on tenant-owned domains."""
+    rows = get_db().execute(
+        "SELECT custom_domain FROM sites WHERE custom_domain IS NOT NULL AND domain_status = 'active'"
+    ).fetchall()
+    return [normalize_domain(r[0]) for r in rows if r[0]]
+
+
 def slug_exists(slug: str, exclude_id: int = None) -> bool:
     db = get_db()
     if exclude_id is not None:
@@ -1247,6 +1256,8 @@ _PUBLIC_SETTINGS_KEYS = (
     "linkedin", "telegram", "websiteUrl", "email", "phone", "city",
     "showStore", "showTestimonials", "showGallery",
     "storeBanners", "storeSections",
+    # header branding choices (logo/text mode + logo size)
+    "brandMode", "logoSize",
     # client-facing payment options (Razorpay key id is public by design —
     # it is embedded in the browser checkout; the secret never is)
     "paymentsMode", "upiId", "razorpayKeyId",

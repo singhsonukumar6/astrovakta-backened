@@ -357,6 +357,32 @@ const tenantAuthHeaders = (slug) => {
 export const getPublicSite = (resolve) =>
   api.get('/sites/site', { params: resolveParams(resolve) }).then((r) => r.data?.data ?? r.data)
 
+// ──── TENANT VISITOR AUTH (sign-in / sign-up on a tenant site) ────
+// These MUST go through the shared axios instance: tenant sites are hosted on
+// static CDNs (Vercel) at their own domain, so relative fetch() URLs would hit
+// the CDN instead of the API and fail with 405 Method Not Allowed.
+export const tenantAuthConfig = (resolve) =>
+  api.get('/sites/site/auth/config', { params: resolveParams(resolve) }).then((r) => r.data)
+
+export const tenantAuthRegister = (resolve, body) =>
+  api.post(`/sites/site/auth/register?${siteQsOf(resolve)}`, body).then((r) => r.data)
+
+export const tenantAuthLogin = (resolve, body) =>
+  api.post(`/sites/site/auth/login?${siteQsOf(resolve)}`, body).then((r) => r.data)
+
+export const tenantAuthFirebase = (resolve, idToken) =>
+  api.post(`/sites/site/auth/firebase?${siteQsOf(resolve)}`, { idToken }).then((r) => r.data)
+
+export const tenantAuthSetPassword = (resolve, tenantToken, password) =>
+  api.post(`/sites/site/auth/set-password?${siteQsOf(resolve)}`, { password },
+    { headers: { Authorization: `Bearer ${tenantToken}` } }).then((r) => r.data)
+
+const siteQsOf = (resolve) => new URLSearchParams(resolveParams(resolve)).toString()
+
+// Visitor lead capture (contact form / newsletter / callback widgets)
+export const publicLead = (resolve, payload) =>
+  api.post(`/sites/site/lead?${siteQsOf(resolve)}`, payload).then((r) => r.data?.data ?? r.data)
+
 export const getPublicAvailability = (resolve, weeks = 2) =>
   api.get('/sites/site/availability', { params: { ...resolveParams(resolve), weeks } }).then((r) => r.data?.data ?? r.data)
 
@@ -528,7 +554,7 @@ export const rechargeCredits = (siteId, packId) =>
   api.post(`/sites/my/${siteId}/credits/recharge`, { pack_id: packId }).then((r) => r.data?.data ?? r.data)
 export const getMyAnalytics = (siteId, days = 30) =>
   api.get(`/sites/my/${siteId}/analytics`, { params: { days } }).then((r) => r.data?.data ?? r.data)
-export const sendSiteEvent = (resolve, kind, path) => {
-  const qs = new URLSearchParams(resolveParams(resolve)).toString()
-  return fetch(`/sites/site/event?${qs}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, path }) }).catch(() => {})
-}
+export const sendSiteEvent = (resolve, kind, path) =>
+  // axios so the API base URL resolves on static-hosted tenant domains; a
+  // failed beacon must never disturb the page.
+  api.post('/sites/site/event', { kind, path }, { params: resolveParams(resolve) }).catch(() => {})

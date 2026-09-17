@@ -89,13 +89,99 @@ _CORS_DEFAULT = ",".join([
     "http://localhost:5173", "http://localhost:4173", "http://127.0.0.1:5173",
 ])
 _cors_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", _CORS_DEFAULT).split(",") if o.strip()]
+# Tenant sites are served on wildcard subdomains (*.astrovakta.com) and on
+# their own custom domains, and their SPAs call this API cross-origin from the
+# browser — so the allowlist alone would break every tenant site. The regex
+# covers tenant subdomains; custom domains are checked against published
+# sites by the middleware below.
+_CORS_ORIGIN_REGEX = os.getenv("CORS_ORIGIN_REGEX", r"^https://([a-z0-9-]+\.)*astrovakta\.com$")
+
+
+class TenantCustomDomainCorsMiddleware:
+    """CORS responses for browsers on a tenant's own custom domain.
+
+    CORSMiddleware covers platform origins and *.astrovakta.com, but tenant
+    custom domains live in the DB — the Origin header is echoed only when it
+    matches a published, active site domain. Runs outermost so allowed
+    requests never hit CORSMiddleware (no duplicated headers)."""
+
+    _CACHE_TTL = 60.0
+
+    def __init__(self, app):
+        self.app = app
+        self._cache_at = 0.0
+        self._cache_domains = frozenset()
+
+    def _allowed_domains(self) -> frozenset:
+        import time
+        now = time.monotonic()
+        if now - self._cache_at > self._CACHE_TTL:
+            try:
+                from .tenants import list_active_custom_domains
+                self._cache_domains = frozenset(list_active_custom_domains())
+                self._cache_at = now
+            except Exception:
+                self._cache_at = now  # keep the previous set on DB hiccups
+        return self._cache_domains
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        origin = self._origin_of(scope)
+        if origin and self._domain_allowed(origin):
+            if scope.get("method") == "OPTIONS":
+                await send({"type": "http.response.start", "status": 200,
+                            "headers": self._cors_headers(origin) + [(b"content-length", b"0")]})
+                await send({"type": "http.response.body", "body": b""})
+                return
+            await self.app(scope, receive, self._send_with_cors(send, origin))
+            return
+        await self.app(scope, receive, send)
+
+    @staticmethod
+    def _origin_of(scope):
+        for k, v in scope.get("headers", []):
+            if k == b"origin":
+                try:
+                    return v.decode()
+                except Exception:
+                    return None
+        return None
+
+    def _domain_allowed(self, origin: str) -> bool:
+        host = origin.split("://", 1)[-1].split(":", 1)[0].lower()
+        if host.startswith("www."):
+            host = host[4:]
+        return host in self._allowed_domains()
+
+    @staticmethod
+    def _cors_headers(origin):
+        return [
+            (b"access-control-allow-origin", origin.encode()),
+            (b"access-control-allow-methods", b"DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"),
+            (b"access-control-allow-headers", b"authorization, content-type"),
+            (b"access-control-max-age", b"600"),
+            (b"vary", b"Origin"),
+        ]
+
+    @staticmethod
+    def _send_with_cors(send, origin):
+        async def wrapped(message):
+            if message["type"] == "http.response.start":
+                message = {**message, "headers": list(message.get("headers", [])) + TenantCustomDomainCorsMiddleware._cors_headers(origin)}
+            await send(message)
+        return wrapped
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
+    allow_origin_regex=_CORS_ORIGIN_REGEX,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(TenantCustomDomainCorsMiddleware)
 
 app.add_middleware(APIKeyMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)

@@ -692,9 +692,14 @@ function DesignTab({ site, reload }) {
   const [saving, setSaving] = useState(false)
   const [logoUrl, setLogoUrl] = useState(site.logo_url || null)
   const [heroImage, setHeroImage] = useState(site.hero_image || null)
+  const [brandMode, setBrandMode] = useState(site.settings?.brandMode || 'logo_text')
+  const [logoSize, setLogoSize] = useState(site.settings?.logoSize || 38)
 
   useEffect(() => { setTheme(site.theme || {}) }, [site.id, site.updated_at]) // eslint-disable-line
-  useEffect(() => { setLogoUrl(site.logo_url || null); setHeroImage(site.hero_image || null) }, [site.id, site.updated_at]) // eslint-disable-line
+  useEffect(() => {
+    setLogoUrl(site.logo_url || null); setHeroImage(site.hero_image || null)
+    setBrandMode(site.settings?.brandMode || 'logo_text'); setLogoSize(site.settings?.logoSize || 38)
+  }, [site.id, site.updated_at]) // eslint-disable-line
 
   const applyTemplate = async (tid) => {
     const merged = { ...theme, ...PRESETS[tid] }
@@ -725,6 +730,16 @@ function DesignTab({ site, reload }) {
       toast.success('Brand images updated')
       reload()
     } catch (e) { toast.error(errDetail(e, 'Could not update images')) }
+    finally { setSaving(false) }
+  }
+
+  const saveBrand = async () => {
+    setSaving(true)
+    try {
+      await setMySiteSettings(site.id, { brand_mode: brandMode, logo_size: logoSize })
+      toast.success('Brand display saved')
+      reload()
+    } catch (e) { toast.error(errDetail(e, 'Could not save brand settings')) }
     finally { setSaving(false) }
   }
 
@@ -789,7 +804,7 @@ function DesignTab({ site, reload }) {
           <label style={labelStyle}>Logo</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {logoUrl
-              ? <img src={logoUrl} alt="logo" style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'cover', border: '1px solid #e2e8f0' }} />
+              ? <img src={logoUrl} alt="logo" style={{ height: logoSize, width: 'auto', maxWidth: logoSize * 3, borderRadius: 10, objectFit: 'contain', border: '1px solid #e2e8f0', background: '#fff', padding: 4 }} />
               : <div style={{ width: 56, height: 56, borderRadius: 12, background: 'rgba(79,70,229,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImageIcon size={22} color="#94a3b8" /></div>}
             <label style={{ ...ghostBtn, padding: '8px 14px', fontSize: 13, cursor: 'pointer' }}>
               {logoUrl ? 'Change' : 'Upload'}
@@ -818,6 +833,33 @@ function DesignTab({ site, reload }) {
           </div>
         </div>
       </div>
+
+      <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 16 }}>Header brand display</h3>
+      <div style={{ ...cardStyle, display: 'flex', gap: 32, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 32 }}>
+        <div>
+          <label style={labelStyle}>Show on your site header</label>
+          <select value={brandMode} onChange={(e) => setBrandMode(e.target.value)} style={{ ...inputStyle, width: 'auto', padding: '10px 14px' }}>
+            <option value="logo_text">Logo + name & tagline</option>
+            <option value="logo">Logo only</option>
+            <option value="text">Name & tagline only</option>
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>Logo size — {logoSize}px {logoUrl && '(preview at left)'}</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <input type="range" min="20" max="96" step="2" value={logoSize}
+              onChange={(e) => setLogoSize(Number(e.target.value))}
+              style={{ width: 180, accentColor: '#4f46e5', cursor: 'pointer' }} />
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#475569', minWidth: 34 }}>{logoSize}px</span>
+          </div>
+        </div>
+        <button onClick={saveBrand} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>
+          Save brand display
+        </button>
+      </div>
+      <p style={{ color: '#94a3b8', fontSize: 12.5, margin: '-18px 0 32' }}>
+        Logos of any shape work — wide or tall images are never cropped. Changes go live on your website immediately.
+      </p>
 
       <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 16 }}>Fine-tune colors</h3>
       <div style={{ ...cardStyle, display: 'flex', gap: 32, flexWrap: 'wrap', alignItems: 'flex-end' }}>

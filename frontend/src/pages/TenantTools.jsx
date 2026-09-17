@@ -9,6 +9,7 @@ import {
   publicPersonalHoroscope, publicNumerologyTool, publicGemstoneTool, publicMuhuratTool, publicLuckyTool,
   getTenantSession, getMyTenantBookings, getMyTenantOrders,
   cancelMyTenantBooking, cancelMyTenantOrder, publicPlaceOrder,
+  tenantAuthConfig, tenantAuthRegister, tenantAuthLogin, tenantAuthFirebase, tenantAuthSetPassword, publicLead,
 } from '../lib/api.js'
 import { tenantAuthReturnKey } from '../lib/tenant.js'
 
@@ -123,10 +124,6 @@ export function TenantHeader({ site, theme, COLORS, showStore, active }) {
       <div className="tenant-header-hamburger" style={{ display: 'none', padding: '12px 16px', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <a href="#top" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: COLORS.text }}>
           <BrandMark site={site} gradient={gradient} />
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 15 }}>{site?.name}</div>
-            {site?.tagline && <div style={{ fontSize: 10.5, opacity: 0.6 }}>{site.tagline}</div>}
-          </div>
         </a>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <a href="#book" onClick={goHash} style={{ padding: '8px 14px', borderRadius: 9, background: gradient, color: '#fff', textDecoration: 'none', fontWeight: 700, fontSize: 13 }}>
@@ -143,10 +140,6 @@ export function TenantHeader({ site, theme, COLORS, showStore, active }) {
       <div className="tenant-header-desktop" style={{ maxWidth: 1000, margin: '0 auto', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         <a href="#top" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: COLORS.text }}>
           <BrandMark site={site} gradient={gradient} />
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 16 }}>{site?.name}</div>
-            {site?.tagline && <div style={{ fontSize: 11, opacity: 0.6 }}>{site.tagline}</div>}
-          </div>
         </a>
         <nav style={{ display: 'flex', gap: 18, alignItems: 'center', fontSize: 14, fontWeight: 600 }}>
           {navLinks}
@@ -183,14 +176,41 @@ export function TenantHeader({ site, theme, COLORS, showStore, active }) {
   )
 }
 
+// Brand block for the tenant header: the uploaded logo (ANY aspect ratio —
+// never cropped), a monogram fallback, and/or the name+tagline text.
+// Tenant controls (Design tab): brandMode 'logo_text' | 'logo' | 'text'
+// and logoSize (px height).
 function BrandMark({ site, gradient }) {
-  if (site?.logo_url) {
-    return <img src={site.logo_url} alt={site.name} style={{ width: 38, height: 38, borderRadius: 12, objectFit: 'cover' }} />
-  }
+  const s = site?.settings || {}
+  const mode = s.brandMode || 'logo_text'
+  const size = Math.min(96, Math.max(20, Number(s.logoSize) || 38))
+  const showLogo = mode !== 'text'
+  const showText = mode !== 'logo'
   return (
-    <div style={{ width: 38, height: 38, borderRadius: 12, background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 16 }}>
-      {(site?.name || 'A').charAt(0)}
-    </div>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: Math.round(size * 0.28), minWidth: 0 }}>
+      {showLogo && (site?.logo_url ? (
+        <img src={site.logo_url} alt={site.name}
+          style={{ height: size, width: 'auto', maxWidth: size * 4, objectFit: 'contain', display: 'block' }} />
+      ) : (
+        <span style={{
+          width: size, height: size, borderRadius: Math.round(size * 0.32), background: gradient,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
+          fontWeight: 800, fontSize: Math.round(size * 0.42), flexShrink: 0,
+        }}>
+          {(site?.name || 'A').charAt(0)}
+        </span>
+      ))}
+      {showText && (
+        <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <span style={{ fontWeight: 800, fontSize: Math.max(14, Math.round(size * 0.42)), lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: showLogo ? 240 : 340 }}>{site?.name}</span>
+          {site?.tagline && (
+            <span style={{ fontSize: Math.max(9.5, Math.round(size * 0.28)), opacity: 0.6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: showLogo ? 240 : 340 }}>
+              {site.tagline}
+            </span>
+          )}
+        </span>
+      )}
+    </span>
   )
 }
 
@@ -220,10 +240,10 @@ function VisitorChip({ site, COLORS, theme }) {
 }
 
 // ─────────── shared bits for tenant tool pages ───────────
-const errText = (e) => {
+const errText = (e, fallback = 'Something went wrong — please try again') => {
   const d = e?.response?.data
   const msg = d?.data?.detail || d?.detail || d?.message
-  return (typeof msg === 'string' && msg) || 'Something went wrong — please try again'
+  return (typeof msg === 'string' && msg) || (typeof e?.message === 'string' && e.message) || fallback
 }
 
 function ToolShell({ site, COLORS, gradient, theme, showStore, active, title, subtitle, icon: Icon, children }) {
@@ -1247,8 +1267,8 @@ export function TenantSignIn({ site, resolve, theme, COLORS }) {
   const [passForm, setPassForm] = useState({ a: '', b: '' })
 
   useEffect(() => {
-    fetch(`/sites/site/auth/config?${new URLSearchParams(resolve)}`)
-      .then((r) => r.json()).then((c) => setGoogleOn(!!c.googleEnabled)).catch(() => {})
+    // via axios (API base URL) — a relative fetch would hit the static host
+    tenantAuthConfig(resolve).then((c) => setGoogleOn(!!c.googleEnabled)).catch(() => {})
   }, [])
 
   const save = (data) => {
@@ -1268,21 +1288,15 @@ export function TenantSignIn({ site, resolve, theme, COLORS }) {
     if (!form.email || !form.password || (mode === 'signup' && !form.name)) { setError('Please fill all fields'); return }
     setBusy(true)
     try {
-      const qs = new URLSearchParams(resolve).toString()
       if (mode === 'signup') {
-        const res = await fetch(`/sites/site/auth/register?${qs}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.detail || data.message || 'Sign-up failed')
+        const data = await tenantAuthRegister(resolve, form)
         // verification email through Firebase (best-effort — account works regardless)
         try { await signUpWithEmailAndVerify(form.email, form.password); setVerifySent(true) } catch { /* provider exists or SDK off */ }
         save(data)
         return
       }
-      const res = await fetch(`/sites/site/auth/login?${qs}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: form.email, password: form.password }) })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || data.message || 'Sign-in failed')
-      save(data)
-    } catch (err) { setError(err.message) } finally { setBusy(false) }
+      save(await tenantAuthLogin(resolve, { email: form.email, password: form.password }))
+    } catch (err) { setError(errText(err, mode === 'signup' ? 'Sign-up failed' : 'Sign-in failed')) } finally { setBusy(false) }
   }
 
   const google = async () => {
@@ -1290,17 +1304,14 @@ export function TenantSignIn({ site, resolve, theme, COLORS }) {
     try {
       const { signInWithFirebase } = await import('../lib/firebase.js')
       const fu = await signInWithFirebase('google')
-      const qs = new URLSearchParams(resolve).toString()
-      const res = await fetch(`/sites/site/auth/firebase?${qs}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: await fu.getIdToken() }) })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || 'Google sign-in failed')
+      const data = await tenantAuthFirebase(resolve, await fu.getIdToken())
       if (data.hasPassword === false) {
         window.__pendingTenantAuth = data
         setMode('setpass')
         return
       }
       save(data)
-    } catch (err) { setError(err.message || 'Google sign-in failed') } finally { setBusy(false) }
+    } catch (err) { setError(errText(err, 'Google sign-in failed')) } finally { setBusy(false) }
   }
 
   return (
@@ -1349,12 +1360,10 @@ export function TenantSignIn({ site, resolve, theme, COLORS }) {
                 setBusy(true); setError(null)
                 try {
                   const pending = window.__pendingTenantAuth
-                  const qs = new URLSearchParams(resolve).toString()
-                  const res = await fetch(`/sites/site/auth/set-password?${qs}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pending.tenant_token}` }, body: JSON.stringify({ password: passForm.a }) })
-                  if (!res.ok) throw new Error('Could not set password')
+                  await tenantAuthSetPassword(resolve, pending.tenant_token, passForm.a)
                   delete window.__pendingTenantAuth
                   save(pending)
-                } catch (err) { setError(err.message) } finally { setBusy(false) }
+                } catch (err) { setError(errText(err, 'Could not set password')) } finally { setBusy(false) }
               }}
               style={{ ...inputStyle, cursor: 'pointer', fontWeight: 800, fontSize: 15, border: 'none', background: gradient, color: '#fff', padding: 13 }}>
               Save password & continue
@@ -1630,7 +1639,9 @@ function ShopHeader({ site, slug, cart, COLORS, theme, onCart }) {
   return (
     <header style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: '12px 18px', position: 'sticky', top: 0, zIndex: 40, display: 'flex', alignItems: 'center', gap: 12 }}>
       <a href="#/" style={{ textDecoration: 'none', color: COLORS.text, fontWeight: 800, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-        {site.logo_url && <img src={site.logo_url} alt="" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'cover' }} />}
+        {(site.settings?.brandMode || 'logo_text') !== 'text' && site.logo_url
+          ? <img src={site.logo_url} alt="" style={{ height: 28, width: 'auto', maxWidth: 112, borderRadius: 6, objectFit: 'contain' }} />
+          : null}
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{site.name}</span>
       </a>
       <a href="#/shop" style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.textDim, textDecoration: 'none' }}>Shop</a>
@@ -2606,11 +2617,12 @@ export function ServicesPage({ site, services, theme, COLORS, resolve }) {
 
 
 async function postLead(resolve, payload) {
-  const qs = new URLSearchParams(resolve).toString()
-  const res = await fetch(`/sites/site/lead?${qs}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.detail || data.message || 'Could not submit — try again')
-  return data
+  // axios + API base URL — a relative fetch would 405 on the static host
+  try {
+    return await publicLead(resolve, payload)
+  } catch (e) {
+    throw new Error(errText(e, 'Could not submit — try again'))
+  }
 }
 
 // Footer/newsletter widget: WhatsApp or email subscription → lead
