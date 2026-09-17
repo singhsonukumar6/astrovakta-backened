@@ -1017,6 +1017,7 @@ function StoreTab({ site, reload }) {
     new URLSearchParams(window.location.search).get('status') === 'ok' ? 'integrations' : 'products')
   const [catalog, setCatalog] = useState(null)
   const [importPrice, setImportPrice] = useState({})
+  const [importCat, setImportCat] = useState('all') // catalog category filter
   const [integrations, setIntegrations] = useState([])
   const [providers, setProviders] = useState(null) // {shopify_one_click, woocommerce_one_click}
   const [domains, setDomains] = useState({ shopify: '', woocommerce: '' }) // per-provider input
