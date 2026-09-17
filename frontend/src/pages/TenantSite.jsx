@@ -28,7 +28,7 @@ import {
 } from '../lib/api.js'
 import PlaceAutocomplete from '../components/PlaceAutocomplete.jsx'
 import DashboardLoader from '../components/DashboardLoader.jsx'
-import { NewsletterSignup, TenantHeader, KundliPage, MatchingPage, TenantSignIn, TenantAccount, ShopPage, ProductPage, HoroscopePage, NumerologyPage, GemstonePage, MuhuratPage, LuckyPage, AboutPage, ServicesPage, ContactPage, WhatsAppFab } from './TenantTools.jsx'
+import { NewsletterSignup, TenantHeader, KundliPage, MatchingPage, TenantSignIn, TenantAccount, ShopPage, ProductPage, HoroscopePage, NumerologyPage, GemstonePage, MuhuratPage, LuckyPage, AboutPage, ServicesPage, ContactPage, WhatsAppFab, normalizeWhyPoints } from './TenantTools.jsx'
 import { tenantSiteUrl, tenantSubdomainLabel, tenantAuthReturnKey, tenantBookingDraftKey, tenantCartKey, parseYouTubeId } from '../lib/tenant.js'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -993,7 +993,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
 
   const showStore = settings.showStore && (site._products || []).length > 0
   const showTestimonials = settings.showTestimonials !== false && Array.isArray(home.testimonials) && home.testimonials.length > 0
-  const whyPoints = Array.isArray(home.whyPoints) ? home.whyPoints : []
+  const whyPoints = normalizeWhyPoints(home.whyPoints)
 
   const socials = [
     ['instagram', InstagramIcon, socialHref(settings.instagram, 'instagram.com')],
@@ -1190,7 +1190,7 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
               {whyPoints.map((w, i) => {
                 const Icon = WHY_ICONS[i % WHY_ICONS.length]
                 return (
-                  <motion.div key={w.title} initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                  <motion.div key={i} initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
                     style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 24, textAlign: 'center' }}>
                     <div style={{
                       width: 46, height: 46, borderRadius: 14, margin: '0 auto 14px', display: 'flex',
@@ -1198,8 +1198,8 @@ export default function TenantSite({ slug: slugProp, domain: domainProp }) {
                     }}>
                       <Icon size={21} style={{ color: theme.primaryColor }} />
                     </div>
-                    <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>{w.title}</h3>
-                    <p style={{ fontSize: 13, color: COLORS.textDim, lineHeight: 1.6 }}>{w.text}</p>
+                    <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: w.text ? 6 : 0 }}>{w.title}</h3>
+                    {w.text && <p style={{ fontSize: 13, color: COLORS.textDim, lineHeight: 1.6 }}>{w.text}</p>}
                   </motion.div>
                 )
               })}

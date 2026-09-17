@@ -90,6 +90,17 @@ class PGConnectionWrapper:
                 self.close()
                 raise
 
+    def rollback(self):
+        """Abort an in-progress transaction. Called by the global exception
+        handler — a request that fails between execute() and commit() would
+        otherwise leave this thread-local connection 'idle in transaction',
+        leaking locks and showing phantom uncommitted rows to later requests."""
+        if self._conn and not self._conn.closed:
+            try:
+                self._conn.rollback()
+            except _psycopg.Error:
+                pass
+
     def close(self):
         if self._conn and not self._conn.closed:
             self._conn.close()
@@ -870,7 +881,7 @@ def _migrate_pg(db, table, column, col_type):
     try:
         row = db.execute(
             "SELECT column_name FROM information_schema.columns "
-            "WHERE table_name = ? AND column_name = ?",
+            "WHERE table_name = %s AND column_name = %s",
             (table, column),
         ).fetchone()
         if not row:

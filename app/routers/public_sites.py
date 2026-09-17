@@ -934,7 +934,7 @@ def _upsert_tenant_user(site_id: int, claims: dict):
         _tenant_convert("INSERT INTO tenant_users (site_id, firebase_uid, email, name, avatar_url) VALUES (?, ?, ?, ?, ?) RETURNING id"),
         (site_id, claims.get("user_id"), email, claims.get("name"), claims.get("picture")),
     )
-    new_id = cur.fetchone()[0]
+    new_id = _tenant_first_col(cur.fetchone())
     db.commit()
     return {"id": new_id, "site_id": site_id, "email": email, "name": claims.get("name"),
             "avatar_url": claims.get("picture"), "firebase_uid": claims.get("user_id"), "created_at": None}, True
@@ -968,7 +968,7 @@ async def tenant_firebase_login(body: TenantFirebaseBody, slug: str = None, doma
 
 # ─────────────── tenant visitor email+password auth ───────────────
 
-from ..tenants import _convert as _tenant_convert
+from ..tenants import _convert as _tenant_convert, _first_col as _tenant_first_col
 
 
 class TenantRegisterBody(BaseModel):
@@ -1001,7 +1001,7 @@ def tenant_register(body: TenantRegisterBody, request: Request, slug: str = None
         _tenant_convert("INSERT INTO tenant_users (site_id, email, name, password_hash) VALUES (?, ?, ?, ?) RETURNING id"),
         (site["id"], email, body.name, hash_password(body.password)),
     )
-    new_id = cur.fetchone()[0]
+    new_id = _tenant_first_col(cur.fetchone())
     db.commit()
     user = {"id": new_id, "site_id": site["id"], "email": email, "name": body.name,
             "avatar_url": None, "firebase_uid": None, "created_at": None}

@@ -2540,10 +2540,25 @@ export function LuckyPage({ site, resolve, theme, COLORS }) {
 }
 
 // ─────────── ABOUT / SERVICES / CONTACT SITE PAGES ───────────
+// Content-tab "why points" arrive as {title, text} objects; older sites and
+// some AI flows store plain strings. Normalize both so every renderer can
+// safely use .title/.text (rendering the raw object crashes React).
+export function normalizeWhyPoints(points) {
+  if (!Array.isArray(points)) return []
+  return points
+    .map((w) => {
+      if (typeof w === 'string') return { title: w.trim(), text: '' }
+      if (w && typeof w === 'object') return { title: String(w.title || '').trim(), text: String(w.text || '').trim() }
+      return { title: String(w ?? '').trim(), text: '' }
+    })
+    .filter((p) => p.title || p.text)
+}
+
 export function AboutPage({ site, pages, theme, COLORS, slug }) {
   const gradient = `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
   const about = (pages?.about?.content) || {}
   const home = (pages?.home?.content) || {}
+  const whyPts = normalizeWhyPoints(home.whyPoints)
   const title = about.title || home.aboutTitle || `About ${site?.name || 'Us'}`
   const text = about.text || home.aboutText || 'A dedicated Vedic astrologer helping people find clarity through kundli analysis.'
   const socials = site?.settings || {}
@@ -2565,10 +2580,14 @@ export function AboutPage({ site, pages, theme, COLORS, slug }) {
             {home.statsRating && <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 20, textAlign: 'center' }}><div style={{ fontSize: 24, fontWeight: 900, color: theme.primaryColor }}>{home.statsRating}</div><div style={{ fontSize: 12, color: COLORS.textDim }}>Client rating</div></div>}
           </div>
         )}
-        {Array.isArray(home.whyPoints) && home.whyPoints.length > 0 && (
+        {whyPts.length > 0 && (
           <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 24 }}>
             <div style={{ fontWeight: 800, marginBottom: 14 }}>Why clients choose {site?.name}</div>
-            {home.whyPoints.map((w, i) => <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 10, fontSize: 14, lineHeight: 1.6 }}>✦ <span>{w}</span></div>)}
+            {whyPts.map((p, i) => (
+              <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 10, fontSize: 14, lineHeight: 1.6 }}>
+                ✦ <span><strong>{p.title}</strong>{p.text ? ` — ${p.text}` : ''}</span>
+              </div>
+            ))}
           </div>
         )}
         <div style={{ textAlign: 'center', marginTop: 34 }}>

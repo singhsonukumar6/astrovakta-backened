@@ -1052,6 +1052,8 @@ function StoreTab({ site, reload }) {
   const [pushSel, setPushSel] = useState([])
   const [products, setProducts] = useState(null)
   const [orders, setOrders] = useState(null)
+  // null → chooser ("add own" vs "import from catalog"); 'own' → create form
+  const [addMode, setAddMode] = useState(null)
   const [form, setForm] = useState({ name: '', description: '', price: 500, stock: -1, category: '' })
   const [busy, setBusy] = useState(false)
   const [connecting, setConnecting] = useState(null) // provider id while awaiting redirect

@@ -224,6 +224,14 @@ app.openapi = custom_openapi
 async def global_exception_handler(request, exc: Exception):
     import logging
     logging.error(f"Unhandled exception on {request.url.path}: {exc}", exc_info=True)
+    # A request that died between execute() and commit() leaves the DB
+    # transaction open — abort it so the (thread-local) connection can't
+    # leak locks or show phantom uncommitted rows to later requests.
+    try:
+        from .database import get_db
+        get_db().rollback()
+    except Exception:
+        pass
     return JSONResponse(
         status_code=500,
         content={"success": False, "message": "Internal server error", "data": None},

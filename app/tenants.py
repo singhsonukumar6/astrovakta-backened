@@ -28,6 +28,18 @@ def _convert(sql):
     return sql.replace("?", "%s") if USE_POSTGRES else sql
 
 
+def _first_col(row):
+    """First column of a single-row result. Postgres connections use
+    dict_row, so rows are dicts ({'id': 5}) — indexing [0] raises KeyError
+    there while working fine on SQLite's Row objects. Always use this
+    instead of fetchone()[0]."""
+    if row is None:
+        return None
+    if isinstance(row, dict):
+        return next(iter(row.values()))
+    return row[0]
+
+
 def _now():
     return datetime.now(timezone.utc).isoformat()
 
@@ -1141,7 +1153,7 @@ def create_social_post(site_id: int, data: dict) -> dict:
             data.get("status", "draft"),
         ),
     )
-    post_id = cur.fetchone()[0]
+    post_id = _first_col(cur.fetchone())
     db.commit()
     return get_social_post(site_id, post_id)
 
@@ -1305,7 +1317,7 @@ def create_master_category(name: str, slug: str, sort_order: int = 0) -> dict:
     db = get_db()
     cur = db.execute(_convert("INSERT INTO master_categories (name, slug, sort_order) VALUES (?, ?, ?) RETURNING id"),
                      (name, slug, sort_order))
-    cid = cur.fetchone()[0]
+    cid = _first_col(cur.fetchone())
     db.commit()
     row = db.execute(_convert("SELECT * FROM master_categories WHERE id = ?"), (cid,)).fetchone()
     return _to_dict(row)
@@ -1379,7 +1391,7 @@ def create_master_product(data: dict) -> dict:
          _json.dumps(images) if images else None,
          _json.dumps(attrs) if attrs else None,
          data.get("mrp", 0), data.get("margin", 0)))
-    mid = cur.fetchone()[0]
+    mid = _first_col(cur.fetchone())
     db.commit()
     return get_master_product(mid)
 
@@ -1424,7 +1436,7 @@ def import_master_product(site_id: int, master_product: dict, price: int):
          _json.dumps(images[:8]) if images else None,
          _json.dumps(attrs) if attrs else None,
          category))
-    pid = cur.fetchone()[0]
+    pid = _first_col(cur.fetchone())
     db.commit()
     row = db.execute(_convert("SELECT * FROM site_products WHERE id = ?"), (pid,)).fetchone()
     out = _to_dict(row)
@@ -1452,7 +1464,7 @@ def create_store_connection(site_id: int, data: dict) -> dict:
         "INSERT INTO store_connections (site_id, provider, shop_domain, api_key, api_secret, access_token) "
         "VALUES (?, ?, ?, ?, ?, ?) RETURNING id"),
         (site_id, data["provider"], data["shop_domain"], data.get("api_key"), data.get("api_secret"), data.get("access_token")))
-    cid = cur.fetchone()[0]
+    cid = _first_col(cur.fetchone())
     db.commit()
     return get_store_connection(site_id, cid)
 
@@ -1612,13 +1624,13 @@ def record_site_event(site_id: int, kind: str, path: str = None) -> None:
 def site_analytics(site_id: int, days: int = 30) -> dict:
     db = get_db()
     since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
-    total = db.execute(_convert(
+    total = _first_col(db.execute(_convert(
         "SELECT COUNT(*) FROM site_events WHERE site_id = ? AND kind = 'pageview' AND created_at >= ?"),
-        (site_id, since)).fetchone()[0]
+        (site_id, since)).fetchone())
     # unique-ish visitors: distinct minute-bucketed sessions
-    visitors = db.execute(_convert(
+    visitors = _first_col(db.execute(_convert(
         "SELECT COUNT(DISTINCT substr(CAST(created_at AS TEXT), 1, 16)) FROM site_events "
-        "WHERE site_id = ? AND kind = 'pageview' AND created_at >= ?"), (site_id, since)).fetchone()[0]
+        "WHERE site_id = ? AND kind = 'pageview' AND created_at >= ?"), (site_id, since)).fetchone())
     daily = db.execute(_convert(
         "SELECT substr(CAST(created_at AS TEXT), 1, 10) AS d, COUNT(*) FROM site_events "
         "WHERE site_id = ? AND kind = 'pageview' AND created_at >= ? GROUP BY d ORDER BY d"),
