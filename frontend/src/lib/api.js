@@ -23,7 +23,11 @@ api.interceptors.response.use(
     // site endpoints: a missing visitor sign-in is part of that site's own flow.
     const url = err.config?.url || ''
     const isAuthCall = /\/auth\/(login|register|google|firebase|verify-email)/.test(url) || url.includes('/sites/site/')
-    if (err.response?.status === 401 && !isAuthCall) {
+    // Requests carrying an X-API-Key authenticate by key, not the platform
+    // session — a 401 there means "bad/missing key" (e.g. Kundali Report
+    // before a key is set) and must not log the user out.
+    const keyFlow = !!(err.config?.headers?.['X-API-Key'] ?? err.config?.headers?.['x-api-key'])
+    if (err.response?.status === 401 && !isAuthCall && !keyFlow) {
       localStorage.removeItem('token')
       if (window.location.pathname !== '/login') window.location.href = '/login'
     }

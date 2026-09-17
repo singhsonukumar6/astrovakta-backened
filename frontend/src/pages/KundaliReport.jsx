@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { Play, Download, Settings, ChevronDown, ChevronUp, Loader2, FileText, Palette, Image, MapPin, X, Key, ExternalLink } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
-import api from '../lib/api.js'
+import api, { getKeys, createKey } from '../lib/api.js'
 import ReportTemplate from './kundali/ReportTemplate.jsx'
 import './kundali/report.css'
 
@@ -184,6 +184,32 @@ export default function KundaliReport() {
 
   const totalApis = ALL_APIS.length + CHART_APIS.length + DIVISIONAL_APIS.length
 
+  // Dashboard users shouldn't have to hunt for an API key: reuse their first
+  // active key automatically, or create one. Manual entry below still wins
+  // once the user saves a specific key.
+  useEffect(() => {
+    if (localStorage.getItem('kundali_api_key')) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const keys = await getKeys()
+        const list = Array.isArray(keys) ? keys : (keys?.keys || keys?.data?.keys || [])
+        let active = list.find((k) => k.is_active && k.key)
+        if (!active && !cancelled) {
+          const created = await createKey('Kundali Report')
+          if (created?.key) active = created
+        }
+        if (!cancelled && active?.key) {
+          setApiKey(active.key)
+          setApiKeyInput(active.key)
+          setApiKeyValid(true)
+          localStorage.setItem('kundali_api_key', active.key)
+        }
+      } catch { /* not signed in or offline — the manual entry form still shows */ }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
   const validateApiKey = async () => {
     if (!apiKeyInput.trim()) return toast.error('Please enter an API key')
     setValidating(true)
@@ -216,6 +242,10 @@ export default function KundaliReport() {
   }
 
   const fetchAllData = useCallback(async () => {
+    if (!apiKey) {
+      toast.error('Add your API key first — it verifies and signs each request')
+      return
+    }
     if (!birth.latitude || !birth.longitude) {
       toast.error('Please select a valid location')
       return
